@@ -2,6 +2,7 @@ import re
 import unicodedata
 
 from data import BOOTHS, FAIR_INFO
+from groq_client import GroqClientError, is_groq_enabled, polish_with_groq
 from openai_client import OpenAIClientError, ask_chatgpt, is_openai_enabled
 
 
@@ -84,13 +85,21 @@ def get_ori_reply(raw_message, user_id=None):
     text = str(raw_message or "").strip()
     memory = get_memory(user_id)
 
+    base_reply = get_local_ai_reply(text, memory)
+
+    if is_groq_enabled():
+        try:
+            return polish_with_groq(text, base_reply, build_feria_context(), memory)
+        except GroqClientError as error:
+            print(f"No se pudo usar Groq, se usa cerebro local: {error}", flush=True)
+
     if is_openai_enabled():
         try:
             return ask_chatgpt(text, build_feria_context())
         except OpenAIClientError as error:
             print(f"No se pudo usar ChatGPT, se usa respaldo local: {error}", flush=True)
 
-    return get_local_ai_reply(text, memory)
+    return base_reply
 
 
 def get_memory(user_id):
