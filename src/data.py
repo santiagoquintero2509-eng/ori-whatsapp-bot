@@ -74,6 +74,12 @@ FAIR_INFO = {
         "de Bolivar, UNIBAC. Esta en la plaza de San Diego, en el centro historico de "
         "Cartagena, cerca del Sofitel Santa Clara, las Bovedas, galerias y restaurantes."
     ),
+    "nearby_places": (
+        "La feria queda en la plaza de San Diego, dentro del centro historico de Cartagena. "
+        "Cerca puedes encontrar el sector de San Diego, las Bovedas, la muralla, el Sofitel "
+        "Santa Clara, galerias, cafes, restaurantes y calles para caminar dentro del centro "
+        "historico. Ori no confirma horarios, precios ni disponibilidad de esos lugares."
+    ),
     "exhibition_spaces": {
         "patio": (
             "Patio de las Artes: espacio de convergencia donde los stands se ubican en "
@@ -91,12 +97,12 @@ FAIR_INFO = {
     "gallery_sections": "Familia Origen Colombia, Rostros Origen, Visitantes y Nuestro Espacio.",
     "location": (
         "La feria se realiza en la Sede UNIBAC, en el Convento de San Diego, plaza de "
-        "San Diego, centro historico de Cartagena. Si necesitas indicaciones exactas de "
-        "llegada, escribe 'asesor' y el equipo te confirma la ruta."
+        "San Diego, centro historico de Cartagena."
     ),
     "human_help": (
-        "Puedo pasarte con el equipo de la feria. Escribe tu nombre, tu marca y la "
-        "pregunta concreta para que un asesor te contacte."
+        "Por ahora Ori no tiene un numero de asesor cargado para transferirte directamente. "
+        "Puedo tomar tu nombre, marca si aplica, ciudad y pregunta para dejar clara tu solicitud, "
+        "pero aun falta cargar el contacto oficial del equipo."
     ),
 }
 
