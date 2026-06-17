@@ -26,6 +26,12 @@ FAIR_INFO = {
         "Feria Origen Colombia Semana Santa 2026, Feria Origen Diciembre 2026 "
         "y Feria Origen Colombia Semana Santa 2027."
     ),
+    "registration_form_url": "https://www.origencolombia.com/origen-colombia-semana-santa/",
+    "registration_form_label": "Formulario de inscripcion - 29a Feria Origen Colombia Semana Santa 2026",
+    "registration_form_note": (
+        "El boton 'Inscribete' de la web oficial lleva al formulario publicado para "
+        "la 29a Feria Origen Colombia Semana Santa 2026."
+    ),
     "active_fair_public_note": (
         "En la web oficial aparece la 29a Feria Origen Colombia Semana Santa 2026 "
         "con formulario de inscripcion. Tambien aparecen anunciadas Feria Origen "
