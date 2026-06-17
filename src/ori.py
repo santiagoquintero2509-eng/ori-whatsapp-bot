@@ -20,6 +20,17 @@ ZONE_LABELS = {
 CONVERSATIONS = {}
 
 INTENTS = {
+    "plan": [
+        "plano",
+        "plano de la feria",
+        "plano de stands",
+        "mapa de la feria",
+        "mapa de stands",
+        "compartir el plano",
+        "comparteme el plano",
+        "ver el plano",
+        "ver plano",
+    ],
     "event": [
         "evento",
         "feria",
@@ -151,6 +162,11 @@ def get_local_ai_reply(raw_message, memory):
 
     category = detect_product_category(text)
 
+    if asks_for_plan(text):
+        memory["last_intent"] = "plan"
+        memory["pending_field"] = None
+        return plan_reply()
+
     if has_any(text, ["hola", "buenas", "buen dia", "buenos dias", "buenas tardes", "menu", "ayuda", "inicio"]):
         memory["last_intent"] = "greeting"
         return welcome_reply(memory)
@@ -207,6 +223,8 @@ def get_local_ai_reply(raw_message, memory):
 
     if intent == "event":
         return event_reply()
+    if intent == "plan":
+        return plan_reply()
     if intent == "date":
         return date_reply()
     if intent == "nearby":
@@ -295,6 +313,14 @@ def location_reply():
     return (
         f"{FAIR_INFO['location']} "
         "La sede tiene dos espacios principales para exposicion: Patio de las Artes y Salon Pierre Daguet."
+    )
+
+
+def plan_reply():
+    return (
+        "Claro, con mucho gusto te comparto el plano actual de la feria. "
+        "Ahi podras ubicar los stands disponibles y los que ya aparecen ocupados. "
+        "Si quieres revisar un stand puntual, dime el numero."
     )
 
 
@@ -456,7 +482,7 @@ def available_stands_reply():
     )
 
     return (
-        "Estos son los stands disponibles segun el plano cargado:\n"
+        "Claro, te comparto el plano actual y estos son los stands disponibles cargados:\n"
         f"Patio de las Artes: {', '.join(str(item) for item in patio)}.\n"
         f"Salon Pierre Daguet: {', '.join(str(item) for item in salon)}.\n"
         "Si quieres detalle de uno, escribeme por ejemplo: stand 21."
@@ -509,6 +535,23 @@ def wants_human_help(text):
             "llamame",
             "llamarme",
             "equipo de la feria",
+        ],
+    )
+
+
+def asks_for_plan(text):
+    return has_any(
+        text,
+        [
+            "plano",
+            "plano de la feria",
+            "plano de stands",
+            "mapa de la feria",
+            "mapa de stands",
+            "compartir el plano",
+            "comparteme el plano",
+            "ver el plano",
+            "ver plano",
         ],
     )
 
