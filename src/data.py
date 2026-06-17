@@ -15,7 +15,22 @@ FAIR_INFO = {
     "name": "Feria Origen Colombia 2027",
     "dates": "del 2 al 14 de enero de 2027",
     "venue": "Sede UNIBAC",
+    "official_site": "https://www.origencolombia.com/",
     "purpose": "conectar talento, tradicion y oportunidades que impulsan lo mejor de Colombia.",
+    "tagline": "#SoyOrigenColombia",
+    "experience_years": "22 anos de experiencia",
+    "total_fairs": "28 ferias realizadas",
+    "total_exhibitors": "mas de 1.000 expositores totales",
+    "visitors_per_event": "mas de 8.000 visitantes por evento",
+    "official_fairs": (
+        "Feria Origen Colombia Semana Santa 2026, Feria Origen Diciembre 2026 "
+        "y Feria Origen Colombia Semana Santa 2027."
+    ),
+    "active_fair_public_note": (
+        "En la web oficial aparece la 29a Feria Origen Colombia Semana Santa 2026 "
+        "con formulario de inscripcion. Tambien aparecen anunciadas Feria Origen "
+        "Diciembre 2026 y Semana Santa 2027 bajo el texto 'Tejiendo el Origen'."
+    ),
     "visitor_summary": (
         "Una feria para descubrir marcas, artesanos, emprendimientos, productos con "
         "identidad colombiana y experiencias culturales."
@@ -25,16 +40,53 @@ FAIR_INFO = {
         "y reciban acompanamiento comercial."
     ),
     "products": (
-        "artesanias, moda, accesorios, joyeria, decoracion, bienestar, gastronomia, "
-        "productos culturales y servicios creativos."
+        "arte, artesania tipica, joyeria, calzado y vestuario, decoracion, anticuarios, "
+        "salud y belleza, gastronomia, productos culturales y servicios creativos."
+    ),
+    "registration_categories": (
+        "Arte, Artesania tipica, Joyeria, Calzado y vestuario, Decoracion, "
+        "Anticuarios, Salud y belleza, Gastronomia."
+    ),
+    "registration_fields": (
+        "razon social, nombre del representante, nombre para el stand, ciudad de origen, "
+        "WhatsApp, correo electronico, redes sociales o pagina web, categoria, productos "
+        "a participar, catalogo o imagenes y preguntas o comentarios."
     ),
     "activities": (
         "muestras comerciales, recorridos por stands, experiencias culturales, "
         "activaciones de marca y espacios de networking."
     ),
+    "venue_history": (
+        "La sede esta en el Convento de San Diego, fundado en 1608 y terminado "
+        "aproximadamente en 1625. Fue sede de los Franciscanos Recoletos Descalzos "
+        "hasta 1821, tuvo varios usos institucionales y en 1976 se establecio como "
+        "sede de la Escuela de Bellas Artes. En 2021 fue declarado Bien de Interes "
+        "Cultural de Caracter Nacional."
+    ),
+    "venue_context": (
+        "Hoy el edificio es sede de la Institucion Universitaria Bellas Artes y Ciencias "
+        "de Bolivar, UNIBAC. Esta en la plaza de San Diego, en el centro historico de "
+        "Cartagena, cerca del Sofitel Santa Clara, las Bovedas, galerias y restaurantes."
+    ),
+    "exhibition_spaces": {
+        "patio": (
+            "Patio de las Artes: espacio de convergencia donde los stands se ubican en "
+            "pasillos formando un recorrido circular y continuo. Tiene arquitectura "
+            "colonial, arcadas, vigas de madera, ventiladores de techo de gran formato "
+            "y acceso directo desde la calle por el zaguan."
+        ),
+        "salon": (
+            "Salon Pierre Daguet: antigua capilla colonial con techos artesonados de "
+            "gran altura. Los stands se disponen en bloques e islas centrales para un "
+            "recorrido facil e intuitivo conectado con el patio central. Cuenta con aire "
+            "acondicionado y acceso directo desde la calle por el atrio principal."
+        ),
+    },
+    "gallery_sections": "Familia Origen Colombia, Rostros Origen, Visitantes y Nuestro Espacio.",
     "location": (
-        "La feria se realiza en la Sede UNIBAC. Si necesitas la direccion exacta o "
-        "indicaciones de llegada, escribe 'asesor' y el equipo te confirma la ruta."
+        "La feria se realiza en la Sede UNIBAC, en el Convento de San Diego, plaza de "
+        "San Diego, centro historico de Cartagena. Si necesitas indicaciones exactas de "
+        "llegada, escribe 'asesor' y el equipo te confirma la ruta."
     ),
     "human_help": (
         "Puedo pasarte con el equipo de la feria. Escribe tu nombre, tu marca y la "
