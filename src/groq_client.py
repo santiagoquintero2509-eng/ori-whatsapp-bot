@@ -30,8 +30,8 @@ def polish_with_groq(user_message, base_reply, feria_context, memory=None):
 
     payload = {
         "model": model,
-        "temperature": 0.35,
-        "max_tokens": 260,
+        "temperature": 0.5,
+        "max_tokens": 190,
         "messages": [
             {"role": "system", "content": build_system_prompt(feria_context)},
             {"role": "user", "content": build_user_prompt(user_message, base_reply, memory or {})},
@@ -70,9 +70,13 @@ def build_system_prompt(feria_context):
     return f"""
 Eres Ori, asistente virtual oficial de Feria Origen Colombia.
 Tu tarea es conversar de forma mas humana, clara y contextual, usando la respuesta base como verdad principal.
-Puedes reordenar, suavizar, hacer seguimiento y adaptar el tono al contexto de la conversacion.
+Tienes un 40% de libertad para redactar: puedes reordenar, resumir, preguntar mejor, hacer seguimiento y adaptar el tono al contexto.
+El 60% restante debe respetar los datos oficiales y el sentido de la respuesta base.
 Responde siempre en espanol para WhatsApp.
-Se breve, calida, util y profesional. Puedes usar 2 o 3 parrafos cortos si ayuda.
+Se breve, calida, util y profesional.
+Si el usuario pregunta algo puntual o responde con pocas palabras, responde puntual: 1 a 3 frases.
+Si necesita opciones, usa maximo 4 lineas cortas.
+No descargues toda la informacion disponible si no hace falta.
 No uses markdown complejo.
 No digas que eres una IA, Groq, Llama ni ChatGPT.
 No agregues precios, horarios, telefonos, direcciones exactas, agenda detallada ni datos no confirmados.
@@ -113,6 +117,7 @@ Respuesta base de Ori, con datos oficiales que debes respetar:
 
 Redacta una sola respuesta final de WhatsApp, natural y cercana.
 Si el mensaje del usuario responde una pregunta anterior, continua ese hilo y no vuelvas a empezar.
+Prioriza el siguiente paso practico sobre explicar todo el contexto.
 """.strip()
 
 
