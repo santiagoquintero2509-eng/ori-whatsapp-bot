@@ -36,6 +36,24 @@ INTENTS = {
     ],
     "date": ["fecha", "cuando", "dia", "dias", "horario", "hora", "abre", "cierra", "programacion"],
     "location": ["ubicacion", "direccion", "donde", "llegar", "mapa", "sede", "queda", "lugar"],
+    "nearby": [
+        "cerca",
+        "cercano",
+        "cercanos",
+        "alrededor",
+        "lugares",
+        "sitios",
+        "restaurantes",
+        "restaurante",
+        "cafes",
+        "cafe cerca",
+        "hoteles",
+        "hotel",
+        "turismo",
+        "visitar cerca",
+        "que hay cerca",
+        "comer",
+    ],
     "venue": [
         "convento",
         "san diego",
@@ -143,6 +161,11 @@ def get_local_ai_reply(raw_message, memory):
         memory["pending_field"] = None
         return visitor_guide_reply()
 
+    if wants_human_help(text):
+        memory["last_intent"] = "advisor"
+        memory["pending_field"] = None
+        return advisor_reply()
+
     if has_any(text, ["soy expositor", "quiero exponer", "quiero vender", "quiero participar", "tengo una marca"]):
         memory["role"] = "expositor"
         if category:
@@ -186,6 +209,8 @@ def get_local_ai_reply(raw_message, memory):
         return event_reply()
     if intent == "date":
         return date_reply()
+    if intent == "nearby":
+        return nearby_reply()
     if intent == "location":
         return location_reply()
     if intent == "venue":
@@ -228,7 +253,7 @@ def welcome_reply(memory):
 
     return (
         f"Hola, soy Ori, asistente virtual de {FAIR_INFO['name']}. "
-        "Puedo ayudarte a ubicar informacion del evento, stands, expositores, productos, actividades y contacto con asesor."
+        "Puedo ayudarte con evento, stands, expositores, productos, actividades y solicitudes para el equipo."
         f"{role_hint} Puedes escribirme con tus propias palabras."
     )
 
@@ -247,7 +272,7 @@ def fair_history_reply():
     return (
         f"La web oficial confirma que Origen Colombia tiene {FAIR_INFO['experience_years']} "
         f"y {FAIR_INFO['total_fairs']}. No publica en el texto visible el ano exacto de la primera feria, "
-        "asi que prefiero no inventarlo. Si necesitas ese dato exacto, escribe 'asesor'."
+        "asi que prefiero no inventarlo. Si necesitas ese dato exacto, puedo dejar clara la solicitud para el equipo."
     )
 
 
@@ -262,7 +287,7 @@ def metrics_reply():
 def date_reply():
     return (
         f"La feria esta programada {FAIR_INFO['dates']}. "
-        f"La agenda detallada puede ajustarse antes del evento; para horarios exactos de una actividad, escribe 'asesor'."
+        "La agenda detallada puede ajustarse antes del evento; por ahora no tengo horarios exactos de actividades."
     )
 
 
@@ -270,6 +295,13 @@ def location_reply():
     return (
         f"{FAIR_INFO['location']} "
         "La sede tiene dos espacios principales para exposicion: Patio de las Artes y Salon Pierre Daguet."
+    )
+
+
+def nearby_reply():
+    return (
+        f"{FAIR_INFO['nearby_places']} "
+        "Si quieres, dime si buscas comer, hospedarte o caminar cerca y te respondo mas puntual con la informacion cargada."
     )
 
 
@@ -316,7 +348,7 @@ def suggestions_reply(memory):
     if memory.get("role") == "expositor":
         return (
             "Puedes preguntarme cosas como: que stands estan disponibles, cuanto mide el stand 21, "
-            "que categorias acepta la feria, que datos debo enviar para participar, como es la sede o como hablar con un asesor."
+            "que categorias acepta la feria, que datos debo enviar para participar o como es la sede."
         )
 
     return (
@@ -334,7 +366,7 @@ def products_reply(text):
         return (
             f"Si buscas {category}, Ori lo puede orientar dentro de las categorias de la feria. "
             f"La web oficial confirma categorias como: {FAIR_INFO['registration_categories']} "
-            "Para una marca o expositor especifico, escribe 'asesor'."
+            "Para una marca o expositor especifico, aun falta cargar el contacto oficial del equipo."
         )
 
     return (
@@ -346,7 +378,7 @@ def products_reply(text):
 def activities_reply():
     return (
         f"La feria tendra {FAIR_INFO['activities']} "
-        "La programacion fina todavia debe confirmarse, asi que para una hora exacta lo mejor es escribir 'asesor'."
+        "La programacion fina todavia debe confirmarse, asi que por ahora no tengo horas exactas cargadas."
     )
 
 
@@ -355,7 +387,7 @@ def prices_reply(memory):
         return (
             "Los valores de participacion y condiciones comerciales todavia no estan cargados en Ori. "
             f"Para avanzar con tu registro, puedes diligenciar el formulario oficial: {FAIR_INFO['registration_form_url']} "
-            "Tambien puedes escribir 'asesor' para que el equipo te confirme precios."
+            "Aun falta cargar el contacto oficial del equipo para confirmar precios."
         )
 
     return (
@@ -365,11 +397,7 @@ def prices_reply(memory):
 
 
 def advisor_reply():
-    return (
-        f"{FAIR_INFO['human_help']} "
-        f"Para expositores, el formulario oficial esta aqui: {FAIR_INFO['registration_form_url']} "
-        f"Los datos utiles son: {FAIR_INFO['registration_fields']}"
-    )
+    return FAIR_INFO["human_help"]
 
 
 def smart_fallback_reply(message, memory):
@@ -389,7 +417,7 @@ def smart_fallback_reply(message, memory):
     if memory.get("role") == "expositor":
         return (
             "Creo que tu consulta va por el lado de participacion como expositor. "
-            "Puedo ayudarte con stands disponibles, medidas, zonas y paso a asesor. "
+            "Puedo ayudarte con stands disponibles, medidas y zonas. "
             f"Para registrarte, usa el formulario oficial: {FAIR_INFO['registration_form_url']}"
         )
 
@@ -404,7 +432,7 @@ def describe_stand(number):
     if not stand:
         return (
             f"No encuentro el stand {number} en el plano cargado. "
-            "Puedo mostrarte stands disponibles o pasarte con asesor para validar el plano actualizado."
+            "Puedo mostrarte stands disponibles; para validar el plano actualizado falta cargar el contacto oficial del equipo."
         )
 
     status = STATUS_LABELS[stand["status"]]
@@ -440,6 +468,12 @@ def detect_intent(text, memory):
     for intent, words in INTENTS.items():
         scores[intent] = sum(1 for word in words if normalize(word) in text)
 
+    if wants_human_help(text):
+        return "advisor"
+
+    if scores.get("nearby", 0):
+        scores["nearby"] += 3
+
     if scores["booths"] and has_any(text, ["disponible", "disponibles", "reservar", "medida", "zona"]):
         scores["booths"] += 2
 
@@ -455,6 +489,27 @@ def should_treat_as_stand(text, memory):
         bool(re.search(r"\b(?:stand|puesto)\s*\d{1,3}\b", text))
         or memory.get("last_intent") in {"booths", "exhibitor"}
         or memory.get("role") == "expositor"
+    )
+
+
+def wants_human_help(text):
+    return has_any(
+        text,
+        [
+            "asesor",
+            "un asesor",
+            "hablar con alguien",
+            "hablar con una persona",
+            "persona real",
+            "humano",
+            "contactame",
+            "contactarme",
+            "contacta",
+            "contactenme",
+            "llamame",
+            "llamarme",
+            "equipo de la feria",
+        ],
     )
 
 
@@ -594,6 +649,7 @@ def build_feria_context():
         f"Datos solicitados en inscripcion: {FAIR_INFO['registration_fields']}\n"
         f"Actividades: {FAIR_INFO['activities']}\n"
         f"Ubicacion: {FAIR_INFO['location']}\n"
+        f"Lugares cercanos: {FAIR_INFO['nearby_places']}\n"
         f"Historia sede: {FAIR_INFO['venue_history']}\n"
         f"Contexto sede: {FAIR_INFO['venue_context']}\n"
         f"Espacio Patio: {FAIR_INFO['exhibition_spaces']['patio']}\n"
