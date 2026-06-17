@@ -438,12 +438,12 @@ def prices_reply(memory, text=""):
 
     if memory.get("role") == "expositor" or memory.get("last_intent") in {"booths", "exhibitor"}:
         return (
-            "Ya tengo precios cargados por stand. Dime el numero que te interesa, por ejemplo "
+            "Si, ya tengo precios cargados por stand. Dime el numero que te interesa, por ejemplo "
             "'precio del stand 56', y te confirmo valor, medida, zona y disponibilidad."
         )
 
     return (
-        "Tengo precios cargados para los stands. Dime el numero del stand que quieres revisar "
+        "Si, tengo precios cargados para los stands. Dime el numero del stand que quieres revisar "
         "y te confirmo valor, medida, zona y disponibilidad."
     )
 
@@ -708,6 +708,18 @@ def stand_price_text(number):
 def keep_required_details(base_reply, polished_reply):
     final_reply = str(polished_reply or "").strip()
     if not final_reply:
+        return base_reply
+
+    base_text = normalize(base_reply)
+    final_text = normalize(final_reply)
+
+    if "tengo precios cargados" in base_text and "no tengo precios" in final_text:
+        return base_reply
+
+    if (
+        ("ya esta reservado" in base_text or "aparece no disponible" in base_text)
+        and ("genial eleccion" in final_text or "esta disponible" in final_text)
+    ):
         return base_reply
 
     urls = re.findall(r"https?://\\S+", base_reply)
