@@ -92,26 +92,35 @@ def get_ori_reply(raw_message, user_id=None):
     memory = get_memory(user_id)
 
     base_reply = get_local_ai_reply(text, memory)
+    final_reply = base_reply
 
     if is_groq_enabled():
         try:
-            return polish_with_groq(text, base_reply, build_feria_context(), memory)
+            final_reply = keep_required_details(base_reply, polish_with_groq(text, base_reply, build_feria_context(), memory))
         except GroqClientError as error:
             print(f"No se pudo usar Groq, se usa cerebro local: {error}", flush=True)
 
-    if is_openai_enabled():
+    elif is_openai_enabled():
         try:
-            return ask_chatgpt(text, build_feria_context())
+            final_reply = ask_chatgpt(text, build_feria_context())
         except OpenAIClientError as error:
             print(f"No se pudo usar ChatGPT, se usa respaldo local: {error}", flush=True)
 
-    return base_reply
+    remember_turn(memory, text, final_reply)
+    return final_reply
 
 
 def get_memory(user_id):
     key = str(user_id or "default")
     if key not in CONVERSATIONS:
-        CONVERSATIONS[key] = {"last_intent": None, "role": None, "selected_stand": None}
+        CONVERSATIONS[key] = {
+            "last_intent": None,
+            "role": None,
+            "selected_stand": None,
+            "pending_field": None,
+            "category": None,
+            "history": [],
+        }
     return CONVERSATIONS[key]
 
 
@@ -129,12 +138,22 @@ def get_local_ai_reply(raw_message, memory):
     if has_any(text, ["soy visitante", "voy como visitante", "quiero visitar", "asistir", "ir a la feria"]):
         memory["role"] = "visitante"
         memory["last_intent"] = "visitor"
+        memory["pending_field"] = None
         return visitor_guide_reply()
 
     if has_any(text, ["soy expositor", "quiero exponer", "quiero vender", "quiero participar", "tengo una marca"]):
         memory["role"] = "expositor"
         memory["last_intent"] = "exhibitor"
+        memory["pending_field"] = "category"
         return exhibitor_guide_reply()
+
+    category = detect_product_category(text)
+    if memory.get("role") == "expositor" and (memory.get("pending_field") == "category" or category):
+        if category:
+            memory["category"] = category
+            memory["pending_field"] = "registration"
+            memory["last_intent"] = "registration_category"
+            return category_followup_reply(category)
 
     if has_any(text, ["que puedo preguntar", "preguntarte", "recomiendame", "recomienda", "opciones"]):
         memory["last_intent"] = "suggestions"
@@ -167,6 +186,7 @@ def get_local_ai_reply(raw_message, memory):
         return venue_reply(text)
     if intent == "exhibitor":
         memory["role"] = "expositor"
+        memory["pending_field"] = "category"
         return exhibitor_guide_reply()
     if intent == "products":
         return products_reply(text)
@@ -271,7 +291,17 @@ def exhibitor_guide_reply():
         f"Las categorias oficiales de inscripcion incluyen: {FAIR_INFO['registration_categories']} "
         "Puedo revisar contigo stands disponibles, medidas y zona. "
         f"Para registrarte, diligencia el formulario oficial: {FAIR_INFO['registration_form_url']} "
-        "Ten a la mano razon social o nombre, representante, ciudad, WhatsApp, correo, categoria, producto y catalogo o imagenes."
+        "Ten a la mano razon social o nombre, representante, ciudad, WhatsApp, correo, categoria, producto y catalogo o imagenes. "
+        "Si quieres, dime que categoria crees que aplica para tu marca y seguimos el hilo."
+    )
+
+
+def category_followup_reply(category):
+    return (
+        f"Perfecto, {category} esta dentro de las categorias oficiales de inscripcion. "
+        f"El siguiente paso es diligenciar el formulario oficial: {FAIR_INFO['registration_form_url']} "
+        "Ten listos estos datos: razon social o nombre, representante, nombre para el stand, ciudad, WhatsApp, correo, redes, productos y catalogo o imagenes. "
+        "Si quieres, tambien puedo ayudarte a revisar stands disponibles."
     )
 
 
@@ -465,25 +495,39 @@ def looks_like_lead(message):
 
 
 def detect_product_category(text):
-    categories = [
-        "arte",
-        "artesanias",
-        "artesania tipica",
-        "calzado",
-        "vestuario",
-        "joyeria",
-        "decoracion",
-        "anticuarios",
-        "salud",
-        "belleza",
-        "bienestar",
-        "gastronomia",
-        "servicios creativos",
-    ]
-    for category in categories:
-        if normalize(category) in text:
+    category_aliases = {
+        "Arte": ["arte", "pintura", "ilustracion", "escultura"],
+        "Artesania tipica": ["artesania", "artesanias", "artesania tipica", "manualidades"],
+        "Joyeria": ["joyeria", "joyas", "bisuteria", "aretes", "collares", "pulseras", "anillos"],
+        "Calzado y vestuario": ["calzado", "zapatos", "sandalias", "vestuario", "ropa", "moda", "bolsos", "bolso"],
+        "Decoracion": ["decoracion", "hogar", "muebles", "deco"],
+        "Anticuarios": ["anticuarios", "antiguedades"],
+        "Salud y belleza": ["salud", "belleza", "cosmetica", "cosmeticos", "bienestar", "cuidado personal"],
+        "Gastronomia": ["gastronomia", "comida", "cafe", "chocolate", "dulces", "bebidas"],
+    }
+    for category, aliases in category_aliases.items():
+        if has_any(text, aliases):
             return category
     return None
+
+
+def keep_required_details(base_reply, polished_reply):
+    final_reply = str(polished_reply or "").strip()
+    if not final_reply:
+        return base_reply
+
+    urls = re.findall(r"https?://\\S+", base_reply)
+    missing_urls = [url for url in urls if url not in final_reply]
+    if missing_urls:
+        final_reply = f"{final_reply}\n\nFormulario oficial: {missing_urls[0]}"
+
+    return final_reply
+
+
+def remember_turn(memory, user_message, reply):
+    history = memory.setdefault("history", [])
+    history.append({"user": user_message, "ori": reply})
+    del history[:-4]
 
 
 def lower_first(value):
