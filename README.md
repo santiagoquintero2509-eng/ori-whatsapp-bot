@@ -58,6 +58,7 @@ Puede orientar sobre:
 - expositores y participacion comercial
 - stands disponibles, reservados y no disponibles
 - paso a asesor cuando falta un dato oficial
+- formulario oficial de inscripcion para expositores
 
 La informacion base de la feria esta en:
 
