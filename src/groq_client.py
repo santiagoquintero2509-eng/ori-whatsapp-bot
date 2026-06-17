@@ -90,6 +90,9 @@ def build_user_prompt(user_message, base_reply, memory):
     role = memory.get("role") or "sin rol definido"
     last_intent = memory.get("last_intent") or "sin intencion previa"
     selected_stand = memory.get("selected_stand") or "ninguno"
+    pending_field = memory.get("pending_field") or "ninguno"
+    category = memory.get("category") or "ninguna"
+    history = format_history(memory.get("history", []))
 
     return f"""
 Mensaje recibido:
@@ -99,12 +102,29 @@ Contexto de conversacion:
 - Rol detectado: {role}
 - Intencion previa: {last_intent}
 - Stand seleccionado: {selected_stand}
+- Pregunta o dato pendiente: {pending_field}
+- Categoria confirmada: {category}
+
+Ultimos turnos:
+{history}
 
 Respuesta base de Ori, con datos oficiales que debes respetar:
 {base_reply}
 
 Redacta una sola respuesta final de WhatsApp, natural y cercana.
+Si el mensaje del usuario responde una pregunta anterior, continua ese hilo y no vuelvas a empezar.
 """.strip()
+
+
+def format_history(history):
+    if not history:
+        return "Sin historial reciente."
+
+    lines = []
+    for item in history[-3:]:
+        lines.append(f"Usuario: {item.get('user', '')}")
+        lines.append(f"Ori: {item.get('ori', '')}")
+    return "\n".join(lines)
 
 
 def extract_message_text(data):
