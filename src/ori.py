@@ -498,7 +498,7 @@ def detect_product_category(text):
     category_aliases = {
         "Arte": ["arte", "pintura", "ilustracion", "escultura"],
         "Artesania tipica": ["artesania", "artesanias", "artesania tipica", "manualidades"],
-        "Joyeria": ["joyeria", "joyas", "bisuteria", "aretes", "collares", "pulseras", "anillos"],
+        "Joyeria": ["joyeria", "joyer", "joria", "joyas", "bisuteria", "aretes", "collares", "pulseras", "anillos"],
         "Calzado y vestuario": ["calzado", "zapatos", "sandalias", "vestuario", "ropa", "moda", "bolsos", "bolso"],
         "Decoracion": ["decoracion", "hogar", "muebles", "deco"],
         "Anticuarios": ["anticuarios", "antiguedades"],
