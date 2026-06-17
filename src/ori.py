@@ -29,9 +29,22 @@ INTENTS = {
         "de que trata",
         "visit",
         "visitar",
+        "trayectoria",
+        "experiencia",
+        "cuantas ferias",
     ],
     "date": ["fecha", "cuando", "dia", "dias", "horario", "hora", "abre", "cierra", "programacion"],
     "location": ["ubicacion", "direccion", "donde", "llegar", "mapa", "sede", "queda", "lugar"],
+    "venue": [
+        "convento",
+        "san diego",
+        "unibac",
+        "historia de la sede",
+        "patio de las artes",
+        "salon pierre",
+        "pierre daguet",
+        "espacios",
+    ],
     "exhibitor": [
         "expositor",
         "expositores",
@@ -55,6 +68,9 @@ INTENTS = {
         "artesania",
         "moda",
         "gastronomia",
+        "categoria",
+        "categorias",
+        "acepta",
     ],
     "activities": ["actividad", "actividades", "agenda", "cultural", "muestra", "networking", "experiencia"],
     "booths": ["stand", "stands", "puesto", "puestos", "disponible", "disponibles", "reservar", "reserva"],
@@ -115,12 +131,13 @@ def get_local_ai_reply(raw_message, memory):
         memory["selected_stand"] = stand_number
         return describe_stand(stand_number)
 
-    if asks_for_history(text):
+    if asks_for_history(text) and not has_any(text, ["sede", "convento", "san diego", "unibac", "patio", "salon"]):
         memory["last_intent"] = "history"
-        return (
-            "Ese dato historico todavia no lo tengo confirmado en mi base de la feria. "
-            f"Si quieres, escribe 'asesor' y el equipo de {FAIR_INFO['name']} te ayuda con la informacion oficial."
-        )
+        return fair_history_reply()
+
+    if asks_for_metrics(text):
+        memory["last_intent"] = "metrics"
+        return metrics_reply()
 
     intent = detect_intent(text, memory)
     memory["last_intent"] = intent
@@ -131,6 +148,8 @@ def get_local_ai_reply(raw_message, memory):
         return date_reply()
     if intent == "location":
         return location_reply()
+    if intent == "venue":
+        return venue_reply(text)
     if intent == "exhibitor":
         memory["role"] = "expositor"
         return exhibitor_guide_reply()
@@ -146,6 +165,10 @@ def get_local_ai_reply(raw_message, memory):
         return advisor_reply()
     if intent == "thanks":
         return "Con gusto. Soy Ori y estoy aqui para ayudarte con la feria cuando lo necesites."
+
+    if asks_for_history(text):
+        memory["last_intent"] = "history"
+        return fair_history_reply()
 
     return smart_fallback_reply(message, memory)
 
@@ -168,7 +191,25 @@ def event_reply():
     return (
         f"La {FAIR_INFO['name']} es un espacio para {FAIR_INFO['purpose']} "
         f"Esta pensada para visitantes que quieren descubrir {FAIR_INFO['products'].rstrip('.')} "
-        "y para marcas que buscan conectar con nuevas oportunidades comerciales."
+        "y para marcas que buscan conectar con nuevas oportunidades comerciales. "
+        f"Origen Colombia cuenta con {FAIR_INFO['experience_years']}, {FAIR_INFO['total_fairs']}, "
+        f"{FAIR_INFO['total_exhibitors']} y {FAIR_INFO['visitors_per_event']}."
+    )
+
+
+def fair_history_reply():
+    return (
+        f"La web oficial confirma que Origen Colombia tiene {FAIR_INFO['experience_years']} "
+        f"y {FAIR_INFO['total_fairs']}. No publica en el texto visible el ano exacto de la primera feria, "
+        "asi que prefiero no inventarlo. Si necesitas ese dato exacto, escribe 'asesor'."
+    )
+
+
+def metrics_reply():
+    return (
+        f"Segun la web oficial, Origen Colombia cuenta con {FAIR_INFO['experience_years']}, "
+        f"{FAIR_INFO['total_fairs']}, {FAIR_INFO['total_exhibitors']} y "
+        f"{FAIR_INFO['visitors_per_event']}."
     )
 
 
@@ -182,7 +223,21 @@ def date_reply():
 def location_reply():
     return (
         f"{FAIR_INFO['location']} "
-        "Tambien puedo ayudarte a identificar si buscas informacion como visitante o como expositor."
+        "La sede tiene dos espacios principales para exposicion: Patio de las Artes y Salon Pierre Daguet."
+    )
+
+
+def venue_reply(text):
+    if has_any(text, ["patio", "patio de las artes"]):
+        return FAIR_INFO["exhibition_spaces"]["patio"]
+
+    if has_any(text, ["salon", "pierre", "daguet"]):
+        return FAIR_INFO["exhibition_spaces"]["salon"]
+
+    return (
+        f"{FAIR_INFO['venue_history']} {FAIR_INFO['venue_context']} "
+        f"Espacios de exposicion: {FAIR_INFO['exhibition_spaces']['patio']} "
+        f"{FAIR_INFO['exhibition_spaces']['salon']}"
     )
 
 
@@ -190,15 +245,17 @@ def visitor_guide_reply():
     return (
         f"Perfecto. Como visitante vas a encontrar {FAIR_INFO['products']} "
         f"Tambien habra {FAIR_INFO['activities']} "
-        "Puedes preguntarme por fecha, ubicacion, actividades o productos."
+        f"La galeria oficial destaca: {FAIR_INFO['gallery_sections']} "
+        "Puedes preguntarme por fecha, ubicacion, actividades, productos o espacios de la sede."
     )
 
 
 def exhibitor_guide_reply():
     return (
         f"Para participar como expositor, la feria ofrece {lower_first(FAIR_INFO['exhibitor_summary'])} "
+        f"Las categorias oficiales de inscripcion incluyen: {FAIR_INFO['registration_categories']} "
         "Puedo revisar contigo stands disponibles, medidas y zona. "
-        "Si ya tienes una marca, escribeme: nombre, marca, producto y stand que te interesa."
+        "Si ya tienes una marca, enviame razon social o nombre, representante, ciudad, WhatsApp, categoria, producto y stand de interes."
     )
 
 
@@ -206,21 +263,24 @@ def suggestions_reply(memory):
     if memory.get("role") == "expositor":
         return (
             "Puedes preguntarme cosas como: que stands estan disponibles, cuanto mide el stand 21, "
-            "que zona tiene mejor flujo, que datos debo enviar para participar o como hablar con un asesor."
+            "que categorias acepta la feria, que datos debo enviar para participar, como es la sede o como hablar con un asesor."
         )
 
     return (
         "Puedes preguntarme cosas como: donde es la feria, cuando se realiza, que productos encontrare, "
-        "que actividades habra, como participar como expositor o que stands estan disponibles."
+        "que actividades habra, como es el Convento de San Diego, como participar como expositor o que stands estan disponibles."
     )
 
 
 def products_reply(text):
+    if has_any(text, ["categoria", "categorias", "acepta"]):
+        return f"Las categorias oficiales de inscripcion son: {FAIR_INFO['registration_categories']}"
+
     category = detect_product_category(text)
     if category:
         return (
             f"Si buscas {category}, Ori lo puede orientar dentro de las categorias de la feria. "
-            "La base actual confirma productos como artesanias, moda, accesorios, joyeria, decoracion, bienestar, gastronomia y servicios creativos. "
+            f"La web oficial confirma categorias como: {FAIR_INFO['registration_categories']} "
             "Para una marca o expositor especifico, escribe 'asesor'."
         )
 
@@ -251,7 +311,10 @@ def prices_reply(memory):
 
 
 def advisor_reply():
-    return FAIR_INFO["human_help"]
+    return (
+        f"{FAIR_INFO['human_help']} "
+        f"Para expositores, los datos utiles son: {FAIR_INFO['registration_fields']}"
+    )
 
 
 def smart_fallback_reply(message, memory):
@@ -344,6 +407,22 @@ def asks_for_history(text):
     return has_any(text, ["primer", "primera", "historia", "origen de la feria", "ano se hizo", "año se hizo"])
 
 
+def asks_for_metrics(text):
+    return has_any(
+        text,
+        [
+            "cuantos expositores",
+            "cuantos visitantes",
+            "cuantas ferias",
+            "ferias realizadas",
+            "expositores totales",
+            "visitantes por evento",
+            "anos de experiencia",
+            "años de experiencia",
+        ],
+    )
+
+
 def looks_like_lead(message):
     text = normalize(message)
     has_contact_style = any(char.isdigit() for char in message) or "@" in message
@@ -354,11 +433,16 @@ def looks_like_lead(message):
 
 def detect_product_category(text):
     categories = [
+        "arte",
         "artesanias",
-        "moda",
-        "accesorios",
+        "artesania tipica",
+        "calzado",
+        "vestuario",
         "joyeria",
         "decoracion",
+        "anticuarios",
+        "salud",
+        "belleza",
         "bienestar",
         "gastronomia",
         "servicios creativos",
@@ -412,11 +496,23 @@ def build_feria_context():
         f"Fechas: {FAIR_INFO['dates']}\n"
         f"Sede: {FAIR_INFO['venue']}\n"
         f"Proposito: {FAIR_INFO['purpose']}\n"
+        f"Web oficial: {FAIR_INFO['official_site']}\n"
+        f"Trayectoria: {FAIR_INFO['experience_years']}; {FAIR_INFO['total_fairs']}; "
+        f"{FAIR_INFO['total_exhibitors']}; {FAIR_INFO['visitors_per_event']}\n"
+        f"Ferias publicadas: {FAIR_INFO['official_fairs']}\n"
+        f"Nota publica de ferias activas: {FAIR_INFO['active_fair_public_note']}\n"
         f"Resumen visitantes: {FAIR_INFO['visitor_summary']}\n"
         f"Resumen expositores: {FAIR_INFO['exhibitor_summary']}\n"
         f"Productos y servicios: {FAIR_INFO['products']}\n"
+        f"Categorias oficiales de inscripcion: {FAIR_INFO['registration_categories']}\n"
+        f"Datos solicitados en inscripcion: {FAIR_INFO['registration_fields']}\n"
         f"Actividades: {FAIR_INFO['activities']}\n"
         f"Ubicacion: {FAIR_INFO['location']}\n"
+        f"Historia sede: {FAIR_INFO['venue_history']}\n"
+        f"Contexto sede: {FAIR_INFO['venue_context']}\n"
+        f"Espacio Patio: {FAIR_INFO['exhibition_spaces']['patio']}\n"
+        f"Espacio Salon: {FAIR_INFO['exhibition_spaces']['salon']}\n"
+        f"Galeria: {FAIR_INFO['gallery_sections']}\n"
         f"Apoyo humano: {FAIR_INFO['human_help']}\n"
         f"Stands disponibles Patio de las Artes: {', '.join(str(item) for item in available_patio)}\n"
         f"Stands disponibles Salon Pierre Daguet: {', '.join(str(item) for item in available_salon)}\n"
