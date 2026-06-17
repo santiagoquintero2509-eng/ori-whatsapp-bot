@@ -1,5 +1,6 @@
 import json
 import os
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -30,6 +31,9 @@ GRAPH_API_VERSION = os.getenv("GRAPH_API_VERSION", "v20.0")
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "")
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrender.com").rstrip("/")
+PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
+PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 
 
 class OriHandler(BaseHTTPRequestHandler):
@@ -48,6 +52,10 @@ class OriHandler(BaseHTTPRequestHandler):
 
         if parsed_url.path == "/health":
             self.send_json({"ok": True, "service": "Ori WhatsApp Bot"})
+            return
+
+        if parsed_url.path == "/plano_stands.jpg":
+            self.send_static_file(PUBLIC_DIR / "plano_stands.jpg", "image/jpeg")
             return
 
         if parsed_url.path == "/webhook":
@@ -110,6 +118,19 @@ class OriHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_static_file(self, path, content_type):
+        if not path.exists() or not path.is_file():
+            self.send_json({"error": "Archivo no encontrado"}, status=404)
+            return
+
+        body = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.end_headers()
+        self.wfile.write(body)
+
     def log_message(self, format_message, *args):
         print(format_message % args)
 
@@ -122,6 +143,12 @@ def handle_whatsapp_payload(payload):
         print(f"Mensaje de {message['from']}: {message['text']}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
         send_whatsapp_text(message["from"], reply)
+        if should_send_plan_image(message["text"]):
+            send_whatsapp_image(
+                message["from"],
+                PLANO_STANDS_URL,
+                "Plano de stands Feria Origen Colombia 2027.",
+            )
 
 
 def extract_incoming_messages(payload):
@@ -218,6 +245,62 @@ def subscribe_app_to_whatsapp():
         print(f"No se pudo suscribir la app a WhatsApp ({error.code}): {detail}", flush=True)
     except urllib.error.URLError as error:
         print(f"No se pudo conectar para suscribir la app a WhatsApp: {error}", flush=True)
+
+
+def send_whatsapp_image(to, image_url, caption=""):
+    if DRY_RUN or not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
+        print(f"Envio de imagen omitido. URL del plano: {image_url}", flush=True)
+        return
+
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
+    image_payload = {"link": image_url}
+    if caption:
+        image_payload["caption"] = caption
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "image",
+        "image": image_payload,
+    }
+    data = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            response.read()
+            print(f"Plano enviado a WhatsApp para {to}", flush=True)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar imagen: {detail}") from error
+
+
+def should_send_plan_image(message):
+    text = normalize_for_match(message)
+    triggers = [
+        "plano",
+        "mapa",
+        "localizacion",
+        "ubicacion de stands",
+        "ver stands",
+        "stands disponibles",
+        "puestos disponibles",
+    ]
+    return any(trigger in text for trigger in triggers)
+
+
+def normalize_for_match(value):
+    normalized = unicodedata.normalize("NFD", str(value or "").lower())
+    without_accents = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+    return " ".join(without_accents.split())
 
 
 def home_page():
