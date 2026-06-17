@@ -118,7 +118,7 @@ def handle_whatsapp_payload(payload):
     messages = extract_incoming_messages(payload)
     print(f"Mensajes de texto extraidos: {len(messages)}", flush=True)
     for message in messages:
-        reply = get_ori_reply(message["text"])
+        reply = get_ori_reply(message["text"], user_id=message["from"])
         print(f"Mensaje de {message['from']}: {message['text']}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
         send_whatsapp_text(message["from"], reply)
