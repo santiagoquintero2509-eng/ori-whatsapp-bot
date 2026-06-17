@@ -65,9 +65,10 @@ class OriHandler(BaseHTTPRequestHandler):
 
         payload = self.read_json_body()
         try:
+            print("Webhook recibido desde Meta", flush=True)
             handle_whatsapp_payload(payload)
         except Exception as error:
-            print(f"Error procesando webhook: {error}")
+            print(f"Error procesando webhook: {error}", flush=True)
         self.send_json({"ok": True})
 
     def verify_webhook(self, parsed_url):
@@ -114,15 +115,31 @@ class OriHandler(BaseHTTPRequestHandler):
 
 
 def handle_whatsapp_payload(payload):
-    for message in extract_incoming_messages(payload):
+    messages = extract_incoming_messages(payload)
+    print(f"Mensajes de texto extraidos: {len(messages)}", flush=True)
+    for message in messages:
         reply = get_ori_reply(message["text"])
-        print(f"Mensaje de {message['from']}: {message['text']}")
-        print(f"Respuesta de Ori: {reply}")
+        print(f"Mensaje de {message['from']}: {message['text']}", flush=True)
+        print(f"Respuesta de Ori: {reply}", flush=True)
         send_whatsapp_text(message["from"], reply)
 
 
 def extract_incoming_messages(payload):
     output = []
+
+    if payload.get("field") == "messages" and isinstance(payload.get("value"), dict):
+        payload = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": payload["value"],
+                        }
+                    ]
+                }
+            ]
+        }
+
     for entry in payload.get("entry", []):
         for change in entry.get("changes", []):
             value = change.get("value", {})
@@ -140,6 +157,7 @@ def extract_incoming_messages(payload):
 
 def send_whatsapp_text(to, body):
     if DRY_RUN or not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
+        print("Envio omitido: DRY_RUN activo o faltan credenciales.", flush=True)
         return
 
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
@@ -163,9 +181,43 @@ def send_whatsapp_text(to, body):
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             response.read()
+            print(f"Respuesta enviada a WhatsApp para {to}", flush=True)
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"WhatsApp API respondio {error.code}: {detail}") from error
+
+
+def subscribe_app_to_whatsapp():
+    if not WHATSAPP_TOKEN:
+        print("Suscripcion omitida: falta WHATSAPP_TOKEN.", flush=True)
+        return
+
+    waba_id = os.getenv("WHATSAPP_BUSINESS_ACCOUNT_ID", "").strip()
+    if not waba_id:
+        print("Suscripcion omitida: falta WHATSAPP_BUSINESS_ACCOUNT_ID.", flush=True)
+        return
+
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{waba_id}/subscribed_apps"
+    data = urllib.parse.urlencode({"subscribed_fields": "messages"}).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            print(f"App suscrita a mensajes de WhatsApp: {body}", flush=True)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        print(f"No se pudo suscribir la app a WhatsApp ({error.code}): {detail}", flush=True)
+    except urllib.error.URLError as error:
+        print(f"No se pudo conectar para suscribir la app a WhatsApp: {error}", flush=True)
 
 
 def home_page():
@@ -209,11 +261,12 @@ def home_page():
 
 
 def main():
+    subscribe_app_to_whatsapp()
     server = HTTPServer(("0.0.0.0", PORT), OriHandler)
-    print(f"Ori WhatsApp bot escuchando en http://localhost:{PORT}")
-    print(f"Prueba local: http://localhost:{PORT}/test?message=stands%20disponibles")
+    print(f"Ori WhatsApp bot escuchando en http://localhost:{PORT}", flush=True)
+    print(f"Prueba local: http://localhost:{PORT}/test?message=stands%20disponibles", flush=True)
     if DRY_RUN:
-        print("DRY_RUN=true: las respuestas se muestran en consola y no se envian a WhatsApp.")
+        print("DRY_RUN=true: las respuestas se muestran en consola y no se envian a WhatsApp.", flush=True)
     server.serve_forever()
 
 
