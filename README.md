@@ -83,6 +83,26 @@ La llamada a OpenAI esta en:
 src/openai_client.py
 ```
 
+## Activar Groq opcional
+
+Groq puede ayudar a Ori a redactar respuestas mas humanas sin reemplazar su cerebro local. Ori primero arma una respuesta segura con la informacion oficial cargada y luego Groq la mejora en tono.
+
+En `.env` o Render agrega:
+
+```text
+USE_GROQ=true
+GROQ_API_KEY=gsk_...
+GROQ_MODEL=llama-3.1-8b-instant
+```
+
+Si Groq falla, se queda sin limite o no hay llave, Ori responde con su cerebro local.
+
+La llamada a Groq esta en:
+
+```text
+src/groq_client.py
+```
+
 ## Conectar con WhatsApp
 
 Necesitas una cuenta de Meta for Developers con WhatsApp Cloud API activado.
