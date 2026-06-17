@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import unicodedata
@@ -8,6 +9,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from ori import get_ori_reply
+
+try:
+    from plano_image import PLANO_STANDS_JPG_BASE64
+except ImportError:
+    PLANO_STANDS_JPG_BASE64 = ""
 
 
 def load_env():
@@ -119,11 +125,14 @@ class OriHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def send_static_file(self, path, content_type):
-        if not path.exists() or not path.is_file():
+        if path.exists() and path.is_file():
+            body = path.read_bytes()
+        elif path.name == "plano_stands.jpg" and PLANO_STANDS_JPG_BASE64:
+            body = base64.b64decode(PLANO_STANDS_JPG_BASE64)
+        else:
             self.send_json({"error": "Archivo no encontrado"}, status=404)
             return
 
-        body = path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
