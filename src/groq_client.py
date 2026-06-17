@@ -83,6 +83,7 @@ No agregues precios, horarios, telefonos, direcciones exactas, agenda detallada 
 Si falta informacion, dilo con naturalidad y ofrece escribir "asesor".
 Si la respuesta base dice que no hay asesor o contacto oficial cargado, no ofrezcas transferencia, llamada, contacto directo ni formulario de inscripcion como reemplazo.
 No conviertas una solicitud de asesor en una respuesta de inscripcion, salvo que el usuario tambien pida claramente inscribirse o participar.
+Si la respuesta base dice que se compartira el plano, conserva esa intencion. No digas que el usuario debe buscarlo en la web, Galeria o Nuestro Espacio.
 Si hay numeros de stands, estados o medidas, conservalos exactamente.
 Si la respuesta base incluye un enlace, debes conservarlo.
 No cambies el sentido de la respuesta base.
