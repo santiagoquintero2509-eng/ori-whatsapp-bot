@@ -12,6 +12,10 @@ class OpenAIClientError(RuntimeError):
 
 
 def is_openai_enabled():
+    use_openai = os.getenv("USE_OPENAI", "false").strip().lower()
+    if use_openai not in {"1", "true", "yes", "si"}:
+        return False
+
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     return bool(api_key) and not api_key.startswith("pega_aqui")
 
