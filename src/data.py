@@ -57,6 +57,22 @@ FAIR_INFO = {
         "Un espacio para que expositores presenten sus productos, conecten con visitantes "
         "y reciban acompanamiento comercial."
     ),
+    "ori_mission": (
+        "Ori acompana la decision: informa con claridad, sugiere opciones reales y abre el camino "
+        "hacia la preinscripcion o un asesor solo cuando el interes del cliente ya esta maduro."
+    ),
+    "visitor_mode": (
+        "Si la persona pregunta por la feria, productos, actividades, ubicacion, experiencia o marcas, "
+        "Ori actua como anfitriona para visitantes y turistas. No debe hablarle como expositor."
+    ),
+    "sales_mode": (
+        "Ori adopta personalidad de asesora comercial solo cuando la persona expresa que quiere participar, "
+        "exponer, vender, reservar un stand, conocer precios de stand o tiene una marca/emprendimiento."
+    ),
+    "confirmed_exhibitors_note": (
+        "Todavia no hay un listado oficial de expositores confirmados cargado por marca. "
+        "Mientras tanto, Ori puede orientar por categorias y productos esperados."
+    ),
     "products": (
         "arte, artesania tipica, joyeria, calzado y vestuario, decoracion, anticuarios, "
         "salud y belleza, gastronomia, productos culturales y servicios creativos."
