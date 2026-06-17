@@ -11,6 +11,18 @@ def _booth(number, zone, status, size=None):
     }
 
 
+def _price(zone, booth_type, size, amount, numbers):
+    return {
+        number: {
+            "zone": zone,
+            "type": booth_type,
+            "size": size,
+            "price": amount,
+        }
+        for number in numbers
+    }
+
+
 FAIR_INFO = {
     "name": "Feria Origen Colombia 2027",
     "dates": "del 2 al 14 de enero de 2027",
@@ -104,6 +116,10 @@ FAIR_INFO = {
         "Puedo tomar tu nombre, marca si aplica, ciudad y pregunta para dejar clara tu solicitud, "
         "pero aun falta cargar el contacto oficial del equipo."
     ),
+    "stand_includes": (
+        "Todos los stands incluyen mesa de apoyo de 120 x 70 cm y estante de 2 puestos "
+        "con medida de 180 cm de ancho."
+    ),
 }
 
 
@@ -148,4 +164,88 @@ BOOTHS = (
         _booth(18, "salon", "unavailable", "3.0 x 1.3 m"),
         _booth(17, "salon", "unavailable", "3.0 x 1.3 m"),
     ]
+)
+
+
+STAND_PRICES = {}
+STAND_PRICES.update(
+    _price(
+        "patio",
+        "Stand general",
+        "2.0 x 1.5 m",
+        "$3.300.000",
+        [46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+    )
+)
+STAND_PRICES.update(
+    _price(
+        "patio",
+        "Stand especial",
+        "2.0 x 1.5 m",
+        "$3.700.000",
+        [40, 41, 42, 43, 44, 45, 56, 57, 58, 59, 60, 61],
+    )
+)
+STAND_PRICES.update(
+    _price(
+        "patio",
+        "Stand especial",
+        "2.0 x 1.5 m",
+        "$4.000.000",
+        [29, 30, 33, 34, 35, 36, 37, 62, 63],
+    )
+)
+STAND_PRICES.update(
+    _price(
+        "patio",
+        "Stand esquina",
+        "2.0 x 1.5 m",
+        "$4.300.000",
+        [31, 32, 38, 39, 64],
+    )
+)
+STAND_PRICES.update(
+    _price(
+        "salon",
+        "Stand general",
+        "2.0 x 1.3 m",
+        "$5.000.000",
+        [3, 4, 5, 6, 7, 8, 10, 13, 15, 16, 19, 20, 23, 26],
+    )
+)
+STAND_PRICES.update(
+    _price(
+        "salon",
+        "Stand esquinero",
+        "2.0 x 1.3 m",
+        "$5.500.000",
+        [24, 25],
+    )
+)
+STAND_PRICES.update(
+    _price(
+        "salon",
+        "Stand esquinero",
+        "3.0 x 1.3 m",
+        "$5.500.000",
+        [9, 14, 21, 22],
+    )
+)
+STAND_PRICES.update(
+    _price(
+        "salon",
+        "Stand esquinero premium",
+        "3.0 x 1.3 m",
+        "$6.000.000",
+        [2, 17, 18, 27],
+    )
+)
+STAND_PRICES.update(
+    _price(
+        "salon",
+        "Stand Delux",
+        "3.0 + 2.0 x 1.3 m",
+        "$6.000.000",
+        [11, 12],
+    )
 )
