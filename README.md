@@ -47,16 +47,35 @@ Tambien puedes probar directo:
 http://localhost:3000/test?message=stands%20disponibles
 ```
 
-## Activar inteligencia artificial de ChatGPT
+## Cerebro local de Ori
+
+Ori funciona sin pagar ChatGPT. El archivo `src/ori.py` tiene un motor local que interpreta preguntas, reconoce intenciones y responde con la informacion cargada de la feria.
+
+Puede orientar sobre:
+
+- evento, fechas y ubicacion
+- productos y actividades
+- expositores y participacion comercial
+- stands disponibles, reservados y no disponibles
+- paso a asesor cuando falta un dato oficial
+
+La informacion base de la feria esta en:
+
+```text
+src/data.py
+```
+
+## Activar ChatGPT opcional
 
 En `.env`, agrega tu llave de OpenAI:
 
 ```text
+USE_OPENAI=true
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.5
 ```
 
-Con esa llave, Ori usa ChatGPT para redactar respuestas naturales con el contexto de la feria. Si la llave no esta configurada o OpenAI falla, Ori usa automaticamente el respaldo local por reglas para no quedarse sin responder.
+Con esa llave, Ori puede usar ChatGPT para redactar respuestas naturales con el contexto de la feria. Si `USE_OPENAI` no esta en `true`, o si OpenAI falla, Ori usa automaticamente su cerebro local para no quedarse sin responder.
 
 La llamada a OpenAI esta en:
 
@@ -113,7 +132,7 @@ La informacion de la feria esta en:
 src/data.py
 ```
 
-La forma en que Ori interpreta preguntas esta en:
+La forma en que Ori interpreta preguntas y actua como asistente de feria esta en:
 
 ```text
 src/ori.py
