@@ -131,6 +131,8 @@ def get_local_ai_reply(raw_message, memory):
     if not text:
         return welcome_reply(memory)
 
+    category = detect_product_category(text)
+
     if has_any(text, ["hola", "buenas", "buen dia", "buenos dias", "buenas tardes", "menu", "ayuda", "inicio"]):
         memory["last_intent"] = "greeting"
         return welcome_reply(memory)
@@ -143,11 +145,15 @@ def get_local_ai_reply(raw_message, memory):
 
     if has_any(text, ["soy expositor", "quiero exponer", "quiero vender", "quiero participar", "tengo una marca"]):
         memory["role"] = "expositor"
+        if category:
+            memory["category"] = category
+            memory["last_intent"] = "registration_category"
+            memory["pending_field"] = "registration"
+            return category_followup_reply(category)
         memory["last_intent"] = "exhibitor"
         memory["pending_field"] = "category"
         return exhibitor_guide_reply()
 
-    category = detect_product_category(text)
     if memory.get("role") == "expositor" and (memory.get("pending_field") == "category" or category):
         if category:
             memory["category"] = category
@@ -186,6 +192,11 @@ def get_local_ai_reply(raw_message, memory):
         return venue_reply(text)
     if intent == "exhibitor":
         memory["role"] = "expositor"
+        if category:
+            memory["category"] = category
+            memory["pending_field"] = "registration"
+            memory["last_intent"] = "registration_category"
+            return category_followup_reply(category)
         memory["pending_field"] = "category"
         return exhibitor_guide_reply()
     if intent == "products":
@@ -287,21 +298,17 @@ def visitor_guide_reply():
 
 def exhibitor_guide_reply():
     return (
-        f"Para participar como expositor, la feria ofrece {lower_first(FAIR_INFO['exhibitor_summary'])} "
-        f"Las categorias oficiales de inscripcion incluyen: {FAIR_INFO['registration_categories']} "
-        "Puedo revisar contigo stands disponibles, medidas y zona. "
-        f"Para registrarte, diligencia el formulario oficial: {FAIR_INFO['registration_form_url']} "
-        "Ten a la mano razon social o nombre, representante, ciudad, WhatsApp, correo, categoria, producto y catalogo o imagenes. "
-        "Si quieres, dime que categoria crees que aplica para tu marca y seguimos el hilo."
+        "Claro. Para participar como expositor, primero diligencia el formulario oficial: "
+        f"{FAIR_INFO['registration_form_url']} "
+        "Dime que categoria crees que aplica para tu marca, por ejemplo joyeria, gastronomia, moda o artesanias, y seguimos el hilo."
     )
 
 
 def category_followup_reply(category):
     return (
-        f"Perfecto, {category} esta dentro de las categorias oficiales de inscripcion. "
-        f"El siguiente paso es diligenciar el formulario oficial: {FAIR_INFO['registration_form_url']} "
-        "Ten listos estos datos: razon social o nombre, representante, nombre para el stand, ciudad, WhatsApp, correo, redes, productos y catalogo o imagenes. "
-        "Si quieres, tambien puedo ayudarte a revisar stands disponibles."
+        f"Perfecto, {category} aplica para la feria. "
+        f"El siguiente paso es llenar el formulario oficial: {FAIR_INFO['registration_form_url']} "
+        "Ten a mano marca, ciudad, producto, WhatsApp, correo, redes y catalogo o imagenes."
     )
 
 
@@ -503,7 +510,7 @@ def detect_product_category(text):
         "Decoracion": ["decoracion", "hogar", "muebles", "deco"],
         "Anticuarios": ["anticuarios", "antiguedades"],
         "Salud y belleza": ["salud", "belleza", "cosmetica", "cosmeticos", "bienestar", "cuidado personal"],
-        "Gastronomia": ["gastronomia", "comida", "cafe", "chocolate", "dulces", "bebidas"],
+        "Gastronomia": ["gastronomia", "comida", "cafe", "caf", "chocolate", "dulces", "bebidas"],
     }
     for category, aliases in category_aliases.items():
         if has_any(text, aliases):
