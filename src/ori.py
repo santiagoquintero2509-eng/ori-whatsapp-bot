@@ -47,6 +47,16 @@ INTENTS = {
     ],
     "date": ["fecha", "cuando", "dia", "dias", "horario", "hora", "abre", "cierra", "programacion"],
     "location": ["ubicacion", "direccion", "donde", "llegar", "mapa", "sede", "queda", "lugar"],
+    "confirmed_exhibitors": [
+        "expositores",
+        "expositor",
+        "marcas",
+        "marcas confirmadas",
+        "quienes participan",
+        "quien participa",
+        "que marcas",
+        "que encontrare",
+    ],
     "nearby": [
         "cerca",
         "cercano",
@@ -76,9 +86,10 @@ INTENTS = {
         "espacios",
     ],
     "exhibitor": [
-        "expositor",
-        "expositores",
         "participar",
+        "como puedo participar",
+        "quiero participar",
+        "estoy interesado en participar",
         "registrar",
         "registrarme",
         "registrarse",
@@ -87,11 +98,13 @@ INTENTS = {
         "inscribirse",
         "inscripcion",
         "formulario",
-        "marca",
+        "tengo una marca",
         "emprendimiento",
         "vender",
-        "stand",
-        "puesto",
+        "quiero exponer",
+        "quiero vender",
+        "quiero un stand",
+        "reservar un stand",
     ],
     "products": [
         "producto",
@@ -149,6 +162,8 @@ def get_memory(user_id):
             "selected_stand_status": None,
             "blocked_stand": None,
             "blocked_stand_status": None,
+            "desired_stand_type": None,
+            "desired_zone": None,
             "pending_field": None,
             "category": None,
             "history": [],
@@ -165,6 +180,12 @@ def get_local_ai_reply(raw_message, memory):
 
     category = detect_product_category(text)
 
+    stand_number = extract_stand_number(text)
+    if stand_number and should_treat_as_stand(text, memory):
+        remember_stand_interest(memory, stand_number)
+        memory["last_intent"] = "booths"
+        return describe_stand(stand_number)
+
     if asks_for_plan(text):
         memory["last_intent"] = "plan"
         memory["pending_field"] = None
@@ -174,18 +195,19 @@ def get_local_ai_reply(raw_message, memory):
         memory["last_intent"] = "greeting"
         return welcome_reply(memory)
 
-    if has_any(text, ["soy visitante", "voy como visitante", "quiero visitar", "asistir", "ir a la feria"]):
+    if has_any(text, ["soy visitante", "soy turista", "voy como visitante", "voy como turista", "quiero visitar", "asistir", "ir a la feria"]):
         memory["role"] = "visitante"
-        memory["last_intent"] = "visitor"
-        memory["pending_field"] = None
-        return visitor_guide_reply()
+        if not has_any(text, ["donde", "ubicacion", "direccion", "queda", "cerca", "productos", "marcas", "actividades", "fecha", "cuando"]):
+            memory["last_intent"] = "visitor"
+            memory["pending_field"] = None
+            return visitor_guide_reply()
 
     if wants_human_help(text):
         memory["last_intent"] = "advisor"
         memory["pending_field"] = None
         return advisor_reply(memory)
 
-    if has_any(text, ["soy expositor", "quiero exponer", "quiero vender", "quiero participar", "tengo una marca"]):
+    if wants_to_participate(text):
         memory["role"] = "expositor"
         if category:
             memory["category"] = category
@@ -203,15 +225,25 @@ def get_local_ai_reply(raw_message, memory):
             memory["last_intent"] = "registration_category"
             return category_followup_reply(category)
 
+    stand_type = detect_stand_type(text)
+    if stand_type and should_follow_stand_filters(memory):
+        memory["desired_stand_type"] = stand_type
+        memory["last_intent"] = "booths"
+        zone = detect_zone_preference(text)
+        if zone:
+            memory["desired_zone"] = zone
+            return matching_stands_reply(stand_type, zone)
+        return stand_type_followup_reply(stand_type)
+
+    zone = detect_zone_preference(text)
+    if zone and memory.get("desired_stand_type") and should_follow_stand_filters(memory):
+        memory["desired_zone"] = zone
+        memory["last_intent"] = "booths"
+        return matching_stands_reply(memory["desired_stand_type"], zone)
+
     if has_any(text, ["que puedo preguntar", "preguntarte", "recomiendame", "recomienda", "opciones"]):
         memory["last_intent"] = "suggestions"
         return suggestions_reply(memory)
-
-    stand_number = extract_stand_number(text)
-    if stand_number and should_treat_as_stand(text, memory):
-        remember_stand_interest(memory, stand_number)
-        memory["last_intent"] = "booths"
-        return describe_stand(stand_number)
 
     if asks_for_history(text) and not has_any(text, ["sede", "convento", "san diego", "unibac", "patio", "salon"]):
         memory["last_intent"] = "history"
@@ -232,6 +264,8 @@ def get_local_ai_reply(raw_message, memory):
         return date_reply()
     if intent == "nearby":
         return nearby_reply()
+    if intent == "confirmed_exhibitors":
+        return confirmed_exhibitors_reply()
     if intent == "location":
         return location_reply()
     if intent == "venue":
@@ -274,7 +308,7 @@ def welcome_reply(memory):
 
     return (
         f"Hola, soy Ori, asistente virtual de {FAIR_INFO['name']}. "
-        "Puedo ayudarte con evento, stands, expositores, productos, actividades y solicitudes para el equipo."
+        "Puedo ayudarte con informacion de la feria, productos, actividades, ubicacion, stands y solicitudes para el equipo."
         f"{role_hint} Puedes escribirme con tus propias palabras."
     )
 
@@ -359,16 +393,17 @@ def visitor_guide_reply():
 
 def exhibitor_guide_reply():
     return (
-        "Claro. Para participar como expositor, primero diligencia el formulario oficial: "
-        f"{FAIR_INFO['registration_form_url']} "
-        "Dime que categoria crees que aplica para tu marca, por ejemplo joyeria, gastronomia, moda o artesanias, y seguimos el hilo."
+        "Claro, te acompano. Para participar como expositor podemos revisar categoria, zona, disponibilidad y precios. "
+        "Dime que tipo de marca tienes, por ejemplo joyeria, gastronomia, moda o artesanias, y avanzamos paso a paso. "
+        f"Cuando estes listo, el formulario oficial de preinscripcion es: {FAIR_INFO['registration_form_url']}"
     )
 
 
 def category_followup_reply(category):
     return (
         f"Perfecto, {category} aplica para la feria. "
-        f"El siguiente paso es llenar el formulario oficial: {FAIR_INFO['registration_form_url']} "
+        "Podemos revisar disponibilidad, zona o precios antes de que tomes una decision. "
+        f"Cuando te sientas listo, este es el formulario oficial de preinscripcion: {FAIR_INFO['registration_form_url']} "
         "Ten a mano marca, ciudad, producto, WhatsApp, correo, redes y catalogo o imagenes."
     )
 
@@ -401,6 +436,14 @@ def products_reply(text):
     return (
         f"En la feria encontraras {FAIR_INFO['products']} "
         "Si me dices una categoria, por ejemplo moda, gastronomia o artesanias, te respondo mas puntual."
+    )
+
+
+def confirmed_exhibitors_reply():
+    return (
+        f"{FAIR_INFO['confirmed_exhibitors_note']} "
+        f"Si vienes como visitante, puedo contarte que encontraras categorias como {FAIR_INFO['products']} "
+        "Cuando el equipo cargue la lista oficial, podre recomendarte marcas por categoria."
     )
 
 
@@ -493,8 +536,8 @@ def smart_fallback_reply(message, memory):
         )
 
     return (
-        "Te entiendo. Con la informacion cargada puedo orientarte sobre evento, fecha, ubicacion, productos, actividades, expositores y stands. "
-        "Preguntame como lo dirias normalmente, por ejemplo: 'donde es', 'que stands hay disponibles' o 'quiero participar con mi marca'."
+        "Te entiendo. Con la informacion cargada puedo orientarte sobre evento, fecha, ubicacion, productos, actividades y stands. "
+        "Preguntame como lo dirias normalmente, por ejemplo: 'donde es', 'que productos encontrare' o 'quiero participar con mi marca'."
     )
 
 
@@ -545,6 +588,37 @@ def available_stands_reply():
     )
 
 
+def stand_type_followup_reply(stand_type):
+    return (
+        f"Entendido, buscas un stand {stand_type}. "
+        "Para recomendarte opciones reales, dime en que zona prefieres ubicarte: Patio de las Artes o Salon Pierre Daguet."
+    )
+
+
+def matching_stands_reply(stand_type, zone):
+    matches = []
+    for number, price in sorted(STAND_PRICES.items()):
+        stand = find_booth(number)
+        if not stand or stand["zone"] != zone or stand["status"] != "available":
+            continue
+        if stand_type not in normalize(price["type"]):
+            continue
+        matches.append((number, price))
+
+    zone_name = ZONE_LABELS.get(zone, zone)
+    if not matches:
+        return (
+            f"En {zone_name} no veo stands {stand_type} disponibles en la informacion cargada. "
+            "Puedo sugerirte otra zona o revisar stands especiales/generales disponibles."
+        )
+
+    options = ", ".join(f"{number} ({price['price']})" for number, price in matches[:8])
+    return (
+        f"En {zone_name}, estos stands {stand_type} aparecen disponibles: {options}. "
+        "Si alguno te llama la atencion, dime el numero y revisamos el detalle."
+    )
+
+
 def remember_stand_interest(memory, number):
     stand = find_booth(number)
     if not stand:
@@ -564,6 +638,9 @@ def remember_stand_interest(memory, number):
 
 
 def detect_intent(text, memory):
+    if wants_to_participate(text):
+        return "exhibitor"
+
     scores = {}
     for intent, words in INTENTS.items():
         scores[intent] = sum(1 for word in words if normalize(word) in text)
@@ -590,10 +667,36 @@ def detect_intent(text, memory):
 def should_treat_as_stand(text, memory):
     return (
         bool(re.search(r"\b(?:stand|puesto)\s*\d{1,3}\b", text))
-        or has_any(text, ["quiero", "prefiero", "mejor", "reservado", "disponible", "no disponible"])
-        or memory.get("last_intent") in {"booths", "exhibitor"}
+        or has_any(text, ["prefiero", "mejor", "reservado", "disponible", "no disponible", "me interesa el", "interesado en el"])
+        or memory.get("last_intent") in {"booths", "exhibitor", "plan"}
         or memory.get("role") == "expositor"
     )
+
+
+def should_follow_stand_filters(memory):
+    return memory.get("last_intent") in {"booths", "plan", "exhibitor"} or memory.get("role") == "expositor"
+
+
+def detect_stand_type(text):
+    if has_any(text, ["esquinero", "esquina"]):
+        return "esquinero"
+    if has_any(text, ["especial"]):
+        return "especial"
+    if has_any(text, ["general"]):
+        return "general"
+    if has_any(text, ["premium", "premiun"]):
+        return "premium"
+    if has_any(text, ["delux", "deluxe"]):
+        return "delux"
+    return None
+
+
+def detect_zone_preference(text):
+    if has_any(text, ["salon pierre daguet", "pierre daguet", "salon"]):
+        return "salon"
+    if has_any(text, ["patio de las artes", "patio"]):
+        return "patio"
+    return None
 
 
 def wants_human_help(text):
@@ -613,6 +716,30 @@ def wants_human_help(text):
             "llamame",
             "llamarme",
             "equipo de la feria",
+        ],
+    )
+
+
+def wants_to_participate(text):
+    return has_any(
+        text,
+        [
+            "soy expositor",
+            "quiero exponer",
+            "quiero vender",
+            "quiero participar",
+            "como puedo participar",
+            "estoy interesado en participar",
+            "interesado en participar",
+            "tengo una marca",
+            "tengo un emprendimiento",
+            "quiero un stand",
+            "reservar un stand",
+            "separar un stand",
+            "quiero reservar",
+            "preinscripcion",
+            "pre inscripcion",
+            "inscribirme como expositor",
         ],
     )
 
@@ -713,6 +840,9 @@ def keep_required_details(base_reply, polished_reply):
     base_text = normalize(base_reply)
     final_text = normalize(final_reply)
 
+    final_reply = soften_repeated_plan_phrase(base_reply, final_reply)
+    final_text = normalize(final_reply)
+
     if "tengo precios cargados" in base_text and "no tengo precios" in final_text:
         return base_reply
 
@@ -728,6 +858,20 @@ def keep_required_details(base_reply, polished_reply):
         final_reply = f"{final_reply}\n\nFormulario oficial: {missing_urls[0]}"
 
     return final_reply
+
+
+def soften_repeated_plan_phrase(base_reply, final_reply):
+    base_text = normalize(base_reply)
+    if "revisa el plano nuevamente" in base_text:
+        return final_reply
+
+    cleaned = re.sub(
+        r"(?i)\b(revisa|mira|consulta)\s+el\s+plano\s+nuevamente,?\s*",
+        "",
+        str(final_reply or ""),
+    ).strip()
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    return cleaned or final_reply
 
 
 def remember_turn(memory, user_message, reply):
@@ -783,6 +927,9 @@ def build_feria_context():
         f"Fechas: {FAIR_INFO['dates']}\n"
         f"Sede: {FAIR_INFO['venue']}\n"
         f"Proposito: {FAIR_INFO['purpose']}\n"
+        f"Mision de Ori: {FAIR_INFO['ori_mission']}\n"
+        f"Modo visitante: {FAIR_INFO['visitor_mode']}\n"
+        f"Modo comercial: {FAIR_INFO['sales_mode']}\n"
         f"Web oficial: {FAIR_INFO['official_site']}\n"
         f"Trayectoria: {FAIR_INFO['experience_years']}; {FAIR_INFO['total_fairs']}; "
         f"{FAIR_INFO['total_exhibitors']}; {FAIR_INFO['visitors_per_event']}\n"
@@ -792,6 +939,7 @@ def build_feria_context():
         f"Nota del formulario: {FAIR_INFO['registration_form_note']}\n"
         f"Resumen visitantes: {FAIR_INFO['visitor_summary']}\n"
         f"Resumen expositores: {FAIR_INFO['exhibitor_summary']}\n"
+        f"Expositores confirmados: {FAIR_INFO['confirmed_exhibitors_note']}\n"
         f"Productos y servicios: {FAIR_INFO['products']}\n"
         f"Categorias oficiales de inscripcion: {FAIR_INFO['registration_categories']}\n"
         f"Datos solicitados en inscripcion: {FAIR_INFO['registration_fields']}\n"
