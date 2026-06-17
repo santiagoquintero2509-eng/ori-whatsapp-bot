@@ -50,8 +50,14 @@ INTENTS = {
         "expositor",
         "expositores",
         "participar",
+        "registrar",
+        "registrarme",
+        "registrarse",
         "inscribir",
+        "inscribirme",
+        "inscribirse",
         "inscripcion",
+        "formulario",
         "marca",
         "emprendimiento",
         "vender",
@@ -264,7 +270,8 @@ def exhibitor_guide_reply():
         f"Para participar como expositor, la feria ofrece {lower_first(FAIR_INFO['exhibitor_summary'])} "
         f"Las categorias oficiales de inscripcion incluyen: {FAIR_INFO['registration_categories']} "
         "Puedo revisar contigo stands disponibles, medidas y zona. "
-        "Si ya tienes una marca, enviame razon social o nombre, representante, ciudad, WhatsApp, categoria, producto y stand de interes."
+        f"Para registrarte, diligencia el formulario oficial: {FAIR_INFO['registration_form_url']} "
+        "Ten a la mano razon social o nombre, representante, ciudad, WhatsApp, correo, categoria, producto y catalogo o imagenes."
     )
 
 
@@ -310,7 +317,8 @@ def prices_reply(memory):
     if memory.get("role") == "expositor" or memory.get("last_intent") in {"booths", "exhibitor"}:
         return (
             "Los valores de participacion y condiciones comerciales todavia no estan cargados en Ori. "
-            "Escribe tu nombre, marca, producto y stand de interes, o escribe 'asesor', para que el equipo te confirme precios."
+            f"Para avanzar con tu registro, puedes diligenciar el formulario oficial: {FAIR_INFO['registration_form_url']} "
+            "Tambien puedes escribir 'asesor' para que el equipo te confirme precios."
         )
 
     return (
@@ -322,7 +330,8 @@ def prices_reply(memory):
 def advisor_reply():
     return (
         f"{FAIR_INFO['human_help']} "
-        f"Para expositores, los datos utiles son: {FAIR_INFO['registration_fields']}"
+        f"Para expositores, el formulario oficial esta aqui: {FAIR_INFO['registration_form_url']} "
+        f"Los datos utiles son: {FAIR_INFO['registration_fields']}"
     )
 
 
@@ -344,7 +353,7 @@ def smart_fallback_reply(message, memory):
         return (
             "Creo que tu consulta va por el lado de participacion como expositor. "
             "Puedo ayudarte con stands disponibles, medidas, zonas y paso a asesor. "
-            "Si quieres avanzar, enviame nombre, marca, producto y stand de interes."
+            f"Para registrarte, usa el formulario oficial: {FAIR_INFO['registration_form_url']}"
         )
 
     return (
@@ -525,6 +534,8 @@ def build_feria_context():
         f"{FAIR_INFO['total_exhibitors']}; {FAIR_INFO['visitors_per_event']}\n"
         f"Ferias publicadas: {FAIR_INFO['official_fairs']}\n"
         f"Nota publica de ferias activas: {FAIR_INFO['active_fair_public_note']}\n"
+        f"Formulario oficial de inscripcion: {FAIR_INFO['registration_form_url']}\n"
+        f"Nota del formulario: {FAIR_INFO['registration_form_note']}\n"
         f"Resumen visitantes: {FAIR_INFO['visitor_summary']}\n"
         f"Resumen expositores: {FAIR_INFO['exhibitor_summary']}\n"
         f"Productos y servicios: {FAIR_INFO['products']}\n"
