@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import time
 import unicodedata
 import urllib.error
 import urllib.parse
@@ -40,6 +41,8 @@ DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrender.com").rstrip("/")
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
+LAST_PLAN_IMAGE_SENT = {}
+PLAN_IMAGE_COOLDOWN_SECONDS = 600
 
 
 class OriHandler(BaseHTTPRequestHandler):
@@ -152,7 +155,7 @@ def handle_whatsapp_payload(payload):
         print(f"Mensaje de {message['from']}: {message['text']}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
         send_whatsapp_text(message["from"], reply)
-        if should_send_plan_image(message["text"]):
+        if should_send_plan_image(message["text"]) and should_send_plan_image_now(message["from"]):
             send_whatsapp_image(
                 message["from"],
                 PLANO_STANDS_URL,
@@ -295,15 +298,32 @@ def send_whatsapp_image(to, image_url, caption=""):
 def should_send_plan_image(message):
     text = normalize_for_match(message)
     triggers = [
-        "plano",
-        "mapa",
-        "localizacion",
+        "compartir el plano",
+        "comparteme el plano",
+        "enviar el plano",
+        "enviame el plano",
+        "mandame el plano",
+        "mostrar el plano",
+        "muestrame el plano",
+        "ver el plano",
+        "plano de la feria",
+        "plano de stands",
+        "mapa de stands",
         "ubicacion de stands",
         "ver stands",
         "stands disponibles",
         "puestos disponibles",
     ]
     return any(trigger in text for trigger in triggers)
+
+
+def should_send_plan_image_now(user_id):
+    now = time.time()
+    last_sent = LAST_PLAN_IMAGE_SENT.get(user_id, 0)
+    if now - last_sent < PLAN_IMAGE_COOLDOWN_SECONDS:
+        return False
+    LAST_PLAN_IMAGE_SENT[user_id] = now
+    return True
 
 
 def normalize_for_match(value):
