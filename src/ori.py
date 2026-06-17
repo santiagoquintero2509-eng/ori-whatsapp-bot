@@ -413,7 +413,22 @@ def should_treat_as_stand(text, memory):
 
 
 def asks_for_history(text):
-    return has_any(text, ["primer", "primera", "historia", "origen de la feria", "ano se hizo", "año se hizo"])
+    if has_any(text, ["primera vez", "por primera vez", "participar", "expositor", "marca"]):
+        return False
+
+    return has_any(
+        text,
+        [
+            "primera feria",
+            "primer evento",
+            "historia de la feria",
+            "origen de la feria",
+            "ano se hizo",
+            "año se hizo",
+            "cuando empezo",
+            "cuando inicio",
+        ],
+    )
 
 
 def asks_for_metrics(text):
