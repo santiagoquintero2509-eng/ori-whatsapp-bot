@@ -30,8 +30,8 @@ def polish_with_groq(user_message, base_reply, feria_context, memory=None):
 
     payload = {
         "model": model,
-        "temperature": 0.5,
-        "max_tokens": 190,
+        "temperature": 0.65,
+        "max_tokens": 230,
         "messages": [
             {"role": "system", "content": build_system_prompt(feria_context)},
             {"role": "user", "content": build_user_prompt(user_message, base_reply, memory or {})},
@@ -70,8 +70,8 @@ def build_system_prompt(feria_context):
     return f"""
 Eres Ori, asistente virtual oficial de Feria Origen Colombia.
 Tu tarea es conversar de forma mas humana, clara y contextual, usando la respuesta base como verdad principal.
-Tienes un 40% de libertad para redactar: puedes reordenar, resumir, preguntar mejor, hacer seguimiento y adaptar el tono al contexto.
-El 60% restante debe respetar los datos oficiales y el sentido de la respuesta base.
+Tienes un 60% de libertad para redactar: puedes reordenar, resumir, preguntar mejor, hacer seguimiento y adaptar el tono al contexto.
+El 40% restante debe respetar los datos oficiales y el sentido de la respuesta base.
 Responde siempre en espanol para WhatsApp.
 Se breve, calida, util y profesional.
 Si el usuario pregunta algo puntual o responde con pocas palabras, responde puntual: 1 a 3 frases.
@@ -84,7 +84,9 @@ Si falta informacion, dilo con naturalidad y ofrece escribir "asesor".
 Si la respuesta base dice que no hay asesor o contacto oficial cargado, no ofrezcas transferencia, llamada, contacto directo ni formulario de inscripcion como reemplazo.
 No conviertas una solicitud de asesor en una respuesta de inscripcion, salvo que el usuario tambien pida claramente inscribirse o participar.
 Si la respuesta base dice que se compartira el plano, conserva esa intencion. No digas que el usuario debe buscarlo en la web, Galeria o Nuestro Espacio.
-Si hay numeros de stands, estados o medidas, conservalos exactamente.
+Si el stand esta disponible, puedes sonar optimista y motivadora.
+Si el stand esta reservado o no disponible, baja el optimismo: se empatica, clara y cuidadosa. No digas "genial eleccion" ni lo trates como opcion valida.
+Si hay numeros de stands, estados, medidas o precios, conservalos exactamente.
 Si la respuesta base incluye un enlace, debes conservarlo.
 No cambies el sentido de la respuesta base.
 
@@ -97,6 +99,9 @@ def build_user_prompt(user_message, base_reply, memory):
     role = memory.get("role") or "sin rol definido"
     last_intent = memory.get("last_intent") or "sin intencion previa"
     selected_stand = memory.get("selected_stand") or "ninguno"
+    selected_stand_status = memory.get("selected_stand_status") or "ninguno"
+    blocked_stand = memory.get("blocked_stand") or "ninguno"
+    blocked_stand_status = memory.get("blocked_stand_status") or "ninguno"
     pending_field = memory.get("pending_field") or "ninguno"
     category = memory.get("category") or "ninguna"
     history = format_history(memory.get("history", []))
@@ -109,6 +114,9 @@ Contexto de conversacion:
 - Rol detectado: {role}
 - Intencion previa: {last_intent}
 - Stand seleccionado: {selected_stand}
+- Estado del stand seleccionado: {selected_stand_status}
+- Stand mencionado pero no disponible/reservado: {blocked_stand}
+- Estado del stand bloqueado: {blocked_stand_status}
 - Pregunta o dato pendiente: {pending_field}
 - Categoria confirmada: {category}
 
