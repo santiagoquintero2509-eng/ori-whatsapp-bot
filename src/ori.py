@@ -1,7 +1,7 @@
 import re
 import unicodedata
 
-from data import BOOTHS, FAIR_INFO
+from data import BOOTHS, FAIR_INFO, STAND_PRICES
 from groq_client import GroqClientError, is_groq_enabled, polish_with_groq
 from openai_client import OpenAIClientError, ask_chatgpt, is_openai_enabled
 
@@ -146,6 +146,9 @@ def get_memory(user_id):
             "last_intent": None,
             "role": None,
             "selected_stand": None,
+            "selected_stand_status": None,
+            "blocked_stand": None,
+            "blocked_stand_status": None,
             "pending_field": None,
             "category": None,
             "history": [],
@@ -180,7 +183,7 @@ def get_local_ai_reply(raw_message, memory):
     if wants_human_help(text):
         memory["last_intent"] = "advisor"
         memory["pending_field"] = None
-        return advisor_reply()
+        return advisor_reply(memory)
 
     if has_any(text, ["soy expositor", "quiero exponer", "quiero vender", "quiero participar", "tengo una marca"]):
         memory["role"] = "expositor"
@@ -206,8 +209,8 @@ def get_local_ai_reply(raw_message, memory):
 
     stand_number = extract_stand_number(text)
     if stand_number and should_treat_as_stand(text, memory):
+        remember_stand_interest(memory, stand_number)
         memory["last_intent"] = "booths"
-        memory["selected_stand"] = stand_number
         return describe_stand(stand_number)
 
     if asks_for_history(text) and not has_any(text, ["sede", "convento", "san diego", "unibac", "patio", "salon"]):
@@ -249,9 +252,9 @@ def get_local_ai_reply(raw_message, memory):
     if intent == "booths":
         return available_stands_reply()
     if intent == "prices":
-        return prices_reply(memory)
+        return prices_reply(memory, text)
     if intent == "advisor":
-        return advisor_reply()
+        return advisor_reply(memory)
     if intent == "thanks":
         return "Con gusto. Soy Ori y estoy aqui para ayudarte con la feria cuando lo necesites."
 
@@ -408,21 +411,63 @@ def activities_reply():
     )
 
 
-def prices_reply(memory):
+def prices_reply(memory, text=""):
+    stand_number = extract_stand_number(text) or memory.get("selected_stand")
+    if stand_number:
+        stand = find_booth(stand_number)
+        price = STAND_PRICES.get(stand_number)
+        if not stand or not price:
+            return (
+                f"Aun no tengo precio cargado para el stand {stand_number}. "
+                "Si quieres, puedo mostrarte los stands disponibles con precio cargado."
+            )
+
+        status = STATUS_LABELS[stand["status"]]
+        zone = ZONE_LABELS[stand["zone"]]
+        status_note = ""
+        if stand["status"] == "reserved":
+            status_note = " Ojo: aparece reservado, asi que no debo ofrecerlo como disponible."
+        elif stand["status"] == "unavailable":
+            status_note = " Ojo: aparece no disponible, asi que no debo ofrecerlo como opcion."
+
+        return (
+            f"El stand {stand_number} es {price['type']} de {price['size']} en {zone}. "
+            f"Precio: {price['price']}. Estado: {status}.{status_note} "
+            f"{FAIR_INFO['stand_includes']}"
+        )
+
     if memory.get("role") == "expositor" or memory.get("last_intent") in {"booths", "exhibitor"}:
         return (
-            "Los valores de participacion y condiciones comerciales todavia no estan cargados en Ori. "
-            f"Para avanzar con tu registro, puedes diligenciar el formulario oficial: {FAIR_INFO['registration_form_url']} "
-            "Aun falta cargar el contacto oficial del equipo para confirmar precios."
+            "Ya tengo precios cargados por stand. Dime el numero que te interesa, por ejemplo "
+            "'precio del stand 56', y te confirmo valor, medida, zona y disponibilidad."
         )
 
     return (
-        "Aun no tengo precios o valores oficiales cargados para responder con seguridad. "
-        "Si hablas de entrada, stand o participacion, dime cual de esos necesitas y te oriento."
+        "Tengo precios cargados para los stands. Dime el numero del stand que quieres revisar "
+        "y te confirmo valor, medida, zona y disponibilidad."
     )
 
 
-def advisor_reply():
+def advisor_reply(memory=None):
+    memory = memory or {}
+    blocked_stand = memory.get("blocked_stand")
+    selected_stand = memory.get("selected_stand")
+
+    if blocked_stand:
+        blocked_status = STATUS_LABELS.get(memory.get("blocked_stand_status"), "no disponible")
+        if selected_stand:
+            return (
+                f"{FAIR_INFO['human_help']} "
+                f"Eso si: el stand {blocked_stand} aparece {blocked_status}, "
+                f"asi que no debo tomarlo como disponible. Podemos seguir con el stand {selected_stand} "
+                "o revisar otra opcion disponible."
+            )
+        return (
+            f"{FAIR_INFO['human_help']} "
+            f"Eso si: el stand {blocked_stand} aparece {blocked_status}, "
+            "asi que no debo tomarlo como disponible. Podemos revisar otra opcion disponible."
+        )
+
     return FAIR_INFO["human_help"]
 
 
@@ -454,23 +499,34 @@ def smart_fallback_reply(message, memory):
 
 
 def describe_stand(number):
-    stand = next((item for item in BOOTHS if item["number"] == number), None)
+    stand = find_booth(number)
     if not stand:
         return (
             f"No encuentro el stand {number} en el plano cargado. "
             "Puedo mostrarte stands disponibles; para validar el plano actualizado falta cargar el contacto oficial del equipo."
         )
 
-    status = STATUS_LABELS[stand["status"]]
     zone = ZONE_LABELS[stand["zone"]]
+    price_text = stand_price_text(number)
     if stand["status"] == "available":
-        next_step = "Si te interesa, enviame nombre, marca, producto y ciudad para que el equipo lo revise."
-    elif stand["status"] == "reserved":
-        next_step = "Esta reservado; puedo ayudarte a buscar opciones disponibles cercanas."
-    else:
-        next_step = "No aparece disponible; escribe 'stands disponibles' para ver alternativas."
+        return (
+            f"Genial eleccion. El stand {stand['number']} esta disponible en {zone}. "
+            f"Medidas: {stand['size']}.{price_text} "
+            "Si te interesa, enviame nombre, marca, producto y ciudad para que el equipo lo revise."
+        )
 
-    return f"El stand {stand['number']} esta {status}. Zona: {zone}. Medidas: {stand['size']}. {next_step}"
+    if stand["status"] == "reserved":
+        return (
+            f"Disculpa, el stand {stand['number']} ya esta reservado para otro expositor. "
+            f"Zona: {zone}. Medidas: {stand['size']}.{price_text} "
+            "No debo tomarlo como disponible, pero puedo sugerirte otro. Que otro te interesa?"
+        )
+
+    return (
+        f"Disculpa, el stand {stand['number']} aparece no disponible. "
+        f"Zona: {zone}. Medidas: {stand['size']}.{price_text} "
+        "No debo ofrecerlo como opcion, pero puedo ayudarte a revisar alternativas disponibles."
+    )
 
 
 def available_stands_reply():
@@ -489,6 +545,24 @@ def available_stands_reply():
     )
 
 
+def remember_stand_interest(memory, number):
+    stand = find_booth(number)
+    if not stand:
+        memory["blocked_stand"] = number
+        memory["blocked_stand_status"] = "unavailable"
+        return
+
+    if stand["status"] == "available":
+        memory["selected_stand"] = number
+        memory["selected_stand_status"] = "available"
+        memory["blocked_stand"] = None
+        memory["blocked_stand_status"] = None
+        return
+
+    memory["blocked_stand"] = number
+    memory["blocked_stand_status"] = stand["status"]
+
+
 def detect_intent(text, memory):
     scores = {}
     for intent, words in INTENTS.items():
@@ -503,6 +577,9 @@ def detect_intent(text, memory):
     if scores["booths"] and has_any(text, ["disponible", "disponibles", "reservar", "medida", "zona"]):
         scores["booths"] += 2
 
+    if scores["prices"]:
+        scores["prices"] += 2
+
     if memory.get("role") == "expositor" and scores["prices"]:
         scores["prices"] += 1
 
@@ -513,6 +590,7 @@ def detect_intent(text, memory):
 def should_treat_as_stand(text, memory):
     return (
         bool(re.search(r"\b(?:stand|puesto)\s*\d{1,3}\b", text))
+        or has_any(text, ["quiero", "prefiero", "mejor", "reservado", "disponible", "no disponible"])
         or memory.get("last_intent") in {"booths", "exhibitor"}
         or memory.get("role") == "expositor"
     )
@@ -616,6 +694,17 @@ def detect_product_category(text):
     return None
 
 
+def find_booth(number):
+    return next((item for item in BOOTHS if item["number"] == number), None)
+
+
+def stand_price_text(number):
+    price = STAND_PRICES.get(number)
+    if not price:
+        return ""
+    return f" Precio: {price['price']} ({price['type']} de {price['size']})."
+
+
 def keep_required_details(base_reply, polished_reply):
     final_reply = str(polished_reply or "").strip()
     if not final_reply:
@@ -645,6 +734,10 @@ def extract_stand_number(text):
     explicit = re.search(r"\b(?:stand|puesto)\s*(\d{1,3})\b", text)
     if explicit:
         return int(explicit.group(1))
+
+    referenced = re.search(r"\b(?:el|la|numero|nro|#)\s*(\d{1,3})\b", text)
+    if referenced:
+        return int(referenced.group(1))
 
     if re.fullmatch(r"\d{1,3}", text):
         return int(text)
@@ -703,6 +796,22 @@ def build_feria_context():
         f"Stands disponibles Salon Pierre Daguet: {', '.join(str(item) for item in available_salon)}\n"
         f"Stands reservados: {', '.join(str(item) for item in reserved)}\n"
         f"Stands no disponibles: {', '.join(str(item) for item in unavailable)}\n"
+        f"Incluye en stands: {FAIR_INFO['stand_includes']}\n"
+        f"Precios de stands: {format_price_context()}\n"
         "Medidas generales: Patio 2.0 x 1.5 m; Salon 2.0 x 1.3 m. "
         "Algunos stands especiales tienen medidas distintas en el plano."
     )
+
+
+def format_price_context():
+    grouped = {}
+    for number, price in sorted(STAND_PRICES.items()):
+        key = (price["zone"], price["type"], price["size"], price["price"])
+        grouped.setdefault(key, []).append(number)
+
+    lines = []
+    for (zone, booth_type, size, amount), numbers in grouped.items():
+        zone_name = ZONE_LABELS.get(zone, zone)
+        stand_list = ", ".join(str(item) for item in numbers)
+        lines.append(f"{zone_name} - {booth_type} {size} {amount}: {stand_list}")
+    return " | ".join(lines)
