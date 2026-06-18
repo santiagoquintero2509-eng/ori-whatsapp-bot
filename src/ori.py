@@ -36,21 +36,22 @@ CONVERSATIONS = {}
 
 def load_persistent_state():
     if not MEMORY_PATH.exists():
-        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}}
+        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}, "admin_last_context": {}}
 
     try:
         state = json.loads(MEMORY_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         print(f"No se pudo cargar memoria persistente: {error}", flush=True)
-        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}}
+        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}, "admin_last_context": {}}
 
     if not isinstance(state, dict):
-        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}}
+        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}, "admin_last_context": {}}
 
     state.setdefault("users", {})
     state.setdefault("stands", {})
     state.setdefault("admin_pending_actions", {})
     state.setdefault("admin_last_form_lookup", {})
+    state.setdefault("admin_last_context", {})
     return state
 
 
@@ -328,6 +329,8 @@ def handle_admin_command(raw_message, user_id=None):
 
     action = parse_admin_action(message, text)
     if not action:
+        action = parse_admin_followup_action(message, text, admin_key)
+    if not action:
         return None
 
     if action["type"] in {"confirm_stand", "block_stand", "release_stand"}:
@@ -339,6 +342,7 @@ def handle_admin_command(raw_message, user_id=None):
         return admin_stand_owner_reply(action["stand"])
 
     if action["type"] == "brand_stand_assignment":
+        remember_admin_context(admin_key, "brand_stand_assignment")
         return admin_brand_stand_assignment_reply(action["query"])
 
     if action["type"] == "confirmed_stands":
@@ -351,6 +355,7 @@ def handle_admin_command(raw_message, user_id=None):
         return admin_help_reply()
 
     if action["type"] == "form_lookup":
+        remember_admin_context(admin_key, "form_lookup")
         return admin_form_lookup_reply(action["query"], admin_key)
 
     if action["type"] == "retry_form_lookup":
@@ -443,6 +448,60 @@ def parse_admin_action(message, text):
         return {"type": "interested_summary", "category": category}
 
     return None
+
+
+def parse_admin_followup_action(message, text, admin_key):
+    context = PERSISTENT_STATE.setdefault("admin_last_context", {}).get(admin_key) or {}
+    if context.get("type") != "brand_stand_assignment":
+        return None
+
+    query = extract_short_brand_followup(message, text)
+    if not query:
+        return None
+
+    return {"type": "brand_stand_assignment", "query": query}
+
+
+def remember_admin_context(admin_key, context_type):
+    PERSISTENT_STATE.setdefault("admin_last_context", {})[admin_key] = {
+        "type": context_type,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    save_persistent_state()
+
+
+def extract_short_brand_followup(message, text):
+    if not text or len(text) > 60:
+        return None
+
+    if has_any(
+        text,
+        [
+            "stand",
+            "formulario",
+            "preinscripcion",
+            "confirmar",
+            "bloquear",
+            "liberar",
+            "gracias",
+            "hola",
+            "asesor",
+            "plano",
+            "ubicacion",
+            "ruta",
+        ],
+    ):
+        return None
+
+    words = text.split()
+    if len(words) > 5:
+        return None
+
+    query = re.sub(r"^(y|e|tambien|tambien\s+y|ahora|ok|listo)\s+", "", text).strip(" ?¿.,;:")
+    if not query or query in {"si", "no", "eso", "ese", "este", "otra", "otro"}:
+        return None
+
+    return clean_admin_query(query) or None
 
 
 def admin_action_confirmation_prompt(action):
@@ -1124,6 +1183,12 @@ def get_local_ai_reply(raw_message, memory):
         mark_form_submitted_by_user(memory)
         return form_submitted_reply()
 
+    if is_contextual_thanks(text):
+        memory["last_intent"] = "thanks"
+        memory["pending_field"] = None
+        memory["last_offer"] = None
+        return thanks_reply(memory)
+
     if asks_preinscription_status(text):
         clear_arrival_context(memory)
         memory["role"] = "expositor"
@@ -1283,7 +1348,13 @@ def get_local_ai_reply(raw_message, memory):
         memory["last_intent"] = "booths"
         return matching_stands_reply(memory["desired_stand_type"], zone, memory)
 
-    if has_any(text, ["que puedo preguntar", "preguntarte", "recomiendame", "recomienda", "opciones"]):
+    if asks_for_stand_recommendation(text, memory):
+        clear_arrival_context(memory)
+        memory["role"] = "expositor"
+        memory["last_intent"] = "booths"
+        return stand_recommendation_reply(memory)
+
+    if has_any(text, ["que puedo preguntar", "preguntarte"]):
         memory["last_intent"] = "suggestions"
         return suggestions_reply(memory)
 
@@ -1341,7 +1412,7 @@ def get_local_ai_reply(raw_message, memory):
     if intent == "advisor":
         return advisor_reply(memory)
     if intent == "thanks":
-        return "Con gusto. Soy Ori y estoy aqui para ayudarte con la feria cuando lo necesites."
+        return thanks_reply(memory)
 
     if asks_for_history(text):
         memory["last_intent"] = "history"
@@ -1674,8 +1745,7 @@ def registration_link_reply(memory):
 def form_submitted_reply():
     return (
         "Que buena noticia! Ya diste el primer paso para hacer parte de Feria Origen Colombia 2027.\n\n"
-        "Eso significa que el equipo ya recibio tu informacion o que la tomaremos como preinscripcion enviada. "
-        "La confirmacion final de participacion, disponibilidad del stand y metodos de pago la realiza el equipo organizador despues de revisar tu solicitud.\n\n"
+        "El equipo revisara tu preinscripcion y se comunicara contigo para confirmar disponibilidad, inscripcion y metodos de pago.\n\n"
         "Estoy aqui si quieres revisar ubicacion, stands, fechas o cualquier otra informacion de la feria."
     )
 
@@ -1702,6 +1772,30 @@ def preinscription_status_reply():
         "Por ahora no tengo un tiempo exacto oficial. "
         "Te recomiendo estar pendiente del WhatsApp o correo que dejaste en el formulario."
     )
+
+
+def thanks_reply(memory):
+    if memory.get("form_submitted"):
+        return (
+            "Con mucho gusto! El equipo revisara tu preinscripcion y se comunicara contigo para confirmar "
+            "disponibilidad, inscripcion y metodos de pago.\n\n"
+            "Estoy aqui si quieres revisar stands, ubicacion o cualquier detalle de la feria."
+        )
+
+    if memory.get("registration_link_sent_at") or memory.get("process_stage") == "link_preinscripcion_enviado":
+        return (
+            "Con mucho gusto! Cuando completes la preinscripcion, el equipo revisara tu solicitud y se comunicara contigo "
+            "para confirmar disponibilidad, inscripcion y metodos de pago.\n\n"
+            "Estoy aqui si quieres revisar stands, precios o ubicacion."
+        )
+
+    if memory.get("last_intent") in {"booths", "plan", "prices", "stand_includes"} or memory.get("selected_stand"):
+        return "Con mucho gusto! Si quieres revisar otro stand, precios, medidas o el plano, aqui estoy para ayudarte."
+
+    if memory.get("role") == "visitante":
+        return "Con mucho gusto! Estoy aqui si quieres revisar ubicacion, fecha, actividades o productos de la feria."
+
+    return "Con gusto. Soy Ori y estoy aqui para ayudarte con la feria cuando lo necesites."
 
 
 def exhibitor_city_reply(memory, city):
@@ -1987,6 +2081,81 @@ def matching_stands_reply(stand_type, zone, memory=None):
     )
 
 
+def stand_recommendation_reply(memory):
+    zone = recommendation_zone(memory)
+    if not zone:
+        return (
+            "Claro! Para recomendarte mejor, dime en que zona prefieres ubicarte: "
+            "Patio de las Artes o Salon Pierre Daguet."
+        )
+
+    options = recommended_stands_for_zone(zone, memory.get("desired_stand_type"))
+    zone_name = ZONE_LABELS.get(zone, zone)
+    if not options:
+        return (
+            f"En {zone_name} no veo opciones disponibles con ese filtro en la informacion cargada. "
+            "Puedo revisar otra zona o mostrarte todos los stands disponibles."
+        )
+
+    memory["last_suggested_stand"] = options[0]["number"]
+    memory["desired_zone"] = zone
+    memory["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    intro = f"Como el stand {memory.get('blocked_stand')} no esta disponible, " if memory.get("blocked_stand") else ""
+    lines = [
+        f"{intro}te recomiendo mirar estas opciones en {zone_name}:",
+        "",
+    ]
+    for option in options[:3]:
+        price = STAND_PRICES.get(option["number"], {})
+        type_text = price.get("type", "tipo no cargado")
+        price_text = price.get("price", "precio no cargado")
+        lines.append(f"- Stand {option['number']}: {type_text}, {option['size']}, {price_text}.")
+
+    lines.append("")
+    lines.append(f"Si quieres, empezamos revisando el stand {options[0]['number']}.")
+    return "\n".join(lines)
+
+
+def recommendation_zone(memory):
+    for key in ("desired_zone",):
+        if memory.get(key):
+            return memory[key]
+
+    for stand_key in ("blocked_stand", "selected_stand", "last_suggested_stand"):
+        number = memory.get(stand_key)
+        if number:
+            stand = find_booth(number)
+            if stand:
+                return stand["zone"]
+    return None
+
+
+def recommended_stands_for_zone(zone, stand_type=None):
+    options = []
+    for stand in iter_booths():
+        if stand["zone"] != zone or stand["status"] != "available":
+            continue
+        price = STAND_PRICES.get(stand["number"], {})
+        if stand_type and stand_type not in normalize(price.get("type", "")):
+            continue
+        options.append(stand)
+
+    return sorted(options, key=lambda item: (recommendation_score(item["number"]), item["number"]))
+
+
+def recommendation_score(number):
+    price = STAND_PRICES.get(number, {})
+    type_text = normalize(price.get("type", ""))
+    if "esquinero premium" in type_text or "delux" in type_text:
+        return 0
+    if "esquinero" in type_text or "esquina" in type_text:
+        return 1
+    if "especial" in type_text:
+        return 2
+    return 3
+
+
 def remember_stand_interest(memory, number):
     stand = find_booth(number)
     if not stand:
@@ -2258,6 +2427,15 @@ def has_submitted_form(text, memory=None):
     direct = has_any(
         text,
         [
+            "ya me registre",
+            "ya me registr",
+            "ya me registre en el formulario",
+            "ya me registre en la pagina",
+            "ya me registre en la web",
+            "me registre",
+            "me registr",
+            "ya estoy registrado",
+            "ya estoy preinscrito",
             "ya llene el formulario",
             "ya lo llene",
             "ya lo envie",
@@ -2331,6 +2509,46 @@ def likes_suggested_stand(text, memory):
             "voy con ese",
             "vamos con ese",
         ],
+    )
+
+
+def is_contextual_thanks(text):
+    return has_any(text, ["gracias", "listo gracias", "ok gracias", "perfecto gracias", "muchas gracias"])
+
+
+def asks_for_stand_recommendation(text, memory=None):
+    if not has_any(
+        text,
+        [
+            "cual me recomienda",
+            "cual recomiendas",
+            "que me recomienda",
+            "que recomiendas",
+            "recomiendame",
+            "recomienda",
+            "que opcion me sugieres",
+            "que opciones me sugieres",
+            "que alternativa",
+            "alternativas disponibles",
+            "opciones disponibles",
+            "cual seria mejor",
+            "cual es mejor",
+        ],
+    ):
+        return False
+
+    if has_any(text, ["hotel", "restaurante", "comer", "turismo", "llegar", "ruta", "ubicacion"]):
+        return False
+
+    if has_any(text, ["stand", "stands", "stan", "estan", "puesto", "puestos"]):
+        return True
+
+    memory = memory or {}
+    return bool(
+        memory.get("role") == "expositor"
+        or memory.get("blocked_stand")
+        or memory.get("selected_stand")
+        or memory.get("last_intent") in {"booths", "prices", "stand_includes", "reservation"}
     )
 
 
