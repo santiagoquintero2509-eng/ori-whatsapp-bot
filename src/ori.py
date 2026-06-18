@@ -338,6 +338,9 @@ def handle_admin_command(raw_message, user_id=None):
     if action["type"] == "stand_owner":
         return admin_stand_owner_reply(action["stand"])
 
+    if action["type"] == "brand_stand_assignment":
+        return admin_brand_stand_assignment_reply(action["query"])
+
     if action["type"] == "confirmed_stands":
         return admin_confirmed_stands_reply()
 
@@ -398,6 +401,10 @@ def parse_admin_action(message, text):
     owner_match = re.search(r"\b(?:quien|quienes|marca)\s+(?:tiene|tienen|esta|ocupa|ocupan)\s+(?:el\s+)?stand\s*(\d{1,3})\b", text)
     if owner_match:
         return {"type": "stand_owner", "stand": int(owner_match.group(1))}
+
+    brand_assignment_query = extract_brand_assignment_query(text)
+    if brand_assignment_query:
+        return {"type": "brand_stand_assignment", "query": brand_assignment_query}
 
     if has_any(
         text,
@@ -711,6 +718,68 @@ def admin_stand_owner_reply(stand):
     return "\n".join(lines)
 
 
+def admin_brand_stand_assignment_reply(query):
+    assignment = find_admin_assignment_by_brand(query)
+    record = find_form_record(query)
+
+    if assignment:
+        stand = assignment.get("stand")
+        status = assignment.get("status") or "confirmado"
+        brand = assignment.get("brand") or query
+        return (
+            f"{brand} tiene el stand {stand} marcado en memoria administrativa.\n\n"
+            f"Estado: {status}.\n"
+            f"Categoria: {assignment.get('category') or 'sin categoria cargada'}.\n"
+            f"Telefono: {assignment.get('phone') or assignment.get('user_id') or 'sin telefono'}."
+        )
+
+    if record and record.get("confirmed_stand"):
+        return (
+            f"{record_brand(record)} aparece en la hoja de preinscripciones con stand asignado: "
+            f"{record.get('confirmed_stand')}.\n\n"
+            "Recuerda validar si esa columna corresponde a confirmacion final del equipo organizador."
+        )
+
+    if record:
+        return (
+            f"{record_brand(record)} si aparece en la hoja de preinscripciones, "
+            "pero por ahora no encuentro un stand asignado o confirmado para esa razon social.\n\n"
+            "Puedes confirmarlo con: Ori, confirma el stand 29 para "
+            f"{record_brand(record)}"
+        )
+
+    return (
+        f"No encontre una preinscripcion ni un stand confirmado para {query}. "
+        "Puedes revisar el nombre exacto de la razon social o buscarla primero en el formulario."
+    )
+
+
+def find_admin_assignment_by_brand(query):
+    target = normalize(query)
+    if not target:
+        return None
+
+    best = None
+    best_score = 0
+    for assignment in PERSISTENT_STATE.setdefault("stands", {}).values():
+        brand = normalize(assignment.get("brand", ""))
+        if not brand:
+            continue
+        score = 0
+        if target == brand:
+            score = 5
+        elif target in brand or brand in target:
+            score = 3
+        else:
+            shared = set(target.split()) & set(brand.split())
+            if len(shared) >= 2:
+                score = len(shared)
+        if score > best_score:
+            best = assignment
+            best_score = score
+    return best if best_score >= 2 else None
+
+
 def admin_confirmed_stands_reply():
     assignments = sorted(
         PERSISTENT_STATE.setdefault("stands", {}).values(),
@@ -903,6 +972,36 @@ def clean_admin_query(value):
         return None
     query = re.sub(r"^(ori|por favor|si|a)\s+", "", query, flags=re.IGNORECASE).strip()
     return query or None
+
+
+def extract_brand_assignment_query(text):
+    if "stand" not in text and "ubicacion" not in text:
+        return None
+    if not has_any(text, ["asignado", "asignada", "confirmado", "confirmada", "que stand", "cual stand", "tiene stand"]):
+        return None
+
+    question_match = re.search(
+        r"\b(?:que|cual)\s+stand\s+(?:tiene|tiene asignado|tiene confirmado|se le asigno|se asigno a)\s+(.+)$",
+        text,
+    )
+    if question_match:
+        return clean_admin_query(question_match.group(1))
+
+    direct_match = re.search(
+        r"^(.+?)\s+(?:ya\s+)?(?:tiene|tendra|tendria|cuenta\s+con)\s+(?:stand|ubicacion)\s+(?:asignad[oa]|confirmad[oa])\b",
+        text,
+    )
+    if direct_match:
+        return clean_admin_query(direct_match.group(1))
+
+    assigned_to_match = re.search(
+        r"\b(?:stand|ubicacion)\s+(?:asignad[oa]|confirmad[oa])\s+(?:para|a)\s+(.+)$",
+        text,
+    )
+    if assigned_to_match:
+        return clean_admin_query(assigned_to_match.group(1))
+
+    return None
 
 
 def looks_like_form_lookup(text):
