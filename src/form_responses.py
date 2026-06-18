@@ -1,6 +1,7 @@
 import csv
 import os
 import re
+import socket
 import time
 import unicodedata
 import urllib.error
@@ -58,7 +59,7 @@ def last_form_error():
 
 
 def fetch_sheet_csv():
-    timeout = int(os.getenv("FORM_RESPONSES_TIMEOUT", "8"))
+    timeout = max(int(os.getenv("FORM_RESPONSES_TIMEOUT", "20")), 20)
     errors = []
     for url in sheet_csv_urls():
         request = urllib.request.Request(url, headers={"User-Agent": "Ori WhatsApp Bot"})
@@ -72,6 +73,8 @@ def fetch_sheet_csv():
             errors.append(f"{url}: Google Sheet respondio {error.code}")
         except urllib.error.URLError as error:
             errors.append(f"{url}: No hubo conexion con Google Sheet: {error}")
+        except (TimeoutError, socket.timeout, OSError) as error:
+            errors.append(f"{url}: Google Sheet tardo demasiado en responder: {error}")
         except RuntimeError as error:
             errors.append(f"{url}: {error}")
 
@@ -90,7 +93,7 @@ def sheet_csv_urls():
         if "format=csv" in configured_url or "tqx=out:csv" in configured_url or "output=csv" in configured_url:
             return unique_urls([configured_url, export_csv_url(sheet_id, gid), gviz_csv_url(sheet_id, gid)])
 
-    return unique_urls([export_csv_url(sheet_id, gid), gviz_csv_url(sheet_id, gid)])
+    return unique_urls([gviz_csv_url(sheet_id, gid), export_csv_url(sheet_id, gid)])
 
 
 def export_csv_url(sheet_id, gid):
