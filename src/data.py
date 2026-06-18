@@ -123,6 +123,7 @@ FAIR_INFO = {
         "o plaza de San Diego, en el centro historico de Cartagena. Es una zona reconocida del "
         "centro historico y cercana a Las Bovedas y al Sofitel Santa Clara."
     ),
+    "google_maps_url": "https://maps.google.com/?q=10.428161,-75.5473187",
     "arrival_guide": (
         "Si el usuario pregunta como llegar, Ori debe actuar como guia local: confirmar que la feria "
         "queda en el Claustro de San Diego / UNIBAC, plaza de San Diego, Centro Historico de Cartagena; "
