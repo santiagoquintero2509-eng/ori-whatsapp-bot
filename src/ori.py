@@ -36,20 +36,21 @@ CONVERSATIONS = {}
 
 def load_persistent_state():
     if not MEMORY_PATH.exists():
-        return {"users": {}, "stands": {}, "admin_pending_actions": {}}
+        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}}
 
     try:
         state = json.loads(MEMORY_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         print(f"No se pudo cargar memoria persistente: {error}", flush=True)
-        return {"users": {}, "stands": {}, "admin_pending_actions": {}}
+        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}}
 
     if not isinstance(state, dict):
-        return {"users": {}, "stands": {}, "admin_pending_actions": {}}
+        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}}
 
     state.setdefault("users", {})
     state.setdefault("stands", {})
     state.setdefault("admin_pending_actions", {})
+    state.setdefault("admin_last_form_lookup", {})
     return state
 
 
@@ -339,7 +340,13 @@ def handle_admin_command(raw_message, user_id=None):
         return admin_help_reply()
 
     if action["type"] == "form_lookup":
-        return admin_form_lookup_reply(action["query"])
+        return admin_form_lookup_reply(action["query"], admin_key)
+
+    if action["type"] == "retry_form_lookup":
+        last_query = PERSISTENT_STATE.get("admin_last_form_lookup", {}).get(admin_key, "")
+        if not last_query:
+            return "Claro. Dime que razon social quieres consultar en el formulario."
+        return admin_form_lookup_reply(last_query, admin_key, force=True)
 
     if action["type"] == "form_summary":
         return admin_form_summary_reply(action.get("category"), action.get("today_only", False))
@@ -388,6 +395,9 @@ def parse_admin_action(message, text):
         query = extract_form_lookup_query(text)
         if query and normalize(query) not in {"el", "la", "si", "formulario"}:
             return {"type": "form_lookup", "query": query}
+
+    if has_any(text, ["intenta nuevamente", "intentar nuevamente", "vuelve a intentar", "reintenta", "intenta otra vez"]):
+        return {"type": "retry_form_lookup"}
 
     if has_any(text, ["preinscritos", "formularios recibidos", "quien lleno formulario", "quienes llenaron formulario", "inscritos en formulario"]):
         return {
@@ -564,14 +574,27 @@ def confirm_stand_for_brand(stand, brand):
     )
 
 
-def admin_form_lookup_reply(query):
+def admin_form_lookup_reply(query, admin_key=None, force=False):
+    if admin_key and query:
+        PERSISTENT_STATE.setdefault("admin_last_form_lookup", {})[admin_key] = query
+        save_persistent_state()
+
+    if force:
+        try:
+            from form_responses import get_form_records
+
+            get_form_records(force=True)
+        except Exception as error:
+            print(f"No se pudo refrescar hoja de formularios: {error}", flush=True)
+
     record = find_form_record(query)
     if not record:
         error = last_form_error()
         if error:
             return (
                 "No pude consultar la hoja de preinscripciones en este momento. "
-                "Revisa que la Google Sheet este compartida para lectura con el enlace."
+                "El enlace ya puede estar compartido, pero Google todavia puede bloquear la descarga CSV. "
+                "Revisa que la hoja permita lectura con enlace o publicala como CSV."
             )
         return f"No encontre una preinscripcion para {query} en la hoja conectada."
 
