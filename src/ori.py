@@ -222,6 +222,21 @@ def get_local_ai_reply(raw_message, memory):
         memory["last_intent"] = "booths"
         return describe_stand(stand_number)
 
+    if is_arrival_followup(text, memory):
+        origin = detect_arrival_origin(text)
+        memory["role"] = "visitante"
+        memory["last_intent"] = "arrival"
+        memory["pending_field"] = None
+        return arrival_origin_reply(origin)
+
+    if wants_registration_link(text):
+        memory["role"] = "expositor"
+        memory["last_intent"] = "registration_link"
+        memory["pending_field"] = "registration"
+        if category:
+            memory["category"] = category
+        return registration_link_reply(memory)
+
     if wants_to_reserve(text):
         memory["role"] = "expositor"
         memory["last_intent"] = "reservation"
@@ -238,6 +253,12 @@ def get_local_ai_reply(raw_message, memory):
         memory["last_intent"] = "arrival_cost"
         memory["pending_field"] = None
         return arrival_and_cost_reply()
+
+    if asks_for_route(text):
+        memory["role"] = "visitante"
+        memory["last_intent"] = "arrival"
+        memory["pending_field"] = "arrival_origin"
+        return arrival_route_reply()
 
     if asks_entry_cost(text):
         memory["role"] = "visitante"
@@ -379,7 +400,7 @@ def welcome_reply(memory):
         role_hint = " Como visitante, puedo orientarte con fecha, ubicacion, productos y actividades."
 
     return (
-        "Hola, Soy Ori, encantada de atenderte hoy. "
+        "Hola, Soy Ori, encantada de atenderte hoy! "
         f"En que puedo ayudarte sobre la {FAIR_INFO['name']}? "
         "Quieres saber algo en particular sobre la feria, los stands o las actividades?"
         f"{role_hint}"
@@ -440,8 +461,42 @@ def entry_cost_reply():
 def arrival_and_cost_reply():
     return (
         f"{FAIR_INFO['location']} {FAIR_INFO['arrival_tip']} "
+        "Si me dices desde donde sales, te puedo orientar mejor con la ruta. "
         "Sobre el costo: para visitantes, la informacion cargada indica entrada libre en ediciones anteriores "
         "y no tengo un costo de entrada diferente publicado para la edicion 2027."
+    )
+
+
+def arrival_route_reply():
+    return (
+        "Claro! La feria se realiza en el Claustro de San Diego / UNIBAC, junto a la plaza de San Diego, "
+        "en el Centro Historico de Cartagena. Para indicarte mejor como llegar, dime desde donde sales: "
+        "estas en Cartagena, vienes desde otra ciudad o estas en una zona como Bocagrande, Getsemani, Centro, Crespo, aeropuerto o terminal?"
+    )
+
+
+def arrival_origin_reply(origin):
+    if origin in {"cartagena", "centro", "ciudad_amurallada", "getsemani", "bocagrande", "crespo", "aeropuerto", "terminal"}:
+        extras = {
+            "cartagena": "Si ya estas en Cartagena,",
+            "centro": "Si estas en el Centro Historico,",
+            "ciudad_amurallada": "Si estas dentro de la Ciudad Amurallada,",
+            "getsemani": "Si estas en Getsemani,",
+            "bocagrande": "Si sales desde Bocagrande,",
+            "crespo": "Si estas en Crespo,",
+            "aeropuerto": "Si vienes desde el aeropuerto,",
+            "terminal": "Si vienes desde la terminal,",
+        }
+        return (
+            f"Perfecto! {extras[origin]} busca en Google Maps 'UNIBAC Cartagena' o 'Plaza de San Diego Cartagena'. "
+            "En taxi o Uber puedes pedir que te lleven a Plaza de San Diego o UNIBAC Bellas Artes. "
+            "Como referencia, queda cerca del Hotel Sofitel Santa Clara, en el sector San Diego del Centro Historico."
+        )
+
+    return (
+        "Claro! Si vienes desde otra ciudad, lo mas practico es llegar primero a Cartagena y luego buscar en Maps "
+        "'UNIBAC Cartagena' o 'Plaza de San Diego Cartagena'. La feria queda en el Claustro de San Diego, "
+        "en pleno Centro Historico."
     )
 
 
@@ -493,27 +548,27 @@ def previous_fairs_reply():
 
 def exhibitor_guide_reply():
     return (
-        "Que bueno que quieras ser parte de la feria. Te acompano paso a paso: podemos revisar categoria, zona, disponibilidad y precios. "
-        "Dime que tipo de marca tienes, por ejemplo joyeria, gastronomia, moda o artesanias, y avanzamos paso a paso. "
-        f"Cuando estes listo, el formulario oficial de preinscripcion es: {FAIR_INFO['registration_form_url']}"
+        "Que bueno que quieras ser parte de la feria! Esta es una oportunidad muy bonita para mostrar tu marca y conectar con nuevos clientes. "
+        f"Puedes iniciar tu preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
+        "La disponibilidad del stand queda sujeta a confirmacion del equipo organizador. "
+        "Si quieres, tambien puedo ayudarte a confirmar tu categoria antes de llenar el formulario."
     )
 
 
 def category_followup_reply(category):
     return (
-        f"Perfecto, {category} aplica para la feria. Me gusta que vayamos aterrizando la propuesta. "
-        "Podemos revisar disponibilidad, zona o precios antes de que tomes una decision. "
-        f"Cuando te sientas listo, este es el formulario oficial de preinscripcion: {FAIR_INFO['registration_form_url']} "
-        "Ten a mano marca, ciudad, producto, WhatsApp, correo, redes y catalogo o imagenes."
+        f"Perfecto! {category} aplica para la feria. Me alegra que ya tengamos clara la categoria. "
+        f"Puedes avanzar con la preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
+        "Recuerda que el stand o ubicacion queda sujeto a confirmacion del equipo organizador."
     )
 
 
 def product_detail_followup_reply(memory):
     category = memory.get("category") or "la categoria que venimos revisando"
     return (
-        f"Que bonito proyecto. Ya tengo claro que va por {category} y que el producto es artesanal. "
-        "El siguiente paso practico seria revisar stand, zona o disponibilidad antes de iniciar la preinscripcion. "
-        "Quieres que miremos stands disponibles?"
+        f"Que bonito proyecto! Ya tengo claro que va por {category}. "
+        f"Si ya quieres avanzar, puedes iniciar tu preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
+        "Si prefieres, tambien revisamos primero stands disponibles."
     )
 
 
@@ -525,7 +580,8 @@ def reservation_reply(memory):
 
     if selected_stand and selected_status == "available":
         return (
-            f"Me alegra que te hayas animado a reservar. Este es el link para iniciar tu reserva o preinscripcion: "
+            f"Me alegra que te hayas animado a reservar! Esta es una oportunidad unica para darle visibilidad a tu marca. "
+            f"Este es el link para iniciar tu reserva o preinscripcion: "
             f"{FAIR_INFO['registration_form_url']} "
             f"Recordemos que el stand {selected_stand} aparece disponible en la informacion cargada, "
             "pero el numero queda sujeto a confirmacion final por parte de los organizadores."
@@ -538,9 +594,21 @@ def reservation_reply(memory):
         )
 
     return (
-        "Claro. Para guiarte con la reserva primero dime que numero de stand te interesa. "
-        f"Cuando lo tengamos, te comparto el formulario oficial: {FAIR_INFO['registration_form_url']} "
+        "Claro! Me alegra que quieras avanzar con tu reserva o preinscripcion. "
+        f"Puedes iniciar aqui: {FAIR_INFO['registration_form_url']} "
         "El numero del stand queda sujeto a confirmacion final por parte de los organizadores."
+    )
+
+
+def registration_link_reply(memory):
+    category = memory.get("category")
+    category_note = f" Ya tengo presente tu categoria: {category}." if category else ""
+    return (
+        "Me alegra que te hayas decidido a participar! Feria Origen Colombia 2027 es una oportunidad unica "
+        "para mostrar tu marca, conectar con visitantes y hacer parte de una experiencia con identidad colombiana. "
+        f"Puedes iniciar tu preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
+        "Recuerda que la disponibilidad del stand o ubicacion queda sujeta a confirmacion del equipo organizador."
+        f"{category_note}"
     )
 
 
@@ -689,9 +757,10 @@ def describe_stand(number):
     price_text = stand_price_text(number)
     if stand["status"] == "available":
         return (
-            f"Genial eleccion. El stand {stand['number']} esta disponible en {zone}. "
+            f"Genial eleccion! El stand {stand['number']} esta disponible en {zone}. "
             f"Medidas: {stand['size']}.{price_text} "
-            "Si te interesa, enviame nombre, marca, producto y ciudad para que el equipo lo revise."
+            f"Si te interesa avanzar, puedes iniciar la preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
+            "El numero queda sujeto a confirmacion final por parte de los organizadores."
         )
 
     if stand["status"] == "reserved":
@@ -892,6 +961,33 @@ def wants_to_participate(text):
     )
 
 
+def wants_registration_link(text):
+    return has_any(
+        text,
+        [
+            "quiero inscribirme",
+            "quiero preinscribirme",
+            "me quiero inscribir",
+            "me quiero preinscribir",
+            "como me inscribo",
+            "como hago para inscribirme",
+            "como hago la preinscripcion",
+            "como hago para preinscribirme",
+            "mandame el formulario",
+            "enviame el formulario",
+            "comparteme el formulario",
+            "link de inscripcion",
+            "link de preinscripcion",
+            "formulario de inscripcion",
+            "formulario de preinscripcion",
+            "quiero llenar el formulario",
+            "quiero participar",
+            "como puedo participar",
+            "estoy interesado en participar",
+        ],
+    )
+
+
 def wants_to_reserve(text):
     return has_any(
         text,
@@ -935,6 +1031,22 @@ def asks_for_plan(text):
     )
 
 
+def asks_for_route(text):
+    return has_any(
+        text,
+        [
+            "como llego",
+            "como llegar",
+            "llegar a la feria",
+            "llego a la feria",
+            "como voy",
+            "ruta",
+            "indicaciones para llegar",
+            "por donde llego",
+        ],
+    )
+
+
 def asks_for_arrival(text):
     return has_any(
         text,
@@ -950,6 +1062,36 @@ def asks_for_arrival(text):
             "como voy",
         ],
     )
+
+
+def is_arrival_followup(text, memory):
+    if memory.get("last_intent") not in {"arrival", "arrival_cost", "location"}:
+        return False
+    if memory.get("pending_field") not in {"arrival_origin", None}:
+        return False
+    return detect_arrival_origin(text) is not None
+
+
+def detect_arrival_origin(text):
+    if has_any(text, ["aeropuerto", "rafael nunez", "rafael nuÃ±ez"]):
+        return "aeropuerto"
+    if has_any(text, ["terminal", "terminal de transporte"]):
+        return "terminal"
+    if has_any(text, ["bocagrande"]):
+        return "bocagrande"
+    if has_any(text, ["getsemani", "getsemani"]):
+        return "getsemani"
+    if has_any(text, ["ciudad amurallada", "amurallada"]):
+        return "ciudad_amurallada"
+    if has_any(text, ["centro historico", "centro"]):
+        return "centro"
+    if has_any(text, ["crespo"]):
+        return "crespo"
+    if has_any(text, ["estoy en cartagena", "ya estoy en cartagena", "desde cartagena", "en cartagena", "cartagena"]):
+        return "cartagena"
+    if has_any(text, ["otra ciudad", "pereira", "bogota", "medellin", "cali", "barranquilla", "santa marta"]):
+        return "otra_ciudad"
+    return None
 
 
 def asks_entry_cost(text):
@@ -1170,6 +1312,7 @@ def build_feria_context():
         f"Actividades: {FAIR_INFO['activities']}\n"
         f"Ubicacion: {FAIR_INFO['location']}\n"
         f"Como llegar: {FAIR_INFO['arrival_tip']}\n"
+        f"Guia de llegada: {FAIR_INFO['arrival_guide']}\n"
         f"Costo de entrada visitantes: {FAIR_INFO['entry_cost']}\n"
         f"Lugares cercanos: {FAIR_INFO['nearby_places']}\n"
         f"Historia sede: {FAIR_INFO['venue_history']}\n"
