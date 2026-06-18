@@ -345,6 +345,10 @@ def handle_admin_command(raw_message, user_id=None):
         remember_admin_context(admin_key, "brand_stand_assignment")
         return admin_brand_stand_assignment_reply(action["query"])
 
+    if action["type"] == "client_info":
+        remember_admin_context(admin_key, "client_info")
+        return admin_client_info_reply(action["query"])
+
     if action["type"] == "confirmed_stands":
         return admin_confirmed_stands_reply()
 
@@ -411,6 +415,10 @@ def parse_admin_action(message, text):
     if brand_assignment_query:
         return {"type": "brand_stand_assignment", "query": brand_assignment_query}
 
+    client_info_query = extract_admin_client_info_query(text)
+    if client_info_query:
+        return {"type": "client_info", "query": client_info_query}
+
     if has_any(
         text,
         [
@@ -452,13 +460,17 @@ def parse_admin_action(message, text):
 
 def parse_admin_followup_action(message, text, admin_key):
     context = PERSISTENT_STATE.setdefault("admin_last_context", {}).get(admin_key) or {}
-    if context.get("type") != "brand_stand_assignment":
+    if context.get("type") not in {"brand_stand_assignment", "client_info", "form_lookup"}:
         return None
 
     query = extract_short_brand_followup(message, text)
     if not query:
         return None
 
+    if context.get("type") == "client_info":
+        return {"type": "client_info", "query": query}
+    if context.get("type") == "form_lookup":
+        return {"type": "form_lookup", "query": query}
     return {"type": "brand_stand_assignment", "query": query}
 
 
@@ -689,10 +701,131 @@ def admin_form_lookup_reply(query, admin_key=None, force=False):
     return "Si, encontre esta preinscripcion:\n\n" + format_form_record(record)
 
 
+def admin_client_info_reply(query):
+    record = find_form_record(query)
+    assignment = find_admin_assignment_by_brand(query)
+    memories = find_user_memories_for_client(query, record)
+    brand = resolved_client_brand(query, record, assignment, memories)
+
+    if not record and not assignment and not memories:
+        return (
+            f"No encontre informacion administrativa para {query} en la hoja, memoria de WhatsApp "
+            "ni stands confirmados. Puede estar escrito diferente."
+        )
+
+    lines = [f"Informe administrativo: {brand}"]
+    lines.append("")
+
+    if record:
+        lines.extend(format_admin_record_lines(record))
+    else:
+        lines.append("Formulario: no encontre registro en la hoja conectada.")
+
+    lines.append("")
+    lines.extend(format_admin_assignment_lines(query, record, assignment, memories))
+
+    lines.append("")
+    if memories:
+        lines.extend(format_admin_memory_lines(memories[0]))
+        if len(memories) > 1:
+            lines.append(f"Otros chats posiblemente relacionados: {len(memories) - 1}.")
+    else:
+        lines.append("Conversacion por WhatsApp: no encontre memoria asociada a esta marca o telefono.")
+
+    return "\n".join(lines)
+
+
+def format_admin_record_lines(record):
+    lines = [
+        "Formulario: preinscripcion recibida.",
+        f"Razon social: {record.get('legal_name') or 'sin dato'}",
+        f"Representante: {record.get('representative') or 'sin dato'}",
+        f"Nombre para el stand: {record.get('stand_name') or 'sin dato'}",
+        f"Ciudad: {record.get('city') or 'sin dato'}",
+        f"WhatsApp: {record.get('whatsapp') or 'sin dato'}",
+        f"Correo: {record.get('email') or 'sin dato'}",
+        f"Producto: {record.get('products') or 'sin dato'}",
+    ]
+    if record.get("socials"):
+        lines.append(f"Redes/web: {record.get('socials')}")
+    if record.get("sample"):
+        lines.append(f"Muestra/catalogo: {record.get('sample')}")
+    if record.get("comments"):
+        lines.append(f"Comentarios: {record.get('comments')}")
+    return lines
+
+
+def format_admin_assignment_lines(query, record, assignment, memories):
+    if assignment:
+        return [
+            f"Stand asignado: {assignment.get('stand') or 'sin numero'}",
+            f"Estado administrativo: {assignment.get('status') or 'confirmado'}",
+        ]
+
+    if record and record.get("confirmed_stand"):
+        return [
+            f"Stand asignado en hoja: {record.get('confirmed_stand')}",
+            "Estado administrativo: validar si esa columna corresponde a confirmacion final del equipo.",
+        ]
+
+    for _, memory in memories:
+        if memory.get("confirmed_stand"):
+            return [
+                f"Stand confirmado en memoria: {memory.get('confirmed_stand')}",
+                "Estado administrativo: confirmado en memoria de WhatsApp.",
+            ]
+
+    return [
+        "Stand asignado: pendiente.",
+        "Estado administrativo: preinscripcion recibida, pendiente de asignacion de stand."
+        if record
+        else "Estado administrativo: sin preinscripcion en hoja, revisar manualmente.",
+    ]
+
+
+def format_admin_memory_lines(memory_item):
+    user_id, memory = memory_item
+    parts = []
+    selected = memory.get("selected_stand")
+    blocked = memory.get("blocked_stand")
+    suggested = memory.get("last_suggested_stand")
+    if selected:
+        parts.append(f"mostro interes en el stand {selected}")
+    elif suggested:
+        parts.append(f"recibio sugerencia del stand {suggested}")
+    elif blocked:
+        parts.append(f"consulto el stand {blocked}, que aparece {STATUS_LABELS.get(memory.get('blocked_stand_status'), 'no disponible')}")
+    else:
+        parts.append("ha conversado con Ori")
+
+    if memory.get("form_submitted"):
+        parts.append("ya indico que lleno o envio el formulario")
+    elif memory.get("registration_link_sent_at"):
+        parts.append("ya recibio el link de preinscripcion")
+    else:
+        parts.append("aun no indico formulario enviado")
+
+    lines = [
+        f"Conversacion por WhatsApp: {', y '.join(parts)}.",
+        f"Telefono del chat: {memory.get('phone') or user_id}",
+    ]
+    if memory.get("brand"):
+        lines.append(f"Marca detectada en chat: {memory.get('brand')}")
+    if memory.get("category"):
+        lines.append(f"Categoria detectada en chat: {memory.get('category')}")
+    if memory.get("product"):
+        lines.append(f"Producto detectado en chat: {memory.get('product')}")
+    if memory.get("city"):
+        lines.append(f"Ciudad detectada en chat: {memory.get('city')}")
+    return lines
+
+
 def admin_help_reply():
     return (
         "Si, te reconozco como administrador.\n\n"
         "Puedes pedirme, por ejemplo:\n"
+        "- Ori, dame mas informacion sobre Aurora Boreal\n"
+        "- Ori, que datos tienes de Panta\n"
         "- Ori, busca Aurora Boreal en el formulario\n"
         "- Ori, Aurora Boreal ya lleno formulario?\n"
         "- Ori, muestra preinscritos\n"
@@ -952,6 +1085,79 @@ def find_user_by_brand(brand):
     return None, None
 
 
+def find_user_memories_for_client(query, record=None):
+    target = normalize(query)
+    record_phone = normalize_phone(record.get("whatsapp")) if record else ""
+    record_terms = set()
+    if record:
+        for field in ("legal_name", "stand_name", "representative", "email", "products", "socials"):
+            value = normalize(record.get(field))
+            if value:
+                record_terms.add(value)
+
+    matches = []
+    for user_id, memory in CONVERSATIONS.items():
+        score = client_memory_match_score(user_id, memory, target, record_phone, record_terms)
+        if score >= 2:
+            matches.append((score, user_id, memory))
+
+    matches.sort(key=lambda item: item[0], reverse=True)
+    return [(user_id, memory) for _, user_id, memory in matches[:5]]
+
+
+def client_memory_match_score(user_id, memory, target, record_phone="", record_terms=None):
+    record_terms = record_terms or set()
+    score = 0
+    memory_phone = normalize_phone(memory.get("phone") or user_id)
+    if record_phone and phones_are_equivalent(memory_phone, record_phone):
+        score += 12
+
+    haystacks = [
+        (memory.get("brand"), 6),
+        (memory.get("product"), 3),
+        (memory.get("category"), 2),
+        (memory.get("city"), 1),
+    ]
+    for value, weight in haystacks:
+        score += text_match_score(target, normalize(value), weight)
+        for term in record_terms:
+            score += text_match_score(term, normalize(value), max(1, weight - 1))
+
+    history_text = normalize(" ".join(
+        f"{item.get('user', '')} {item.get('ori', '')}" for item in memory.get("history", [])[-8:]
+    ))
+    score += text_match_score(target, history_text, 2)
+    for term in record_terms:
+        score += text_match_score(term, history_text, 1)
+
+    return score
+
+
+def text_match_score(needle, haystack, weight=1):
+    if not needle or not haystack:
+        return 0
+    if needle == haystack:
+        return 5 * weight
+    if needle in haystack or haystack in needle:
+        return 3 * weight
+    shared = set(needle.split()) & set(haystack.split())
+    if len(shared) >= 2:
+        return len(shared) * weight
+    return 0
+
+
+def resolved_client_brand(query, record=None, assignment=None, memories=None):
+    if record:
+        return record_brand(record)
+    if assignment and assignment.get("brand"):
+        return assignment.get("brand")
+    memories = memories or []
+    for _, memory in memories:
+        if memory.get("brand"):
+            return memory.get("brand")
+    return query
+
+
 def sync_form_record_to_memory(memory, record):
     if not record:
         return
@@ -1060,6 +1266,24 @@ def extract_brand_assignment_query(text):
     if assigned_to_match:
         return clean_admin_query(assigned_to_match.group(1))
 
+    return None
+
+
+def extract_admin_client_info_query(text):
+    patterns = [
+        r"\b(?:dame|dame\s+por\s+favor|muestrame|mu[eé]strame|dime|consulta|consultar|revisa|revisar)\s+(?:mas\s+)?(?:informacion|informacion\s+completa|datos|detalle|detalles|estado|perfil)\s+(?:sobre|de|del|para)\s+(.+)$",
+        r"\b(?:que|cuales)\s+(?:datos|informacion|detalle|detalles)\s+(?:tienes|hay|tenemos)\s+(?:sobre|de|del|para)\s+(.+)$",
+        r"\b(?:estado|perfil|informacion|datos)\s+(?:de|del|sobre)\s+(.+)$",
+        r"\b(?:busca|buscar)\s+(?:a\s+)?(.+)$",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if not match:
+            continue
+        query = clean_admin_query(match.group(1))
+        query = re.sub(r"\s+(?:en\s+)?(?:el\s+)?(?:formulario|preinscripcion)$", "", query or "").strip()
+        if query and normalize(query) not in {"el", "la", "los", "las", "formulario", "preinscripcion", "stand"}:
+            return query
     return None
 
 
