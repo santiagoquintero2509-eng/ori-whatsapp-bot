@@ -694,7 +694,7 @@ def preinscription_status_reply():
     return (
         "Con gusto! Despues de enviar tu preinscripcion, el equipo revisara tu solicitud y se comunicara contigo "
         "para confirmar disponibilidad, inscripcion y metodos de pago.\n\n"
-        "Por ahora no tengo un tiempo exacto oficial cargado, asi que prefiero no inventarlo. "
+        "Por ahora no tengo un tiempo exacto oficial. "
         "Te recomiendo estar pendiente del WhatsApp o correo que dejaste en el formulario."
     )
 
@@ -1000,7 +1000,20 @@ def detect_intent(text, memory):
 def should_treat_as_stand(text, memory):
     return (
         bool(re.search(r"\b(?:stand|stan|estan|puesto)\s*\d{1,3}\b", text))
-        or has_any(text, ["prefiero", "mejor", "reservado", "disponible", "no disponible", "me interesa el", "interesado en el"])
+        or has_any(text, [
+            "prefiero",
+            "mejor",
+            "reservado",
+            "disponible",
+            "no disponible",
+            "me interesa el",
+            "interesado en el",
+            "quiero el",
+            "elegir el",
+            "escoger el",
+            "me gustaria elegir",
+            "me gustaria escoger",
+        ])
         or memory.get("last_intent") in {"booths", "exhibitor", "plan"}
         or memory.get("role") == "expositor"
     )
@@ -1201,12 +1214,21 @@ def asks_preinscription_status(text):
         text,
         [
             "en cuanto tiempo me dan respuesta",
+            "en cuanto tiempo tendria respuesta",
+            "en cuanto tiempo tendre respuesta",
             "cuanto tiempo me dan respuesta",
+            "cuanto tiempo tendria respuesta",
+            "cuanto tiempo tendre respuesta",
             "cuando me dan respuesta",
             "cuando me responden",
+            "cuando tendria respuesta",
+            "cuando tendre respuesta",
             "cuanto se demoran",
             "cuanto tarda",
             "tiempo de respuesta",
+            "tendria respuesta",
+            "tendre respuesta",
+            "me dan respuesta",
             "respuesta de mi preinscripcion",
             "respuesta de la preinscripcion",
             "cuando me contactan",
