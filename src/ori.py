@@ -201,7 +201,9 @@ def get_memory(user_id):
             "desired_stand_type": None,
             "desired_zone": None,
             "pending_field": None,
+            "last_offer": None,
             "category": None,
+            "city": None,
             "history": [],
         }
     return CONVERSATIONS[key]
@@ -216,11 +218,26 @@ def get_local_ai_reply(raw_message, memory):
 
     category = detect_product_category(text)
 
+    if asks_to_change_topic(text):
+        reset_topic_memory(memory)
+
     stand_number = extract_stand_number(text)
     if stand_number and should_treat_as_stand(text, memory):
+        clear_arrival_context(memory)
+        memory["role"] = "expositor"
         remember_stand_interest(memory, stand_number)
         memory["last_intent"] = "booths"
         return describe_stand(stand_number)
+
+    if is_affirmative_followup(text, memory):
+        return handle_affirmative_followup(memory)
+
+    if asks_for_maps_link(text):
+        memory["role"] = "visitante"
+        memory["last_intent"] = "maps_link"
+        memory["pending_field"] = None
+        memory["last_offer"] = None
+        return maps_link_reply()
 
     if is_arrival_followup(text, memory):
         origin = detect_arrival_origin(text)
@@ -230,6 +247,7 @@ def get_local_ai_reply(raw_message, memory):
         return arrival_origin_reply(origin)
 
     if wants_registration_link(text):
+        clear_arrival_context(memory)
         memory["role"] = "expositor"
         memory["last_intent"] = "registration_link"
         memory["pending_field"] = "registration"
@@ -238,6 +256,7 @@ def get_local_ai_reply(raw_message, memory):
         return registration_link_reply(memory)
 
     if wants_to_reserve(text):
+        clear_arrival_context(memory)
         memory["role"] = "expositor"
         memory["last_intent"] = "reservation"
         memory["pending_field"] = "registration"
@@ -258,6 +277,7 @@ def get_local_ai_reply(raw_message, memory):
         memory["role"] = "visitante"
         memory["last_intent"] = "arrival"
         memory["pending_field"] = "arrival_origin"
+        memory["last_offer"] = "maps_link"
         return arrival_route_reply()
 
     if asks_entry_cost(text):
@@ -282,8 +302,16 @@ def get_local_ai_reply(raw_message, memory):
         memory["pending_field"] = None
         return advisor_reply(memory)
 
+    city = detect_city_origin(text)
+    if city and memory.get("role") == "expositor":
+        memory["city"] = city
+        memory["last_intent"] = "lead_city"
+        memory["pending_field"] = None
+        return exhibitor_city_reply(memory, city)
+
     stand_type = detect_stand_type(text)
     if stand_type and (should_follow_stand_filters(memory) or has_any(text, ["stand", "stands", "stan", "estan", "puesto", "puestos"])):
+        clear_arrival_context(memory)
         memory["role"] = "expositor"
         memory["desired_stand_type"] = stand_type
         memory["last_intent"] = "booths"
@@ -294,6 +322,7 @@ def get_local_ai_reply(raw_message, memory):
         return stand_type_followup_reply(stand_type)
 
     if wants_to_participate(text):
+        clear_arrival_context(memory)
         memory["role"] = "expositor"
         if category:
             memory["category"] = category
@@ -316,6 +345,7 @@ def get_local_ai_reply(raw_message, memory):
 
     stand_type = detect_stand_type(text)
     if stand_type and (should_follow_stand_filters(memory) or has_any(text, ["stand", "stands", "stan", "estan", "puesto", "puestos"])):
+        clear_arrival_context(memory)
         memory["desired_stand_type"] = stand_type
         memory["last_intent"] = "booths"
         zone = detect_zone_preference(text)
@@ -471,7 +501,16 @@ def arrival_route_reply():
     return (
         "Claro! La feria se realiza en el Claustro de San Diego / UNIBAC, junto a la plaza de San Diego, "
         "en el Centro Historico de Cartagena. Para indicarte mejor como llegar, dime desde donde sales: "
-        "estas en Cartagena, vienes desde otra ciudad o estas en una zona como Bocagrande, Getsemani, Centro, Crespo, aeropuerto o terminal?"
+        "estas en Cartagena, vienes desde otra ciudad o estas en una zona como Bocagrande, Getsemani, Centro, Crespo, aeropuerto o terminal? "
+        f"Tambien puedo compartirte la ubicacion en Google Maps: {FAIR_INFO['google_maps_url']}"
+    )
+
+
+def maps_link_reply():
+    return (
+        "Claro! Te comparto la ubicacion en Google Maps:\n\n"
+        f"{FAIR_INFO['google_maps_url']}\n\n"
+        "La feria se realiza en la Sede UNIBAC, junto a la plaza de San Diego, en el Centro Historico de Cartagena."
     )
 
 
@@ -488,14 +527,16 @@ def arrival_origin_reply(origin):
             "terminal": "Si vienes desde la terminal,",
         }
         return (
-            f"Perfecto! {extras[origin]} busca en Google Maps 'UNIBAC Cartagena' o 'Plaza de San Diego Cartagena'. "
+            f"Perfecto! {extras[origin]} puedes usar esta ubicacion en Google Maps:\n\n"
+            f"{FAIR_INFO['google_maps_url']}\n\n"
             "En taxi o Uber puedes pedir que te lleven a Plaza de San Diego o UNIBAC Bellas Artes. "
             "Como referencia, queda cerca del Hotel Sofitel Santa Clara, en el sector San Diego del Centro Historico."
         )
 
     return (
-        "Claro! Si vienes desde otra ciudad, lo mas practico es llegar primero a Cartagena y luego buscar en Maps "
-        "'UNIBAC Cartagena' o 'Plaza de San Diego Cartagena'. La feria queda en el Claustro de San Diego, "
+        "Claro! Si vienes desde otra ciudad, lo mas practico es llegar primero a Cartagena y luego abrir esta ubicacion:\n\n"
+        f"{FAIR_INFO['google_maps_url']}\n\n"
+        "La feria queda en el Claustro de San Diego / UNIBAC, "
         "en pleno Centro Historico."
     )
 
@@ -609,6 +650,17 @@ def registration_link_reply(memory):
         f"Puedes iniciar tu preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
         "Recuerda que la disponibilidad del stand o ubicacion queda sujeta a confirmacion del equipo organizador."
         f"{category_note}"
+    )
+
+
+def exhibitor_city_reply(memory, city):
+    selected_stand = memory.get("selected_stand")
+    selected_note = f" y el stand {selected_stand}" if selected_stand else ""
+    return (
+        f"Perfecto, gracias por contarme que vienes de {city}. "
+        f"Lo tengo presente para tu proceso de preinscripcion{selected_note}.\n\n"
+        f"Si ya quieres avanzar, el formulario oficial es:\n{FAIR_INFO['registration_form_url']}\n\n"
+        "Necesitas ayuda con algo mas?"
     )
 
 
@@ -756,11 +808,19 @@ def describe_stand(number):
     zone = ZONE_LABELS[stand["zone"]]
     price_text = stand_price_text(number)
     if stand["status"] == "available":
+        price = STAND_PRICES.get(stand["number"])
+        type_line = f"Tipo: {price['type']}." if price else ""
+        price_line = f"Precio: {price['price']}." if price else ""
         return (
-            f"Genial eleccion! El stand {stand['number']} esta disponible en {zone}. "
-            f"Medidas: {stand['size']}.{price_text} "
-            f"Si te interesa avanzar, puedes iniciar la preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
-            "El numero queda sujeto a confirmacion final por parte de los organizadores."
+            f"Genial eleccion! El stand {stand['number']} esta disponible en {zone}.\n\n"
+            f"Medidas: {stand['size']}.\n"
+            f"{type_line}\n"
+            f"{price_line}\n\n"
+            "Si te interesa avanzar, puedes iniciar la preinscripcion aqui:\n"
+            f"{FAIR_INFO['registration_form_url']}\n\n"
+            "El numero del stand queda sujeto a confirmacion final por parte de los organizadores. "
+            "Una vez envies el formulario, el equipo revisara tu solicitud y se pondra en contacto contigo para confirmar inscripcion y metodos de pago.\n\n"
+            "Necesitas ayuda con algo mas?"
         )
 
     if stand["status"] == "reserved":
@@ -931,6 +991,63 @@ def wants_human_help(text):
     )
 
 
+def asks_to_change_topic(text):
+    return has_any(
+        text,
+        [
+            "cambiemos de tema",
+            "cambiar de tema",
+            "dejemos ese tema",
+            "otro tema",
+            "ahora quiero",
+            "pasemos a",
+        ],
+    )
+
+
+def reset_topic_memory(memory):
+    memory["pending_field"] = None
+    memory["last_offer"] = None
+    memory["desired_stand_type"] = None
+    memory["desired_zone"] = None
+
+
+def clear_arrival_context(memory):
+    if memory.get("last_intent") in {"arrival", "arrival_cost", "maps_link", "location"}:
+        memory["pending_field"] = None
+        memory["last_offer"] = None
+
+
+def is_affirmative_followup(text, memory):
+    if memory.get("last_offer") != "maps_link":
+        return False
+    return has_any(
+        text,
+        [
+            "si",
+            "claro",
+            "por favor",
+            "seria maravilloso",
+            "seria excelente",
+            "dale",
+            "enviala",
+            "enviamela",
+            "mandala",
+            "mandamela",
+            "gracias",
+        ],
+    )
+
+
+def handle_affirmative_followup(memory):
+    if memory.get("last_offer") == "maps_link":
+        memory["last_offer"] = None
+        memory["pending_field"] = None
+        memory["last_intent"] = "maps_link"
+        return maps_link_reply()
+    return "Claro! Con gusto."
+
+
 def wants_to_participate(text):
     return has_any(
         text,
@@ -1047,6 +1164,29 @@ def asks_for_route(text):
     )
 
 
+def asks_for_maps_link(text):
+    return has_any(
+        text,
+        [
+            "ruta en google maps",
+            "link de google maps",
+            "enlace de google maps",
+            "mandame la ruta",
+            "enviame la ruta",
+            "comparteme la ruta",
+            "enviar la ruta",
+            "enviarme la ruta",
+            "mandame la ubicacion",
+            "enviame la ubicacion",
+            "comparteme la ubicacion",
+            "ubicacion en maps",
+            "ubicacion en google",
+            "google maps",
+            "maps",
+        ],
+    )
+
+
 def asks_for_arrival(text):
     return has_any(
         text,
@@ -1092,6 +1232,17 @@ def detect_arrival_origin(text):
     if has_any(text, ["otra ciudad", "pereira", "bogota", "medellin", "cali", "barranquilla", "santa marta"]):
         return "otra_ciudad"
     return None
+
+
+def detect_city_origin(text):
+    match = re.search(r"\b(?:vengo|voy|soy|salgo)\s+de\s+([a-z ]{3,40})\b", text)
+    if not match:
+        return None
+    raw_city = match.group(1).strip()
+    raw_city = re.split(r"\b(?:y|pero|porque|para|con)\b", raw_city, maxsplit=1)[0].strip()
+    if not raw_city:
+        return None
+    return " ".join(part.capitalize() for part in raw_city.split())
 
 
 def asks_entry_cost(text):
@@ -1313,6 +1464,7 @@ def build_feria_context():
         f"Ubicacion: {FAIR_INFO['location']}\n"
         f"Como llegar: {FAIR_INFO['arrival_tip']}\n"
         f"Guia de llegada: {FAIR_INFO['arrival_guide']}\n"
+        f"Google Maps oficial: {FAIR_INFO['google_maps_url']}\n"
         f"Costo de entrada visitantes: {FAIR_INFO['entry_cost']}\n"
         f"Lugares cercanos: {FAIR_INFO['nearby_places']}\n"
         f"Historia sede: {FAIR_INFO['venue_history']}\n"
