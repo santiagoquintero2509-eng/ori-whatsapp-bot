@@ -58,21 +58,70 @@ def last_form_error():
 
 
 def fetch_sheet_csv():
-    url = os.getenv("FORM_RESPONSES_CSV_URL", "").strip()
-    if not url:
-        sheet_id = os.getenv("FORM_RESPONSES_SHEET_ID", DEFAULT_SHEET_ID).strip()
-        gid = os.getenv("FORM_RESPONSES_GID", DEFAULT_GID).strip()
-        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
-
     timeout = int(os.getenv("FORM_RESPONSES_TIMEOUT", "8"))
-    request = urllib.request.Request(url, headers={"User-Agent": "Ori WhatsApp Bot"})
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.read().decode("utf-8-sig", errors="replace")
-    except urllib.error.HTTPError as error:
-        raise RuntimeError(f"Google Sheet respondio {error.code}") from error
-    except urllib.error.URLError as error:
-        raise RuntimeError(f"No hubo conexion con Google Sheet: {error}") from error
+    errors = []
+    for url in sheet_csv_urls():
+        request = urllib.request.Request(url, headers={"User-Agent": "Ori WhatsApp Bot"})
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                csv_text = response.read().decode("utf-8-sig", errors="replace")
+                if looks_like_google_html(csv_text):
+                    raise RuntimeError("Google devolvio una pagina HTML en vez del CSV")
+                return csv_text
+        except urllib.error.HTTPError as error:
+            errors.append(f"{url}: Google Sheet respondio {error.code}")
+        except urllib.error.URLError as error:
+            errors.append(f"{url}: No hubo conexion con Google Sheet: {error}")
+        except RuntimeError as error:
+            errors.append(f"{url}: {error}")
+
+    detail = errors[-1] if errors else "No hay URL de Google Sheet configurada"
+    raise RuntimeError(detail)
+
+
+def sheet_csv_urls():
+    configured_url = os.getenv("FORM_RESPONSES_CSV_URL", "").strip()
+    sheet_id = os.getenv("FORM_RESPONSES_SHEET_ID", DEFAULT_SHEET_ID).strip()
+    gid = os.getenv("FORM_RESPONSES_GID", DEFAULT_GID).strip()
+
+    if configured_url:
+        sheet_id = extract_sheet_id(configured_url) or sheet_id
+        gid = extract_gid(configured_url) or gid
+        if "format=csv" in configured_url or "tqx=out:csv" in configured_url or "output=csv" in configured_url:
+            return unique_urls([configured_url, export_csv_url(sheet_id, gid), gviz_csv_url(sheet_id, gid)])
+
+    return unique_urls([export_csv_url(sheet_id, gid), gviz_csv_url(sheet_id, gid)])
+
+
+def export_csv_url(sheet_id, gid):
+    return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+
+
+def gviz_csv_url(sheet_id, gid):
+    return f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&gid={gid}"
+
+
+def extract_sheet_id(url):
+    match = re.search(r"/spreadsheets/d/([^/]+)", str(url or ""))
+    return match.group(1) if match else ""
+
+
+def extract_gid(url):
+    match = re.search(r"(?:[?&#]gid=)(\d+)", str(url or ""))
+    return match.group(1) if match else ""
+
+
+def unique_urls(urls):
+    output = []
+    for url in urls:
+        if url and url not in output:
+            output.append(url)
+    return output
+
+
+def looks_like_google_html(text):
+    start = str(text or "").lstrip()[:500].lower()
+    return start.startswith("<!doctype") or "<html" in start or "google sheets" in start and "<title" in start
 
 
 def parse_records(csv_text):
@@ -154,25 +203,25 @@ def filter_form_records(category=None, today_only=False):
 
 def record_match_score(record, query_text):
     haystacks = [
-        record.get("legal_name", ""),
-        record.get("stand_name", ""),
-        record.get("representative", ""),
-        record.get("email", ""),
-        record.get("socials", ""),
+        (record.get("legal_name", ""), 3),
+        (record.get("stand_name", ""), 2),
+        (record.get("representative", ""), 1),
+        (record.get("email", ""), 1),
+        (record.get("socials", ""), 1),
     ]
     score = 0
-    for value in haystacks:
+    for value, weight in haystacks:
         text = normalize(value)
         if not text:
             continue
         if query_text == text:
-            score += 5
+            score += 5 * weight
         elif query_text in text or text in query_text:
-            score += 3
+            score += 3 * weight
         else:
             shared = set(query_text.split()) & set(text.split())
             if len(shared) >= 2:
-                score += len(shared)
+                score += len(shared) * weight
     return score
 
 
