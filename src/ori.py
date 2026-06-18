@@ -2207,6 +2207,7 @@ def has_submitted_form(text, memory=None):
     return bool(
         memory.get("registration_link_sent_at")
         or memory.get("pending_field") == "registration"
+        or memory.get("selected_stand")
         or memory.get("last_intent") in {"registration_link", "reservation", "registration_category", "product_detail"}
         or memory.get("process_stage") in {"link_preinscripcion_enviado", "interesado_en_stand"}
     )
