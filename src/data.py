@@ -38,7 +38,7 @@ FAIR_INFO = {
         "Feria Origen Colombia Semana Santa 2026, Feria Origen Diciembre 2026 "
         "y Feria Origen Colombia Semana Santa 2027."
     ),
-    "registration_form_url": "https://www.origencolombia.com/origen-colombia-semana-santa/",
+    "registration_form_url": "https://www.origencolombia.com/origen-colombia-2027/#ffff",
     "registration_form_label": "Formulario de inscripcion - 29a Feria Origen Colombia Semana Santa 2026",
     "registration_form_note": (
         "El boton 'Inscribete' de la web oficial lleva al formulario publicado para "
@@ -122,6 +122,14 @@ FAIR_INFO = {
         "Para llegar, el visitante puede pedir indicaciones hacia UNIBAC, Convento de San Diego "
         "o plaza de San Diego, en el centro historico de Cartagena. Es una zona reconocida del "
         "centro historico y cercana a Las Bovedas y al Sofitel Santa Clara."
+    ),
+    "arrival_guide": (
+        "Si el usuario pregunta como llegar, Ori debe actuar como guia local: confirmar que la feria "
+        "queda en el Claustro de San Diego / UNIBAC, plaza de San Diego, Centro Historico de Cartagena; "
+        "preguntar desde donde sale si no lo sabe; y si ya esta en Cartagena, sugerir buscar en Maps "
+        "'UNIBAC Cartagena' o 'Plaza de San Diego Cartagena'. En taxi o Uber puede pedir Plaza de San Diego "
+        "o UNIBAC Bellas Artes. Si esta en la Ciudad Amurallada puede caminar segun su punto de partida. "
+        "Desde Bocagrande el trayecto suele ser corto en taxi o app, dependiendo del trafico. No inventar tarifas."
     ),
     "entry_cost": (
         "Para visitantes, la informacion historica cargada indica entrada libre en ediciones "
