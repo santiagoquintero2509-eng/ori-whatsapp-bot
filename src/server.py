@@ -169,7 +169,7 @@ def handle_whatsapp_payload(payload):
         print(f"Mensaje de {message['from']}: {message['text']}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
         send_whatsapp_text(message["from"], reply)
-        if should_send_plan_image(message["text"]) and should_send_plan_image_now(message["from"]):
+        if should_send_plan_image(message["text"], reply) and should_send_plan_image_now(message["from"]):
             send_whatsapp_image(
                 message["from"],
                 PLANO_STANDS_URL,
@@ -316,8 +316,9 @@ def send_whatsapp_image(to, image_url, caption=""):
         raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar imagen: {detail}") from error
 
 
-def should_send_plan_image(message):
+def should_send_plan_image(message, reply=""):
     text = normalize_for_match(message)
+    reply_text = normalize_for_match(reply)
     triggers = [
         "compartir el plano",
         "comparteme el plano",
@@ -353,7 +354,9 @@ def should_send_plan_image(message):
         "stand disponibles",
         "puestos disponibles",
     ]
-    return any(trigger in text for trigger in triggers)
+    if any(trigger in text for trigger in triggers):
+        return True
+    return "estos son los stands disponibles cargados" in reply_text
 
 
 def should_send_plan_image_now(user_id):
