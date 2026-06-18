@@ -4,6 +4,13 @@ npm-debug.log*
 __pycache__/
 *.pyc
 **/memoria_revisable/*.jsonl
+**/memoria_revisable/*.json
+.env
+node_modules/
+npm-debug.log*
+__pycache__/
+*.pyc
+**/memoria_revisable/*.jsonl
 .env
 node_modules/
 npm-debug.log*
