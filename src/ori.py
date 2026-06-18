@@ -261,15 +261,19 @@ def get_memory(user_id):
             "desired_zone": None,
             "pending_field": None,
             "last_offer": None,
+            "last_suggested_stand": None,
             "category": None,
             "city": None,
             "brand": None,
             "product": None,
             "confirmed_stand": None,
             "lead_stage": None,
+            "process_stage": None,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": None,
             "form_submitted": False,
+            "form_submitted_at": None,
+            "registration_link_sent_at": None,
             "history": [],
         }
     memory = CONVERSATIONS[key]
@@ -285,15 +289,19 @@ def get_memory(user_id):
         "desired_zone": None,
         "pending_field": None,
         "last_offer": None,
+        "last_suggested_stand": None,
         "category": None,
         "city": None,
         "brand": None,
         "product": None,
         "confirmed_stand": None,
         "lead_stage": None,
+        "process_stage": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": None,
         "form_submitted": False,
+        "form_submitted_at": None,
+        "registration_link_sent_at": None,
         "history": [],
     }
     for field, default in defaults.items():
@@ -391,6 +399,27 @@ def parse_admin_action(message, text):
     if owner_match:
         return {"type": "stand_owner", "stand": int(owner_match.group(1))}
 
+    if has_any(
+        text,
+        [
+            "preinscritos",
+            "formularios recibidos",
+            "quien lleno formulario",
+            "quienes llenaron formulario",
+            "quienes han llenado formulario",
+            "quienes han llenado el formulario",
+            "quienes diligenciaron formulario",
+            "inscritos en formulario",
+            "lista formularios",
+            "lista preinscritos",
+        ],
+    ):
+        return {
+            "type": "form_summary",
+            "category": detect_product_category(text),
+            "today_only": has_any(text, ["hoy", "del dia", "dia de hoy"]),
+        }
+
     if looks_like_form_lookup(text):
         query = extract_form_lookup_query(text)
         if query and normalize(query) not in {"el", "la", "si", "formulario"}:
@@ -398,13 +427,6 @@ def parse_admin_action(message, text):
 
     if has_any(text, ["intenta nuevamente", "intentar nuevamente", "vuelve a intentar", "reintenta", "intenta otra vez"]):
         return {"type": "retry_form_lookup"}
-
-    if has_any(text, ["preinscritos", "formularios recibidos", "quien lleno formulario", "quienes llenaron formulario", "inscritos en formulario"]):
-        return {
-            "type": "form_summary",
-            "category": detect_product_category(text),
-            "today_only": has_any(text, ["hoy", "del dia", "dia de hoy"]),
-        }
 
     if has_any(text, ["stands confirmados", "stand confirmados", "confirmados"]):
         return {"type": "confirmed_stands"}
@@ -808,11 +830,58 @@ def sync_form_record_to_memory(memory, record):
     memory["role"] = "expositor"
     memory["form_submitted"] = True
     memory["lead_stage"] = "preinscrito"
+    memory["process_stage"] = "preinscripcion_recibida"
+    memory["form_submitted_at"] = memory.get("form_submitted_at") or datetime.now(timezone.utc).isoformat()
     memory["brand"] = memory.get("brand") or record_brand(record)
     memory["city"] = memory.get("city") or record.get("city")
     memory["product"] = memory.get("product") or record.get("products")
     memory["category"] = memory.get("category") or record.get("category") or detect_product_category(normalize(record.get("products", "")))
     memory["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+
+def mark_registration_link_sent(memory):
+    now = datetime.now(timezone.utc).isoformat()
+    memory["role"] = "expositor"
+    if not memory.get("form_submitted"):
+        memory["lead_stage"] = "link_enviado"
+        memory["process_stage"] = "link_preinscripcion_enviado"
+    memory["registration_link_sent_at"] = memory.get("registration_link_sent_at") or now
+    memory["updated_at"] = now
+
+
+def mark_form_submitted_by_user(memory):
+    now = datetime.now(timezone.utc).isoformat()
+    memory["role"] = "expositor"
+    memory["form_submitted"] = True
+    memory["lead_stage"] = "preinscrito"
+    memory["process_stage"] = "preinscripcion_reportada"
+    memory["form_submitted_at"] = memory.get("form_submitted_at") or now
+    memory["pending_field"] = None
+    memory["last_offer"] = None
+    memory["updated_at"] = now
+
+
+def sync_form_status_if_needed(memory, text):
+    if memory.get("form_submitted"):
+        return
+    if not should_check_form_by_phone(text, memory):
+        return
+    record = find_form_record(phone=memory.get("phone"))
+    if record:
+        sync_form_record_to_memory(memory, record)
+
+
+def should_check_form_by_phone(text, memory):
+    return bool(
+        memory.get("role") == "expositor"
+        or memory.get("registration_link_sent_at")
+        or wants_to_participate(text)
+        or wants_registration_link(text)
+        or wants_to_reserve(text)
+        or asks_preinscription_status(text)
+        or has_submitted_form(text, memory)
+        or has_any(text, ["formulario", "preinscripcion", "inscripcion", "stand", "stands"])
+    )
 
 
 def extract_brand_after_para(message, stand):
@@ -919,6 +988,7 @@ def get_local_ai_reply(raw_message, memory):
 
     category = detect_product_category(text)
     update_lead_memory_from_text(memory, message, text, category)
+    sync_form_status_if_needed(memory, text)
 
     if asks_to_change_topic(text):
         reset_topic_memory(memory)
@@ -948,16 +1018,11 @@ def get_local_ai_reply(raw_message, memory):
         memory["last_offer"] = None
         return advisor_reply(memory)
 
-    if has_submitted_form(text):
+    if has_submitted_form(text, memory):
         clear_arrival_context(memory)
         sync_form_record_to_memory(memory, find_form_record(phone=memory.get("phone")))
-        memory["role"] = "expositor"
         memory["last_intent"] = "form_submitted"
-        memory["pending_field"] = None
-        memory["last_offer"] = None
-        memory["form_submitted"] = True
-        memory["lead_stage"] = "preinscrito"
-        memory["updated_at"] = datetime.now(timezone.utc).isoformat()
+        mark_form_submitted_by_user(memory)
         return form_submitted_reply()
 
     if asks_preinscription_status(text):
@@ -970,6 +1035,14 @@ def get_local_ai_reply(raw_message, memory):
 
     if is_affirmative_followup(text, memory):
         return handle_affirmative_followup(memory)
+
+    if likes_suggested_stand(text, memory):
+        clear_arrival_context(memory)
+        memory["role"] = "expositor"
+        stand = memory.get("last_suggested_stand")
+        remember_stand_interest(memory, stand)
+        memory["last_intent"] = "booths"
+        return describe_stand(stand, memory)
 
     if asks_for_maps_link(text):
         memory["role"] = "visitante"
@@ -989,16 +1062,24 @@ def get_local_ai_reply(raw_message, memory):
         clear_arrival_context(memory)
         memory["role"] = "expositor"
         memory["last_intent"] = "registration_link"
+        if memory.get("form_submitted"):
+            memory["pending_field"] = None
+            return form_submitted_reply()
         memory["pending_field"] = "registration"
         if category:
             memory["category"] = category
+        mark_registration_link_sent(memory)
         return registration_link_reply(memory)
 
     if wants_to_reserve(text):
         clear_arrival_context(memory)
         memory["role"] = "expositor"
         memory["last_intent"] = "reservation"
+        if memory.get("form_submitted"):
+            memory["pending_field"] = None
+            return submitted_reservation_reply(memory)
         memory["pending_field"] = "registration"
+        mark_registration_link_sent(memory)
         return reservation_reply(memory)
 
     if asks_for_plan(text):
@@ -1052,19 +1133,25 @@ def get_local_ai_reply(raw_message, memory):
         zone = detect_zone_preference(text)
         if zone:
             memory["desired_zone"] = zone
-            return matching_stands_reply(stand_type, zone)
+            return matching_stands_reply(stand_type, zone, memory)
         return stand_type_followup_reply(stand_type)
 
     if wants_to_participate(text):
         clear_arrival_context(memory)
         memory["role"] = "expositor"
+        if memory.get("form_submitted"):
+            memory["last_intent"] = "form_submitted"
+            memory["pending_field"] = None
+            return form_submitted_reply()
         if category:
             memory["category"] = category
             memory["last_intent"] = "registration_category"
             memory["pending_field"] = "registration"
+            mark_registration_link_sent(memory)
             return category_followup_reply(category)
         memory["last_intent"] = "exhibitor"
         memory["pending_field"] = "category"
+        mark_registration_link_sent(memory)
         return exhibitor_guide_reply()
 
     if memory.get("role") == "expositor" and (memory.get("pending_field") == "category" or category):
@@ -1075,6 +1162,9 @@ def get_local_ai_reply(raw_message, memory):
             memory["category"] = category
             memory["pending_field"] = "registration"
             memory["last_intent"] = "registration_category"
+            if memory.get("form_submitted"):
+                return form_submitted_reply()
+            mark_registration_link_sent(memory)
             return category_followup_reply(category)
 
     stand_type = detect_stand_type(text)
@@ -1085,14 +1175,14 @@ def get_local_ai_reply(raw_message, memory):
         zone = detect_zone_preference(text)
         if zone:
             memory["desired_zone"] = zone
-            return matching_stands_reply(stand_type, zone)
+            return matching_stands_reply(stand_type, zone, memory)
         return stand_type_followup_reply(stand_type)
 
     zone = detect_zone_preference(text)
     if zone and memory.get("desired_stand_type") and should_follow_stand_filters(memory):
         memory["desired_zone"] = zone
         memory["last_intent"] = "booths"
-        return matching_stands_reply(memory["desired_stand_type"], zone)
+        return matching_stands_reply(memory["desired_stand_type"], zone, memory)
 
     if has_any(text, ["que puedo preguntar", "preguntarte", "recomiendame", "recomienda", "opciones"]):
         memory["last_intent"] = "suggestions"
@@ -1127,12 +1217,17 @@ def get_local_ai_reply(raw_message, memory):
         return venue_reply(text)
     if intent == "exhibitor":
         memory["role"] = "expositor"
+        if memory.get("form_submitted"):
+            memory["pending_field"] = None
+            return form_submitted_reply()
         if category:
             memory["category"] = category
             memory["pending_field"] = "registration"
             memory["last_intent"] = "registration_category"
+            mark_registration_link_sent(memory)
             return category_followup_reply(category)
         memory["pending_field"] = "category"
+        mark_registration_link_sent(memory)
         return exhibitor_guide_reply()
     if intent == "products":
         return products_reply(text)
@@ -1422,6 +1517,12 @@ def category_followup_reply(category):
 
 def product_detail_followup_reply(memory):
     category = memory.get("category") or "la categoria que venimos revisando"
+    if memory.get("form_submitted"):
+        return (
+            f"Que bonito proyecto! Ya tengo claro que va por {category}.\n\n"
+            "Como ya reportaste que enviaste la preinscripcion, el equipo revisara tu solicitud "
+            "y se comunicara contigo para confirmar disponibilidad, inscripcion y metodos de pago."
+        )
     return (
         f"Que bonito proyecto! Ya tengo claro que va por {category}. "
         f"Si ya quieres avanzar, puedes iniciar tu preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
@@ -1458,6 +1559,8 @@ def reservation_reply(memory):
 
 
 def registration_link_reply(memory):
+    if memory.get("form_submitted"):
+        return form_submitted_reply()
     category = memory.get("category")
     category_note = f" Ya tengo presente tu categoria: {category}." if category else ""
     return (
@@ -1472,9 +1575,24 @@ def registration_link_reply(memory):
 def form_submitted_reply():
     return (
         "Que buena noticia! Ya diste el primer paso para hacer parte de Feria Origen Colombia 2027.\n\n"
-        "El equipo revisara tu preinscripcion y se comunicara contigo para confirmar disponibilidad, "
-        "inscripcion y metodos de pago.\n\n"
+        "Eso significa que el equipo ya recibio tu informacion o que la tomaremos como preinscripcion enviada. "
+        "La confirmacion final de participacion, disponibilidad del stand y metodos de pago la realiza el equipo organizador despues de revisar tu solicitud.\n\n"
         "Estoy aqui si quieres revisar ubicacion, stands, fechas o cualquier otra informacion de la feria."
+    )
+
+
+def submitted_reservation_reply(memory):
+    selected_stand = memory.get("selected_stand")
+    stand_note = ""
+    if selected_stand:
+        stand_note = (
+            f"\n\nTengo presente tu interes por el stand {selected_stand}. "
+            "Recuerda que el numero del stand queda sujeto a confirmacion final por parte del equipo organizador."
+        )
+    return (
+        "Perfecto! Como ya enviaste la preinscripcion, no necesitas volver a llenar el formulario.\n\n"
+        "El equipo revisara tu solicitud y se comunicara contigo para confirmar disponibilidad, inscripcion y metodos de pago."
+        f"{stand_note}"
     )
 
 
@@ -1691,6 +1809,7 @@ def describe_stand(number, memory=None):
                 "inscripcion y metodos de pago.\n\n"
                 "Necesitas ayuda con algo mas?"
             )
+        mark_registration_link_sent(memory)
         return (
             f"Genial eleccion! El stand {stand['number']} esta disponible en {zone}.\n\n"
             f"Medidas: {stand['size']}.\n"
@@ -1740,7 +1859,7 @@ def stand_type_followup_reply(stand_type):
     )
 
 
-def matching_stands_reply(stand_type, zone):
+def matching_stands_reply(stand_type, zone, memory=None):
     matches = []
     for number, price in sorted(STAND_PRICES.items()):
         stand = find_booth(number)
@@ -1756,6 +1875,11 @@ def matching_stands_reply(stand_type, zone):
             f"En {zone_name} no veo stands {stand_type} disponibles en la informacion cargada. "
             "Puedo sugerirte otra zona o revisar stands especiales/generales disponibles."
         )
+
+    if memory is not None:
+        memory["last_suggested_stand"] = matches[0][0]
+        memory["last_intent"] = "booths"
+        memory["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     options = ", ".join(f"{number} ({price['price']})" for number, price in matches[:8])
     return (
@@ -1776,9 +1900,12 @@ def remember_stand_interest(memory, number):
     if stand["status"] == "available":
         memory["selected_stand"] = number
         memory["selected_stand_status"] = "available"
+        memory["last_suggested_stand"] = number
         memory["blocked_stand"] = None
         memory["blocked_stand_status"] = None
         memory["lead_stage"] = "preinscrito" if memory.get("form_submitted") else "interesado"
+        if not memory.get("form_submitted"):
+            memory["process_stage"] = "interesado_en_stand"
         memory["updated_at"] = datetime.now(timezone.utc).isoformat()
         return
 
@@ -2028,8 +2155,8 @@ def wants_registration_link(text):
     )
 
 
-def has_submitted_form(text):
-    return has_any(
+def has_submitted_form(text, memory=None):
+    direct = has_any(
         text,
         [
             "ya llene el formulario",
@@ -2053,6 +2180,56 @@ def has_submitted_form(text):
             "listo ya lo llene",
             "listo ya envie",
             "listo ya lo envie",
+        ],
+    )
+    if direct:
+        return True
+
+    if not memory:
+        return False
+
+    contextual_reply = has_any(
+        text,
+        [
+            "ya lo hice",
+            "ya hice",
+            "ya lo complete",
+            "ya complete",
+            "ya quedo",
+            "listo ya",
+            "listo ya lo hice",
+            "listo ya hice",
+        ],
+    )
+    if not contextual_reply:
+        return False
+
+    return bool(
+        memory.get("registration_link_sent_at")
+        or memory.get("pending_field") == "registration"
+        or memory.get("last_intent") in {"registration_link", "reservation", "registration_category", "product_detail"}
+        or memory.get("process_stage") in {"link_preinscripcion_enviado", "interesado_en_stand"}
+    )
+
+
+def likes_suggested_stand(text, memory):
+    if not memory.get("last_suggested_stand"):
+        return False
+    return has_any(
+        text,
+        [
+            "me gusta ese",
+            "me gusta este",
+            "quiero ese",
+            "quiero este",
+            "me quedo con ese",
+            "me quedo con este",
+            "ese me gusta",
+            "este me gusta",
+            "ese esta bien",
+            "este esta bien",
+            "voy con ese",
+            "vamos con ese",
         ],
     )
 
