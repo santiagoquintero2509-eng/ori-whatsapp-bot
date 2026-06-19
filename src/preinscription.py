@@ -25,6 +25,20 @@ def submit_preinscription(data):
     return post_to_webhook_or_queue(payload)
 
 
+def update_confirmed_stand(query, stand, representative=""):
+    payload = {
+        "action": "update_confirmed_stand",
+        "secret": webhook_secret(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "query": query,
+        "representative": representative,
+        "stand": str(stand),
+        "status": "stand confirmado",
+        "confirmed_by": "Ori admin",
+    }
+    return post_to_webhook_or_queue(payload)
+
+
 def upload_product_media(legal_name, media, whatsapp_token, graph_version):
     if not media:
         return {"ok": False, "queued": False, "error": "No llego archivo para subir."}
