@@ -53,6 +53,34 @@ PREINSCRIPTION_FIELD_ORDER = [
     "confirmation",
 ]
 
+PREINSCRIPTION_FIELD_LABELS = {
+    "legal_name": "Razon social",
+    "representative": "Representante",
+    "stand_name": "Nombre para el stand",
+    "city": "Ciudad",
+    "whatsapp": "WhatsApp",
+    "email": "Correo",
+    "socials": "Redes",
+    "products": "Productos",
+    "files": "Archivos de productos",
+    "category": "Categoria",
+    "preferred_stands": "Stands de interes",
+}
+
+PREINSCRIPTION_FIELD_ALIASES = {
+    "legal_name": ["razon social", "razon", "nombre legal", "empresa", "marca"],
+    "representative": ["representante", "nombre representante", "contacto"],
+    "stand_name": ["nombre para el stand", "nombre del stand", "stand", "nombre comercial"],
+    "city": ["ciudad", "origen", "ciudad de origen"],
+    "whatsapp": ["whatsapp", "telefono", "celular", "numero"],
+    "email": ["correo", "email", "correo electronico"],
+    "socials": ["redes", "redes sociales", "instagram", "pagina web", "web"],
+    "products": ["productos", "producto", "productos a participar", "productos para participar"],
+    "files": ["archivos", "archivo", "imagenes", "imagen", "catalogo", "pdf", "fotos"],
+    "category": ["categoria", "categoria de producto", "tipo de producto"],
+    "preferred_stands": ["stands", "stand de interes", "stands de interes", "puestos", "ubicacion"],
+}
+
 
 def load_persistent_state():
     if not MEMORY_PATH.exists():
@@ -2121,7 +2149,7 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
             return duplicate_preinscription_reply(memory)
 
     if incoming_media:
-        if pre.get("active") and pre.get("step") == "files":
+        if pre.get("active") and pre.get("step") in {"files", "correction_files"}:
             return receive_preinscription_media(memory, incoming_media)
         return (
             "Recibi el archivo. Si quieres hacer una preinscripcion, escribeme que deseas participar "
@@ -2140,6 +2168,65 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
         return "Listo, detuve la preinscripcion por ahora. Cuando quieras retomarla, escribeme que deseas participar."
 
     step = pre.get("step") or next_preinscription_step(pre)
+
+    if step == "correction_select":
+        field = detect_preinscription_correction_field(text)
+        if not field:
+            return preinscription_correction_options_reply()
+        return begin_preinscription_field_correction(memory, field)
+
+    if step == "correction_value":
+        field = pre.get("editing_field")
+        if not field:
+            pre["step"] = "correction_select"
+            save_persistent_state()
+            return preinscription_correction_options_reply()
+
+        updated_value = message.strip()
+        if not updated_value:
+            return preinscription_field_correction_prompt(field, memory)
+
+        if field == "preferred_stands":
+            stands = extract_preferred_stands(updated_value)
+            valid, unavailable = validate_preferred_stands(stands)
+            if len(stands) < 3:
+                return "Necesito que me indiques 3 stands de interes en orden de preferencia. Por ejemplo: 21, 29 y 56."
+            if unavailable:
+                unavailable_text = ", ".join(str(item) for item in unavailable)
+                return (
+                    f"Estos stands no aparecen disponibles en la informacion actual: {unavailable_text}.\n\n"
+                    "Por favor dime 3 stands disponibles en orden de preferencia."
+                )
+            updated_value = ", ".join(str(item) for item in valid[:3])
+
+        pre.setdefault("fields", {})[field] = clean_preinscription_value(updated_value)
+        sync_preinscription_field_to_memory(memory, field, updated_value)
+        pre.pop("editing_field", None)
+        pre["step"] = "confirmation"
+        save_persistent_state()
+        return "Perfecto, ya actualice ese dato.\n\n" + preinscription_summary_reply(memory)
+
+    if step == "correction_files":
+        if incoming_media:
+            return receive_preinscription_media(memory, incoming_media)
+        if says_no_files(text):
+            pre["files"] = []
+            pre.pop("folder_url", None)
+            pre["files_status"] = "No enviados"
+            pre.pop("editing_field", None)
+            pre["step"] = "confirmation"
+            save_persistent_state()
+            return "Perfecto, deje los archivos como no enviados.\n\n" + preinscription_summary_reply(memory)
+        if is_done_with_files(text):
+            if not pre.get("files"):
+                pre["files_status"] = "No enviados"
+            else:
+                pre["files_status"] = "Recibidos"
+            pre.pop("editing_field", None)
+            pre["step"] = "confirmation"
+            save_persistent_state()
+            return "Perfecto, ya actualice los archivos.\n\n" + preinscription_summary_reply(memory)
+        return preinscription_field_correction_prompt("files", memory)
 
     if step == "files":
         if says_no_files(text):
@@ -2169,9 +2256,9 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
 
     if step == "confirmation":
         if wants_to_correct_preinscription(text):
-            pre["step"] = "legal_name"
+            pre["step"] = "correction_select"
             save_persistent_state()
-            return "Claro, revisemos desde el inicio. Cual es la razon social de tu marca?"
+            return preinscription_correction_options_reply()
         if confirms_preinscription(text):
             return finish_preinscription(memory)
         return "Para enviarla, respondeme 'si confirmo'. Si quieres corregir algo, dime 'corregir'."
@@ -2271,6 +2358,62 @@ def preferred_stands_prompt():
         "Dime 3 stands de interes en orden de preferencia. Recuerda que la asignacion final queda sujeta "
         "a confirmacion por parte del equipo organizador."
     )
+
+
+def preinscription_correction_options_reply():
+    return (
+        "Claro, lo ajustamos sin empezar de cero.\n\n"
+        "Dime exactamente que dato quieres cambiar:\n"
+        "- Razon social\n"
+        "- Representante\n"
+        "- Nombre para el stand\n"
+        "- Ciudad\n"
+        "- WhatsApp\n"
+        "- Correo\n"
+        "- Redes\n"
+        "- Productos\n"
+        "- Archivos de productos\n"
+        "- Categoria\n"
+        "- Stands de interes"
+    )
+
+
+def detect_preinscription_correction_field(text):
+    normalized = normalize(text)
+    if not normalized:
+        return None
+
+    for field, aliases in PREINSCRIPTION_FIELD_ALIASES.items():
+        for alias in aliases:
+            normalized_alias = normalize(alias)
+            if has_whole_phrase(normalized, normalized_alias) or normalized == normalized_alias:
+                return field
+    return None
+
+
+def begin_preinscription_field_correction(memory, field):
+    pre = memory.setdefault("preinscription", {})
+    pre["editing_field"] = field
+    pre["step"] = "correction_files" if field == "files" else "correction_value"
+    save_persistent_state()
+    return preinscription_field_correction_prompt(field, memory)
+
+
+def preinscription_field_correction_prompt(field, memory):
+    label = PREINSCRIPTION_FIELD_LABELS.get(field, "dato")
+    if field == "files":
+        return (
+            "Perfecto, actualicemos los archivos de productos.\n\n"
+            "Puedes enviarme imagenes, catalogo o PDF. Si quieres reemplazar los archivos anteriores, enviame los nuevos ahora.\n\n"
+            "Cuando termines, escribeme: listo. Si quieres dejarlo sin archivos, escribeme: no tengo."
+        )
+    if field == "preferred_stands":
+        return (
+            "Perfecto, actualicemos los stands de interes.\n\n"
+            f"Estos son los stands disponibles:\n\n{available_stands_text()}\n\n"
+            "Dime 3 stands de interes en orden de preferencia."
+        )
+    return f"Perfecto, cual es el nuevo dato para {label}?"
 
 
 def next_preinscription_step(pre):
