@@ -164,10 +164,10 @@ def has_meaningful_data(record):
     return any(record.get(field) for field in ["legal_name", "stand_name", "representative", "whatsapp", "email", "products"])
 
 
-def find_form_record(query=None, phone=None):
+def find_form_record(query=None, phone=None, force=False):
     query_text = normalize(query or "")
     phone_digits = normalize_phone(phone)
-    records = get_form_records()
+    records = get_form_records(force=force)
 
     if phone_digits:
         for record in records:
@@ -189,8 +189,8 @@ def find_form_record(query=None, phone=None):
     return best_record if best_score >= 2 else None
 
 
-def filter_form_records(category=None, today_only=False):
-    records = get_form_records()
+def filter_form_records(category=None, today_only=False, force=False):
+    records = get_form_records(force=force)
     if category:
         normalized_category = normalize(category)
         records = [
