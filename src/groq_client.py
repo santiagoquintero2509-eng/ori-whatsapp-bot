@@ -134,11 +134,13 @@ Intenciones permitidas:
 - {"intent":"form_lookup","query":"marca o razon social"}
 - {"intent":"client_info","query":"marca, razon social, telefono o nombre de stand"}
 - {"intent":"reason_social_lookup","query":"nombre de stand o marca"}
+- {"intent":"brand_stand_assignment","query":"marca, razon social o representante"}
 - {"intent":"confirm_stand","stand":29,"brand":"Zonum SAS"}
 - {"intent":"block_stand","stand":29,"brand":"Zonum SAS o null"}
 - {"intent":"release_stand","stand":29}
 - {"intent":"stand_owner","stand":29}
 - {"intent":"confirmed_stands"}
+- {"intent":"unassigned_stands"}
 - {"intent":"chat_history","period":"today|yesterday|all|null"}
 - {"intent":"queue_status"}
 - {"intent":"retry_pending_queue"}
@@ -152,6 +154,8 @@ Reglas:
 - "Marca queda con el stand X" => confirm_stand.
 - "bloquea/reserva/aparta el stand X" => block_stand.
 - "quien tiene el stand X" => stand_owner.
+- "que stand tiene Marca" => brand_stand_assignment.
+- "quien esta sin stand" => unassigned_stands.
 - "dame/cual es/que razon social de X" => reason_social_lookup.
 - "dame datos/informacion de X" => client_info.
 - "busca X en el formulario" => form_lookup.
