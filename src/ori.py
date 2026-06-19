@@ -2415,6 +2415,13 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
             return submitted_reservation_reply(memory)
         return start_preinscription_flow(memory)
 
+    if asks_for_fair_images(text):
+        memory["role"] = "visitante"
+        memory["last_intent"] = "previous_fairs"
+        memory["pending_field"] = None
+        memory["last_offer"] = None
+        return previous_fairs_reply()
+
     if asks_for_plan(text):
         memory["last_intent"] = "plan"
         memory["pending_field"] = None
@@ -3389,8 +3396,8 @@ def visitor_guide_reply():
 
 def previous_fairs_reply():
     return (
-        f"Claro. {FAIR_INFO['previous_fairs_summary']} "
-        "Te comparto algunas fotos de ferias anteriores para que veas el ambiente y te animes a vivir la experiencia."
+        "Claro! Te comparto algunas imagenes para que puedas hacerte una idea del ambiente de la feria.\n\n"
+        "Vas a ver espacios pensados para recorrer, descubrir marcas colombianas y vivir una experiencia cercana con el talento local."
     )
 
 
@@ -4346,6 +4353,38 @@ def asks_for_plan(text):
             "compartirme el plano",
             "ver el plano",
             "ver plano",
+        ],
+    )
+
+
+def asks_for_fair_images(text):
+    return has_any(
+        text,
+        [
+            "imagenes de la feria",
+            "imagen de la feria",
+            "fotos de la feria",
+            "foto de la feria",
+            "quiero ver imagenes",
+            "quiero ver fotos",
+            "ver imagenes",
+            "ver fotos",
+            "muestrame imagenes",
+            "muestrame fotos",
+            "mostrar imagenes",
+            "mostrar fotos",
+            "mandame imagenes",
+            "mandame fotos",
+            "enviame imagenes",
+            "enviame fotos",
+            "comparteme imagenes",
+            "comparteme fotos",
+            "imagenes de ferias anteriores",
+            "fotos de ferias anteriores",
+            "ferias anteriores",
+            "ediciones anteriores",
+            "como se ve la feria",
+            "como ha sido la feria",
         ],
     )
 
