@@ -66,6 +66,123 @@ def polish_with_groq(user_message, base_reply, feria_context, memory=None):
     return text.strip()
 
 
+def classify_admin_intent_with_groq(user_message, admin_context=None):
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key or api_key.startswith("pega_aqui"):
+        raise GroqClientError("GROQ_API_KEY no esta configurada")
+
+    model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip()
+    timeout = int(os.getenv("GROQ_TIMEOUT", "18"))
+    admin_context = admin_context or {}
+
+    payload = {
+        "model": model,
+        "temperature": float(os.getenv("GROQ_ADMIN_TEMPERATURE", "0.25")),
+        "max_tokens": int(os.getenv("GROQ_ADMIN_MAX_TOKENS", "260")),
+        "messages": [
+            {"role": "system", "content": build_admin_classifier_prompt()},
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "message": user_message,
+                        "admin_context": admin_context,
+                    },
+                    ensure_ascii=False,
+                ),
+            },
+        ],
+    }
+
+    request = urllib.request.Request(
+        GROQ_CHAT_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "OriWhatsAppBot/1.0",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise GroqClientError(f"Groq respondio {error.code}: {detail}") from error
+    except urllib.error.URLError as error:
+        raise GroqClientError(f"No se pudo conectar con Groq: {error}") from error
+
+    raw_text = extract_message_text(data)
+    parsed = extract_json_object(raw_text)
+    if not isinstance(parsed, dict):
+        raise GroqClientError("Groq no devolvio JSON valido")
+    return parsed
+
+
+def build_admin_classifier_prompt():
+    return """
+Eres el interprete administrativo interno de Ori.
+Tu unica tarea es convertir frases del administrador en una intencion JSON.
+No ejecutes acciones, no inventes datos, no redactes respuestas para usuarios.
+Devuelve solo JSON valido, sin markdown.
+
+Intenciones permitidas:
+- {"intent":"form_summary","category":null,"today_only":false}
+- {"intent":"form_lookup","query":"marca o razon social"}
+- {"intent":"client_info","query":"marca, razon social, telefono o nombre de stand"}
+- {"intent":"reason_social_lookup","query":"nombre de stand o marca"}
+- {"intent":"confirm_stand","stand":29,"brand":"Zonum SAS"}
+- {"intent":"block_stand","stand":29,"brand":"Zonum SAS o null"}
+- {"intent":"release_stand","stand":29}
+- {"intent":"stand_owner","stand":29}
+- {"intent":"confirmed_stands"}
+- {"intent":"chat_history","period":"today|yesterday|all|null"}
+- {"intent":"queue_status"}
+- {"intent":"retry_pending_queue"}
+- {"intent":"connection_status"}
+- {"intent":"reset_preinscription","phone":"573001112233"}
+- {"intent":"admin_help"}
+- {"intent":"unknown"}
+
+Reglas:
+- "dale/asigna/ponle el stand X a Marca" => confirm_stand.
+- "Marca queda con el stand X" => confirm_stand.
+- "bloquea/reserva/aparta el stand X" => block_stand.
+- "quien tiene el stand X" => stand_owner.
+- "dame/cual es/que razon social de X" => reason_social_lookup.
+- "dame datos/informacion de X" => client_info.
+- "busca X en el formulario" => form_lookup.
+- "quienes han llenado/preinscritos/formularios" => form_summary.
+- "quienes escribieron hoy" => chat_history period today.
+- Si falta un dato obligatorio, usa intent unknown.
+""".strip()
+
+
+def extract_json_object(text):
+    cleaned = str(text or "").strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`").strip()
+        if cleaned.lower().startswith("json"):
+            cleaned = cleaned[4:].strip()
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        return json.loads(cleaned[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+
+
 def build_system_prompt(feria_context):
     return f"""
 Eres Ori, asistente virtual oficial de Feria Origen Colombia.
