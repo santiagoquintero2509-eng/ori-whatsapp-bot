@@ -22,6 +22,24 @@ function doPost(e) {
   }
 }
 
+function doGet(e) {
+  try {
+    const params = (e && e.parameter) || {};
+    const expectedSecret = PropertiesService.getScriptProperties().getProperty('PREINSCRIPTION_WEBHOOK_SECRET') || '';
+    if (expectedSecret && params.secret !== expectedSecret) {
+      return jsonResponse({ ok: false, error: 'Secreto invalido' });
+    }
+
+    if (params.action === 'list_preinscriptions') {
+      return jsonResponse(listPreinscriptions());
+    }
+
+    return jsonResponse({ ok: true, service: 'Ori preinscripciones' });
+  } catch (error) {
+    return jsonResponse({ ok: false, error: String(error) });
+  }
+}
+
 function submitPreinscription(body) {
   const data = body.data || {};
   const sheet = getSheet();
@@ -45,6 +63,30 @@ function submitPreinscription(body) {
   ]);
 
   return { ok: true };
+}
+
+function listPreinscriptions() {
+  const sheet = getSheet();
+  ensureHeaders(sheet);
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) {
+    return { ok: true, records: [] };
+  }
+
+  const headers = values[0].map(value => String(value || '').trim());
+  const records = values.slice(1)
+    .filter(row => row.some(value => String(value || '').trim()))
+    .map(row => {
+      const record = {};
+      headers.forEach((header, index) => {
+        record[header || `Columna ${index + 1}`] = row[index] instanceof Date
+          ? row[index].toISOString()
+          : String(row[index] || '');
+      });
+      return record;
+    });
+
+  return { ok: true, records: records };
 }
 
 function uploadFile(body) {
