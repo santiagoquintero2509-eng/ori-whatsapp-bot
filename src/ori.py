@@ -2088,12 +2088,12 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
         )
 
     if step == "confirmation":
-        if confirms_preinscription(text):
-            return finish_preinscription(memory)
         if wants_to_correct_preinscription(text):
             pre["step"] = "legal_name"
             save_persistent_state()
             return "Claro, revisemos desde el inicio. Cual es la razon social de tu marca?"
+        if confirms_preinscription(text):
+            return finish_preinscription(memory)
         return "Para enviarla, respondeme 'si confirmo'. Si quieres corregir algo, dime 'corregir'."
 
     if step == "preferred_stands":
@@ -2419,11 +2419,28 @@ def is_done_with_files(text):
 
 
 def confirms_preinscription(text):
-    return has_any(text, ["si confirmo", "confirmo", "si", "correcto", "esta correcto", "enviar", "enviala", "enviarla"])
+    confirmation_phrases = [
+        "si confirmo",
+        "confirmo",
+        "todo esta correcto",
+        "esta correcto",
+        "correcto",
+        "puedes enviarla",
+        "puede enviarla",
+        "enviala",
+        "enviarla",
+        "enviar",
+    ]
+    if text.strip() in {"si", "ok", "okay", "listo", "dale"}:
+        return True
+    return any(has_whole_phrase(text, phrase) for phrase in confirmation_phrases)
 
 
 def wants_to_correct_preinscription(text):
-    return has_any(text, ["corregir", "corrige", "cambiar", "editar", "modificar", "no esta correcto"])
+    return any(
+        has_whole_phrase(text, phrase)
+        for phrase in ["corregir", "corrige", "cambiar", "editar", "modificar", "no esta correcto", "cambiar un dato"]
+    )
 
 
 def wants_to_cancel_preinscription(text):
@@ -3991,6 +4008,12 @@ def extract_stand_number(text):
 
 def has_any(text, words):
     return any(normalize(word) in text for word in words)
+
+
+def has_whole_phrase(text, phrase):
+    normalized_phrase = normalize(phrase)
+    pattern = r"\b" + re.escape(normalized_phrase).replace(r"\ ", r"\s+") + r"\b"
+    return bool(re.search(pattern, text))
 
 
 def has_category_alias(text, aliases):
