@@ -15,7 +15,13 @@ from form_responses import (
 )
 from groq_client import GroqClientError, is_groq_enabled, polish_with_groq
 from openai_client import OpenAIClientError, ask_chatgpt, is_openai_enabled
-from preinscription import DEFAULT_DRIVE_FOLDER_ID, submit_preinscription, upload_product_media
+from preinscription import (
+    DEFAULT_DRIVE_FOLDER_ID,
+    pending_queue_items,
+    retry_pending_queue,
+    submit_preinscription,
+    upload_product_media,
+)
 
 
 STATUS_LABELS = {
@@ -449,6 +455,12 @@ def handle_admin_command(raw_message, user_id=None):
     if action["type"] == "connection_status":
         return admin_connection_status_reply()
 
+    if action["type"] == "queue_status":
+        return admin_queue_status_reply()
+
+    if action["type"] == "retry_pending_queue":
+        return admin_retry_pending_queue_reply()
+
     if action["type"] == "chat_history_prompt":
         remember_admin_context(admin_key, "chat_history_period")
         return "Claro. Que historial quieres revisar: hoy, ayer o en general?"
@@ -482,6 +494,12 @@ def handle_admin_command(raw_message, user_id=None):
 def parse_admin_action(message, text):
     if has_any(text, ["soy el administrador", "soy administrador", "modo administrador", "admin"]):
         return {"type": "admin_help"}
+
+    if is_admin_queue_retry_request(text):
+        return {"type": "retry_pending_queue"}
+
+    if is_admin_queue_status_request(text):
+        return {"type": "queue_status"}
 
     if asks_connection_status(text):
         return {"type": "connection_status"}
@@ -660,6 +678,37 @@ def asks_connection_status(text):
             "conexion con drive",
             "conexion con sheet",
             "apps script",
+        ],
+    )
+
+
+def is_admin_queue_retry_request(text):
+    return has_any(
+        text,
+        [
+            "reenviar formularios pendientes",
+            "reenvia formularios pendientes",
+            "reenviar preinscripciones pendientes",
+            "reenvia preinscripciones pendientes",
+            "subir formularios pendientes",
+            "enviar formularios pendientes",
+            "procesar cola",
+            "reenviar cola",
+        ],
+    )
+
+
+def is_admin_queue_status_request(text):
+    return has_any(
+        text,
+        [
+            "formularios en cola",
+            "preinscripciones en cola",
+            "cola de formularios",
+            "cola de preinscripciones",
+            "pendientes por subir",
+            "formularios pendientes",
+            "preinscripciones pendientes",
         ],
     )
 
@@ -1050,6 +1099,8 @@ def admin_help_reply():
         "- Ori, busca Aurora Boreal en el formulario\n"
         "- Ori, Aurora Boreal ya lleno formulario?\n"
         "- Ori, muestra preinscritos\n"
+        "- Ori, ver formularios pendientes\n"
+        "- Ori, reenviar formularios pendientes\n"
         "- Ori, quienes le han escrito\n"
         "- Ori, confirma el stand 3 para Aurora Boreal\n"
         "- Ori, reinicia preinscripcion de este numero 573004851602\n"
@@ -1083,6 +1134,54 @@ def admin_form_summary_reply(category=None, today_only=False):
         phone = record.get("whatsapp") or "sin WhatsApp"
         product = record.get("products") or "sin producto"
         lines.append(f"- {brand}: {city}, {phone}, {product}")
+    return "\n".join(lines)
+
+
+def admin_queue_status_reply():
+    items = pending_queue_items()
+    if not items:
+        return "No encontre formularios pendientes en la cola de este servidor."
+
+    submit_items = [item for item in items if item.get("action") == "submit_preinscription"]
+    file_items = [item for item in items if item.get("action") == "upload_file"]
+    lines = [
+        "Pendientes en cola:",
+        f"- Formularios: {len(submit_items)}",
+        f"- Archivos: {len(file_items)}",
+    ]
+
+    for item in submit_items[:8]:
+        data = item.get("data") or {}
+        brand = data.get("razon_social") or data.get("nombre_para_stand") or "sin razon social"
+        phone = data.get("whatsapp") or data.get("telefono_chat") or "sin WhatsApp"
+        products = data.get("productos") or "sin producto"
+        lines.append(f"- {brand}: {phone}, {products}")
+
+    if len(submit_items) > 8:
+        lines.append(f"... y {len(submit_items) - 8} formularios mas.")
+
+    lines.append("")
+    lines.append("Para intentar subirlos al Sheet, escribe: Ori, reenviar formularios pendientes")
+    return "\n".join(lines)
+
+
+def admin_retry_pending_queue_reply():
+    result = retry_pending_queue()
+    if result.get("total", 0) == 0:
+        return "No encontre formularios pendientes en la cola de este servidor."
+
+    lines = [
+        "Resultado de reenvio de cola:",
+        f"- Pendientes encontrados: {result.get('total', 0)}",
+        f"- Enviados correctamente: {result.get('sent', 0)}",
+        f"- Siguen pendientes: {result.get('remaining', 0)}",
+    ]
+    failures = result.get("failures") or []
+    if failures:
+        lines.append("")
+        lines.append("No pude reenviar estos elementos:")
+        for failure in failures[:5]:
+            lines.append(f"- {shorten_text(failure, 120)}")
     return "\n".join(lines)
 
 
