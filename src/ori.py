@@ -303,6 +303,8 @@ def get_ori_reply(raw_message, user_id=None, incoming_media=None):
 
 def should_keep_base_reply(base_reply, memory=None):
     text = normalize(base_reply)
+    if memory and memory.get("last_intent") == "greeting":
+        return True
     if "te comparto el plano actual" in text:
         return True
     if memory and memory.get("last_intent") == "preinscription_flow":
@@ -3219,11 +3221,10 @@ def welcome_reply(memory):
     if not memory.get("history"):
         return (
             "Hola, soy Ori, tu asistente virtual de Feria Origen Colombia 2027.\n\n"
-            "Me alegra saludarte. Esta feria es un espacio para descubrir y conectar con el talento colombiano: "
-            "arte, diseno, moda, joyeria, gastronomia, artesanias, bienestar, cultura y emprendimientos con identidad.\n\n"
-            "Estoy aqui para ayudarte con lo que necesites: informacion del evento, ubicacion, fechas, actividades, "
-            "stands, precios o el proceso para participar como expositor.\n\n"
-            "Cuentame, que te gustaria saber o como puedo ayudarte hoy?"
+            "Me alegra saludarte! Esta feria conecta talento colombiano, cultura y emprendimientos con identidad.\n\n"
+            "Puedo ayudarte con informacion del evento, ubicacion, fechas, actividades, productos, stands, precios "
+            "o el proceso para participar como expositor.\n\n"
+            "Cuentame, que te gustaria saber primero?"
         )
 
     return (
@@ -3247,12 +3248,11 @@ def event_reply():
     return (
         f"La {FAIR_INFO['name']} se realizara {FAIR_INFO['dates']} en la sede UNIBAC, "
         "en el Centro Historico de Cartagena.\n\n"
-        "Es un encuentro para disfrutar y descubrir talento colombiano: arte, diseno, moda, joyeria, "
-        "gastronomia, artesanias, bienestar, cultura y emprendimientos con identidad.\n\n"
-        "El acceso para visitantes es 100% gratuito.\n\n"
-        "Si quieres, tambien puedo contarte como llegar, imagenes de ferias anteriores, "
-        "que productos encontraras o lugares de interes cercanos.\n\n"
-        "Que te gustaria revisar primero: ubicacion, productos, actividades o imagenes de la feria?"
+        "Vas a encontrar arte, diseno, moda, joyeria, gastronomia, artesanias, bienestar "
+        "y marcas colombianas con propuestas muy especiales.\n\n"
+        "La entrada para visitantes es 100% gratuita!\n\n"
+        "Quieres que te cuente primero sobre productos, como llegar, actividades, imagenes de ferias anteriores "
+        "o lugares cercanos?"
     )
 
 
@@ -3281,9 +3281,9 @@ def date_reply():
 
 def location_reply():
     return (
-        f"{FAIR_INFO['location']} "
-        f"{FAIR_INFO['arrival_tip']} "
-        "La sede tiene dos espacios principales para exposicion: Patio de las Artes y Salon Pierre Daguet."
+        "La feria se realiza en la sede UNIBAC, junto a la Plaza de San Diego, en el Centro Historico de Cartagena.\n\n"
+        f"Te dejo la ubicacion en Google Maps:\n{FAIR_INFO['google_maps_url']}\n\n"
+        "Si me dices desde que zona sales, te oriento con una ruta mas puntual."
     )
 
 
@@ -3305,10 +3305,9 @@ def arrival_and_cost_reply():
 
 def arrival_route_reply():
     return (
-        "Claro! La feria se realiza en el Claustro de San Diego / UNIBAC, junto a la plaza de San Diego, "
-        "en el Centro Historico de Cartagena. Para indicarte mejor como llegar, dime desde donde sales: "
-        "estas en Cartagena, vienes desde otra ciudad o estas en una zona como Bocagrande, Getsemani, Centro, Crespo, aeropuerto o terminal? "
-        f"Tambien puedo compartirte la ubicacion en Google Maps: {FAIR_INFO['google_maps_url']}"
+        "Claro! La feria se realiza en UNIBAC, junto a la Plaza de San Diego, en el Centro Historico de Cartagena.\n\n"
+        f"Ubicacion en Google Maps:\n{FAIR_INFO['google_maps_url']}\n\n"
+        "Desde donde sales: Centro, Bocagrande, Getsemani, Crespo, aeropuerto, terminal u otra zona?"
     )
 
 
@@ -3357,8 +3356,9 @@ def plan_reply():
 
 def nearby_reply():
     return (
-        f"{FAIR_INFO['nearby_places']} "
-        "Si quieres, dime si buscas comer, hospedarte o caminar cerca y te respondo mas puntual con la informacion cargada."
+        "Cerca de la feria tienes varios puntos bonitos para complementar la visita.\n\n"
+        f"{FAIR_INFO['nearby_places']}\n\n"
+        "Quieres recomendaciones para comer, hospedarte o caminar cerca de la sede?"
     )
 
 
@@ -3557,12 +3557,10 @@ def products_reply(text):
         )
 
     return (
-        "En la Feria Origen Colombia podras encontrar una variedad de productos colombianos con identidad: "
-        "artesanias, joyeria, moda, accesorios, gastronomia, decoracion, bienestar, arte, diseno "
-        "y emprendimientos creativos.\n\n"
-        "Tambien suelen participar marcas con productos hechos a mano, propuestas locales, piezas unicas "
-        "y articulos inspirados en la cultura colombiana.\n\n"
-        "Quieres que te cuente mas sobre alguna categoria en especial, como gastronomia, joyeria, moda o artesanias?"
+        "Encontraras productos colombianos con mucha identidad: artesanias, joyeria, moda, accesorios, gastronomia, "
+        "decoracion, bienestar, arte y diseno.\n\n"
+        "Tambien hay piezas hechas a mano, propuestas locales y articulos inspirados en la cultura colombiana.\n\n"
+        "Te interesa alguna categoria en especial: gastronomia, joyeria, moda o artesanias?"
     )
 
 
