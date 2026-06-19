@@ -44,7 +44,7 @@ def get_form_records(force=False):
         return list(_CACHE["records"])
 
     try:
-        csv_text = fetch_sheet_csv()
+        csv_text = fetch_sheet_csv(force=force)
         records = parse_records(csv_text)
         _CACHE.update({"loaded_at": now, "records": records, "error": None})
         return list(records)
@@ -58,11 +58,18 @@ def last_form_error():
     return _CACHE.get("error")
 
 
-def fetch_sheet_csv():
+def fetch_sheet_csv(force=False):
     timeout = max(int(os.getenv("FORM_RESPONSES_TIMEOUT", "20")), 20)
     errors = []
-    for url in sheet_csv_urls():
-        request = urllib.request.Request(url, headers={"User-Agent": "Ori WhatsApp Bot"})
+    for url in sheet_csv_urls(force=force):
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Ori WhatsApp Bot",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+            },
+        )
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 csv_text = response.read().decode("utf-8-sig", errors="replace")
@@ -82,7 +89,7 @@ def fetch_sheet_csv():
     raise RuntimeError(detail)
 
 
-def sheet_csv_urls():
+def sheet_csv_urls(force=False):
     configured_url = os.getenv("FORM_RESPONSES_CSV_URL", "").strip()
     sheet_id = os.getenv("FORM_RESPONSES_SHEET_ID", DEFAULT_SHEET_ID).strip()
     gid = os.getenv("FORM_RESPONSES_GID", DEFAULT_GID).strip()
@@ -91,9 +98,22 @@ def sheet_csv_urls():
         sheet_id = extract_sheet_id(configured_url) or sheet_id
         gid = extract_gid(configured_url) or gid
         if "format=csv" in configured_url or "tqx=out:csv" in configured_url or "output=csv" in configured_url:
-            return unique_urls([configured_url, export_csv_url(sheet_id, gid), gviz_csv_url(sheet_id, gid)])
+            return unique_urls(add_cache_busters([configured_url, export_csv_url(sheet_id, gid), gviz_csv_url(sheet_id, gid)], force))
 
-    return unique_urls([gviz_csv_url(sheet_id, gid), export_csv_url(sheet_id, gid)])
+    return unique_urls(add_cache_busters([gviz_csv_url(sheet_id, gid), export_csv_url(sheet_id, gid)], force))
+
+
+def add_cache_busters(urls, force=False):
+    if not force:
+        return urls
+    stamp = str(int(time.time()))
+    output = []
+    for url in urls:
+        if not url:
+            continue
+        separator = "&" if "?" in url else "?"
+        output.append(f"{url}{separator}_ori_refresh={stamp}")
+    return output
 
 
 def export_csv_url(sheet_id, gid):
