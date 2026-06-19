@@ -410,7 +410,16 @@ def handle_admin_command(raw_message, user_id=None):
     if not action:
         action = parse_admin_followup_action(message, text, admin_key)
     if not action:
-        return None
+        return (
+            "Acceso interno activo.\n\n"
+            "No voy a iniciar un flujo de cliente mientras estes en acceso interno. "
+            "Puedes pedirme datos de formularios, historial, clientes o stands.\n\n"
+            "Ejemplos:\n"
+            "- quienes han llenado el formulario\n"
+            "- quienes te han escrito hoy\n"
+            "- busca una razon social en el formulario\n"
+            "- confirma el stand 4 para una marca"
+        )
 
     if action["type"] in {"confirm_stand", "block_stand", "release_stand", "reset_preinscription"}:
         PERSISTENT_STATE.setdefault("admin_pending_actions", {})[admin_key] = action
@@ -1117,6 +1126,7 @@ def admin_chat_history_reply(period="all", admin_key=None):
             continue
         contacts.append((updated_at or datetime.min.replace(tzinfo=timezone.utc), user_id, memory, history_item))
 
+    contacts.extend(load_conversation_log_contacts(period, existing_user_ids={item[1] for item in contacts}))
     contacts.sort(key=lambda item: item[0], reverse=True)
 
     label = {"today": "hoy", "yesterday": "ayer", "all": "en general"}.get(period, "en general")
@@ -1142,6 +1152,11 @@ def admin_chat_history_reply(period="all", admin_key=None):
 
 
 def latest_customer_history_item(user_id, memory, admin_key=None):
+    last_customer_message = memory.get("last_customer_message")
+    last_customer_at = parse_datetime(memory.get("last_customer_at"))
+    if last_customer_message and last_customer_at:
+        return {"user": last_customer_message, "created_at": last_customer_at.isoformat()}
+
     history = memory.get("history", [])
     if not history:
         return None
@@ -1163,6 +1178,46 @@ def latest_customer_history_item(user_id, memory, admin_key=None):
         if is_customer_context_message(user_message, memory):
             return item
     return None
+
+
+def load_conversation_log_contacts(period="all", existing_user_ids=None):
+    existing_user_ids = set(existing_user_ids or [])
+    path = Path(os.getenv("ORI_CONVERSATION_LOG_PATH", "memoria_revisable/conversaciones_todas.jsonl"))
+    if not path.exists():
+        return []
+
+    latest_by_phone = {}
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            for line in file:
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                phone = item.get("phone") or item.get("user_id")
+                if not phone or phone in existing_user_ids:
+                    continue
+                updated_at = parse_datetime(item.get("created_at"))
+                if not history_period_matches(updated_at, period):
+                    continue
+                if item.get("internal"):
+                    continue
+                current = latest_by_phone.get(phone)
+                if not current or (updated_at and updated_at > current[0]):
+                    memory = {
+                        "phone": phone,
+                        "brand": item.get("brand"),
+                        "role": item.get("role"),
+                        "selected_stand": item.get("selected_stand"),
+                        "confirmed_stand": item.get("confirmed_stand"),
+                        "lead_stage": item.get("lead_stage"),
+                    }
+                    history_item = {"user": item.get("user_message") or "sin ultimo mensaje", "created_at": item.get("created_at")}
+                    latest_by_phone[phone] = (updated_at or datetime.min.replace(tzinfo=timezone.utc), phone, memory, history_item)
+    except OSError as error:
+        print(f"No se pudo leer historial completo de conversaciones: {error}", flush=True)
+        return []
+    return list(latest_by_phone.values())
 
 
 def is_internal_history_message(message):
@@ -4149,9 +4204,40 @@ def remember_turn(memory, user_message, reply):
     history = memory.setdefault("history", [])
     now = datetime.now(timezone.utc).isoformat()
     history.append({"user": user_message, "ori": reply, "created_at": now})
-    del history[:-4]
+    del history[:-30]
     memory["updated_at"] = now
+    internal_message = is_internal_history_message(user_message) or is_admin_session_active(memory.get("phone"))
+    if not internal_message:
+        memory["last_customer_message"] = user_message
+        memory["last_customer_at"] = now
+    append_conversation_log(memory, user_message, reply, now, internal_message)
     save_persistent_state()
+
+
+def append_conversation_log(memory, user_message, reply, created_at, internal_message=False):
+    path = Path(os.getenv("ORI_CONVERSATION_LOG_PATH", "memoria_revisable/conversaciones_todas.jsonl"))
+    record = {
+        "created_at": created_at,
+        "phone": memory.get("phone"),
+        "user_message": user_message,
+        "reply": reply,
+        "internal": bool(internal_message),
+        "role": memory.get("role"),
+        "brand": memory.get("brand"),
+        "category": memory.get("category"),
+        "product": memory.get("product"),
+        "city": memory.get("city"),
+        "lead_stage": memory.get("lead_stage"),
+        "selected_stand": memory.get("selected_stand"),
+        "confirmed_stand": memory.get("confirmed_stand"),
+        "form_submitted": memory.get("form_submitted"),
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as file:
+            file.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError as error:
+        print(f"No se pudo guardar historial completo de conversaciones: {error}", flush=True)
 
 
 def save_review_memory_if_needed(user_message, base_reply, final_reply, memory, used_groq):
