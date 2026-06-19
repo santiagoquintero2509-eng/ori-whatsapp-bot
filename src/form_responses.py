@@ -1,10 +1,12 @@
 import csv
+import json
 import os
 import re
 import socket
 import time
 import unicodedata
 import urllib.error
+import urllib.parse
 import urllib.request
 from io import StringIO
 
@@ -44,11 +46,20 @@ def get_form_records(force=False):
         return list(_CACHE["records"])
 
     try:
-        csv_text = fetch_sheet_csv(force=force)
-        records = parse_records(csv_text)
+        apps_script_error = None
+        try:
+            records = fetch_apps_script_records(force=force)
+        except Exception as error:
+            apps_script_error = error
+            records = None
+        if records is None:
+            csv_text = fetch_sheet_csv(force=force)
+            records = parse_records(csv_text)
         _CACHE.update({"loaded_at": now, "records": records, "error": None})
         return list(records)
     except Exception as error:
+        if "apps_script_error" in locals() and apps_script_error:
+            error = RuntimeError(f"{error}; Apps Script: {apps_script_error}")
         _CACHE.update({"loaded_at": now, "records": [], "error": str(error)})
         print(f"No se pudo consultar Google Sheet de formularios: {error}", flush=True)
         return []
@@ -56,6 +67,47 @@ def get_form_records(force=False):
 
 def last_form_error():
     return _CACHE.get("error")
+
+
+def fetch_apps_script_records(force=False):
+    base_url = (
+        os.getenv("FORM_RESPONSES_APPS_SCRIPT_URL", "").strip()
+        or os.getenv("PREINSCRIPTION_WEBHOOK_URL", "").strip()
+    )
+    if not base_url:
+        return None
+
+    params = {"action": "list_preinscriptions"}
+    secret = os.getenv("PREINSCRIPTION_WEBHOOK_SECRET", "").strip()
+    if secret:
+        params["secret"] = secret
+    if force:
+        params["_ori_refresh"] = str(int(time.time()))
+
+    separator = "&" if "?" in base_url else "?"
+    url = f"{base_url}{separator}{urllib.parse.urlencode(params)}"
+    timeout = max(int(os.getenv("FORM_RESPONSES_TIMEOUT", "20")), 20)
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Ori WhatsApp Bot",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        body = response.read().decode("utf-8-sig", errors="replace")
+    parsed = json.loads(body or "{}")
+    if not parsed.get("ok"):
+        raise RuntimeError(parsed.get("error") or "Apps Script no devolvio preinscripciones.")
+    records = []
+    for row in parsed.get("records", []):
+        if not isinstance(row, dict):
+            continue
+        record = normalize_record(row)
+        if has_meaningful_data(record):
+            records.append(record)
+    return records
 
 
 def fetch_sheet_csv(force=False):
