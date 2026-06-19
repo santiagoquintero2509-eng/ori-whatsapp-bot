@@ -15,6 +15,7 @@ from form_responses import (
 )
 from groq_client import GroqClientError, is_groq_enabled, polish_with_groq
 from openai_client import OpenAIClientError, ask_chatgpt, is_openai_enabled
+from preinscription import submit_preinscription, upload_product_media
 
 
 STATUS_LABELS = {
@@ -36,6 +37,21 @@ BOGOTA_TZ = timezone(timedelta(hours=-5))
 MEMORY_PATH = Path(os.getenv("ORI_USER_MEMORY_PATH", "memoria_revisable/usuarios.json"))
 PERSISTENT_STATE = {}
 CONVERSATIONS = {}
+
+PREINSCRIPTION_FIELD_ORDER = [
+    "legal_name",
+    "representative",
+    "stand_name",
+    "city",
+    "whatsapp",
+    "email",
+    "socials",
+    "products",
+    "files",
+    "category",
+    "preferred_stands",
+    "confirmation",
+]
 
 
 def load_persistent_state():
@@ -211,20 +227,23 @@ INTENTS = {
 }
 
 
-def get_ori_reply(raw_message, user_id=None):
+def get_ori_reply(raw_message, user_id=None, incoming_media=None):
     text = str(raw_message or "").strip()
     memory = get_memory(user_id)
 
-    admin_reply = handle_admin_command(text, user_id)
+    admin_reply = handle_admin_command(text, user_id) if not incoming_media else None
     if admin_reply:
         remember_turn(memory, text, admin_reply)
         return admin_reply
 
-    base_reply = get_local_ai_reply(text, memory)
+    if incoming_media and not text:
+        text = media_message_text(incoming_media)
+
+    base_reply = get_local_ai_reply(text, memory, incoming_media=incoming_media)
     final_reply = base_reply
     used_groq = False
 
-    if should_keep_base_reply(base_reply):
+    if should_keep_base_reply(base_reply, memory):
         remember_turn(memory, text, final_reply)
         save_review_memory_if_needed(text, base_reply, final_reply, memory, used_groq)
         return final_reply
@@ -247,9 +266,22 @@ def get_ori_reply(raw_message, user_id=None):
     return final_reply
 
 
-def should_keep_base_reply(base_reply):
+def should_keep_base_reply(base_reply, memory=None):
     text = normalize(base_reply)
-    return "te comparto el plano actual" in text
+    if "te comparto el plano actual" in text:
+        return True
+    if memory and memory.get("last_intent") == "preinscription_flow":
+        return True
+    return False
+
+
+def media_message_text(media):
+    media_type = (media or {}).get("type") or "archivo"
+    if media_type == "image":
+        return "[imagen de producto]"
+    if media_type == "document":
+        return "[documento de producto]"
+    return "[archivo de producto]"
 
 
 def get_memory(user_id):
@@ -280,6 +312,7 @@ def get_memory(user_id):
             "form_submitted": False,
             "form_submitted_at": None,
             "registration_link_sent_at": None,
+            "preinscription": {},
             "history": [],
         }
     memory = CONVERSATIONS[key]
@@ -308,6 +341,7 @@ def get_memory(user_id):
         "form_submitted": False,
         "form_submitted_at": None,
         "registration_link_sent_at": None,
+        "preinscription": {},
         "history": [],
     }
     for field, default in defaults.items():
@@ -1606,7 +1640,7 @@ def phones_are_equivalent(left, right):
     return False
 
 
-def get_local_ai_reply(raw_message, memory):
+def get_local_ai_reply(raw_message, memory, incoming_media=None):
     message = str(raw_message or "").strip()
     text = normalize(message)
 
@@ -1619,6 +1653,10 @@ def get_local_ai_reply(raw_message, memory):
 
     if asks_to_change_topic(text):
         reset_topic_memory(memory)
+
+    preinscription_reply = handle_preinscription_flow(message, text, memory, incoming_media)
+    if preinscription_reply:
+        return preinscription_reply
 
     if asks_private_stand_owner(text):
         return privacy_stand_owner_reply()
@@ -1694,26 +1732,20 @@ def get_local_ai_reply(raw_message, memory):
     if wants_registration_link(text):
         clear_arrival_context(memory)
         memory["role"] = "expositor"
-        memory["last_intent"] = "registration_link"
         if memory.get("form_submitted"):
             memory["pending_field"] = None
             return form_submitted_reply()
-        memory["pending_field"] = "registration"
         if category:
             memory["category"] = category
-        mark_registration_link_sent(memory)
-        return registration_link_reply(memory)
+        return start_preinscription_flow(memory)
 
     if wants_to_reserve(text):
         clear_arrival_context(memory)
         memory["role"] = "expositor"
-        memory["last_intent"] = "reservation"
         if memory.get("form_submitted"):
             memory["pending_field"] = None
             return submitted_reservation_reply(memory)
-        memory["pending_field"] = "registration"
-        mark_registration_link_sent(memory)
-        return reservation_reply(memory)
+        return start_preinscription_flow(memory)
 
     if asks_for_plan(text):
         memory["last_intent"] = "plan"
@@ -1778,27 +1810,17 @@ def get_local_ai_reply(raw_message, memory):
             return form_submitted_reply()
         if category:
             memory["category"] = category
-            memory["last_intent"] = "registration_category"
-            memory["pending_field"] = "registration"
-            mark_registration_link_sent(memory)
-            return category_followup_reply(category)
-        memory["last_intent"] = "exhibitor"
-        memory["pending_field"] = "category"
-        mark_registration_link_sent(memory)
-        return exhibitor_guide_reply()
+        return start_preinscription_flow(memory)
 
     if memory.get("role") == "expositor" and (memory.get("pending_field") == "category" or category):
         if category:
             if memory.get("pending_field") == "registration" and category == memory.get("category"):
                 memory["last_intent"] = "product_detail"
-                return product_detail_followup_reply(memory)
+                return start_preinscription_flow(memory)
             memory["category"] = category
-            memory["pending_field"] = "registration"
-            memory["last_intent"] = "registration_category"
             if memory.get("form_submitted"):
                 return form_submitted_reply()
-            mark_registration_link_sent(memory)
-            return category_followup_reply(category)
+            return start_preinscription_flow(memory)
 
     stand_type = detect_stand_type(text)
     if stand_type and (should_follow_stand_filters(memory) or has_any(text, ["stand", "stands", "stan", "estan", "puesto", "puestos"])):
@@ -1861,13 +1883,7 @@ def get_local_ai_reply(raw_message, memory):
             return form_submitted_reply()
         if category:
             memory["category"] = category
-            memory["pending_field"] = "registration"
-            memory["last_intent"] = "registration_category"
-            mark_registration_link_sent(memory)
-            return category_followup_reply(category)
-        memory["pending_field"] = "category"
-        mark_registration_link_sent(memory)
-        return exhibitor_guide_reply()
+        return start_preinscription_flow(memory)
     if intent == "products":
         return products_reply(text)
     if intent == "activities":
@@ -1888,6 +1904,346 @@ def get_local_ai_reply(raw_message, memory):
         return fair_history_reply()
 
     return smart_fallback_reply(message, memory)
+
+
+def handle_preinscription_flow(message, text, memory, incoming_media=None):
+    pre = memory.setdefault("preinscription", {})
+
+    if incoming_media:
+        if pre.get("active") and pre.get("step") == "files":
+            return receive_preinscription_media(memory, incoming_media)
+        return (
+            "Recibi el archivo. Si quieres hacer una preinscripcion, escribeme que deseas participar "
+            "y te guio paso a paso."
+        )
+
+    if not pre.get("active"):
+        return None
+
+    memory["role"] = "expositor"
+    memory["last_intent"] = "preinscription_flow"
+
+    if wants_to_cancel_preinscription(text):
+        memory["preinscription"] = {}
+        memory["pending_field"] = None
+        return "Listo, detuve la preinscripcion por ahora. Cuando quieras retomarla, escribeme que deseas participar."
+
+    step = pre.get("step") or next_preinscription_step(pre)
+
+    if step == "files":
+        if says_no_files(text):
+            pre["files_status"] = "No enviados"
+            pre["step"] = "category"
+            save_persistent_state()
+            return (
+                "No hay problema, podemos continuar sin archivos por ahora.\n\n"
+                "Si mas adelante tienes imagenes o catalogo, podras enviarlos para complementar la revision de tus productos.\n\n"
+                f"{preinscription_prompt('category', memory)}"
+            )
+        if is_done_with_files(text):
+            if not pre.get("files"):
+                pre["files_status"] = "No enviados"
+                no_files_note = "No hay problema, continuamos sin archivos por ahora.\n\n"
+            else:
+                pre["files_status"] = "Recibidos"
+                no_files_note = "Perfecto, ya tengo tus archivos de productos.\n\n"
+            pre["step"] = "category"
+            save_persistent_state()
+            return no_files_note + preinscription_prompt("category", memory)
+        return (
+            "Puedes enviarme imagenes, catalogo o PDF de tus productos.\n\n"
+            "Si no tienes archivos por ahora, escribeme 'no tengo'. "
+            "Cuando termines de enviarlos, escribeme 'listo'."
+        )
+
+    if step == "confirmation":
+        if confirms_preinscription(text):
+            return finish_preinscription(memory)
+        if wants_to_correct_preinscription(text):
+            pre["step"] = "legal_name"
+            save_persistent_state()
+            return "Claro, revisemos desde el inicio. Cual es la razon social de tu marca?"
+        return "Para enviarla, respondeme 'si confirmo'. Si quieres corregir algo, dime 'corregir'."
+
+    if step == "preferred_stands":
+        stands = extract_preferred_stands(text)
+        valid, unavailable = validate_preferred_stands(stands)
+        if len(stands) < 3:
+            return "Necesito que me indiques 3 stands de interes en orden de preferencia. Por ejemplo: 21, 29 y 56."
+        if unavailable:
+            unavailable_text = ", ".join(str(item) for item in unavailable)
+            return (
+                f"Estos stands no aparecen disponibles en la informacion actual: {unavailable_text}.\n\n"
+                "Por favor dime 3 stands disponibles en orden de preferencia."
+            )
+        pre.setdefault("fields", {})["preferred_stands"] = ", ".join(str(item) for item in valid[:3])
+        pre["step"] = "confirmation"
+        save_persistent_state()
+        return preinscription_summary_reply(memory)
+
+    value = message.strip()
+    if not value:
+        return preinscription_prompt(step, memory)
+
+    pre.setdefault("fields", {})[step] = clean_preinscription_value(value)
+    sync_preinscription_field_to_memory(memory, step, value)
+    pre["step"] = next_preinscription_step(pre)
+    save_persistent_state()
+    return preinscription_prompt(pre["step"], memory)
+
+
+def start_preinscription_flow(memory):
+    pre = memory.setdefault("preinscription", {})
+    if pre.get("active"):
+        return preinscription_prompt(pre.get("step") or next_preinscription_step(pre), memory)
+
+    memory["role"] = "expositor"
+    memory["lead_stage"] = "preinscripcion_en_conversacion"
+    memory["process_stage"] = "preinscripcion_en_conversacion"
+    memory["last_intent"] = "preinscription_flow"
+    memory["pending_field"] = "preinscription"
+    memory["preinscription"] = {
+        "active": True,
+        "step": "legal_name",
+        "fields": {},
+        "files": [],
+        "files_status": "Pendiente",
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
+    save_persistent_state()
+    return (
+        "Que buena noticia! Me alegra que quieras hacer parte de Feria Origen Colombia 2027.\n\n"
+        "Para iniciar tu preinscripcion, te hare unas preguntas rapidas.\n\n"
+        "Primero, cual es la razon social de tu marca?"
+    )
+
+
+def preinscription_prompt(step, memory):
+    prompts = {
+        "legal_name": "Cual es la razon social de tu marca?",
+        "representative": "Perfecto. Cual es el nombre del representante?",
+        "stand_name": "Gracias. Que nombre quieres que aparezca en el stand?",
+        "city": "De que ciudad viene tu marca?",
+        "whatsapp": "Cual es tu numero de WhatsApp de contacto?",
+        "email": "Perfecto. Cual es tu correo electronico?",
+        "socials": "Tienes redes sociales o pagina web? Si no tienes, puedes escribir 'no tengo'.",
+        "products": (
+            "Ahora cuentame que productos quieres presentar en la feria.\n\n"
+            "Por favor detalla los productos con los que deseas participar. Ten presente que estaran sujetos "
+            "a aprobacion y solo podran participar los productos aprobados por la organizacion."
+        ),
+        "files": (
+            "Gracias. Ahora puedes enviarme imagenes, catalogo o PDF de tus productos.\n\n"
+            "Si tienes varias imagenes, puedes enviarlas una por una. Si tienes un catalogo en PDF, tambien puedes enviarlo por aqui.\n\n"
+            "Cuando termines de enviarlos, escribeme: listo. Si no tienes archivos por ahora, escribeme: no tengo."
+        ),
+        "category": (
+            "En que categoria participarias? Por ejemplo: moda, artesanias, joyeria, gastronomia, "
+            "decoracion, salud y belleza u otra."
+        ),
+        "preferred_stands": preferred_stands_prompt(),
+        "confirmation": preinscription_summary_reply(memory),
+    }
+    return prompts.get(step) or prompts["legal_name"]
+
+
+def preferred_stands_prompt():
+    return (
+        "Perfecto! Ya tengo la informacion principal para tu preinscripcion.\n\n"
+        "Antes de enviarla, te comparto el plano actual y estos son los stands disponibles:\n\n"
+        f"{available_stands_text()}\n\n"
+        "Dime 3 stands de interes en orden de preferencia. Recuerda que la asignacion final queda sujeta "
+        "a confirmacion por parte del equipo organizador."
+    )
+
+
+def next_preinscription_step(pre):
+    fields = pre.setdefault("fields", {})
+    for field in PREINSCRIPTION_FIELD_ORDER:
+        if field == "files":
+            if pre.get("files_status") not in {"Recibidos", "No enviados"}:
+                return "files"
+            continue
+        if field == "confirmation":
+            return "confirmation"
+        if field not in fields or not fields.get(field):
+            return field
+    return "confirmation"
+
+
+def receive_preinscription_media(memory, media):
+    pre = memory.setdefault("preinscription", {})
+    legal_name = pre.get("fields", {}).get("legal_name") or memory.get("brand") or memory.get("phone") or "Sin razon social"
+    result = upload_product_media(
+        legal_name,
+        media,
+        os.getenv("WHATSAPP_TOKEN", ""),
+        os.getenv("GRAPH_API_VERSION", "v20.0"),
+    )
+    file_record = {
+        "filename": result.get("filename") or media.get("filename") or media_message_text(media),
+        "file_url": result.get("file_url"),
+        "folder_url": result.get("folder_url"),
+        "media_id": media.get("id"),
+        "queued": bool(result.get("queued")),
+    }
+    pre.setdefault("files", []).append(file_record)
+    pre["files_status"] = "Recibidos"
+    if result.get("folder_url"):
+        pre["folder_url"] = result.get("folder_url")
+    save_persistent_state()
+
+    if media.get("type") == "document":
+        received = "Recibi el catalogo o documento."
+    else:
+        received = "Recibi esta imagen."
+    return f"{received} Puedes enviar mas archivos o escribir 'listo' cuando termines."
+
+
+def finish_preinscription(memory):
+    pre = memory.setdefault("preinscription", {})
+    data = build_preinscription_data(memory)
+    result = submit_preinscription(data)
+    now = datetime.now(timezone.utc).isoformat()
+
+    memory["form_submitted"] = True
+    memory["form_submitted_at"] = now
+    memory["lead_stage"] = "preinscrito"
+    memory["process_stage"] = "preinscripcion_recibida"
+    memory["pending_field"] = None
+    memory["last_intent"] = "preinscription_flow"
+    memory["preinscription"] = {
+        "active": False,
+        "submitted_at": now,
+        "last_submission": data,
+        "queued": bool(result.get("queued")),
+        "error": result.get("error"),
+    }
+    save_persistent_state()
+
+    return (
+        "Listo! Tu preinscripcion fue recibida correctamente.\n\n"
+        "El equipo revisara la informacion, los productos y los stands de interes. "
+        "Luego se comunicara contigo para confirmar disponibilidad, inscripcion y metodos de pago."
+    )
+
+
+def build_preinscription_data(memory):
+    pre = memory.setdefault("preinscription", {})
+    fields = pre.setdefault("fields", {})
+    files = pre.get("files", [])
+    file_urls = [item.get("file_url") for item in files if item.get("file_url")]
+    folder_url = pre.get("folder_url") or next((item.get("folder_url") for item in files if item.get("folder_url")), "")
+    return {
+        "razon_social": fields.get("legal_name", ""),
+        "nombre_representante": fields.get("representative", ""),
+        "nombre_para_stand": fields.get("stand_name", ""),
+        "ciudad_origen": fields.get("city", ""),
+        "whatsapp": fields.get("whatsapp", "") or memory.get("phone", ""),
+        "correo": fields.get("email", ""),
+        "redes": fields.get("socials", ""),
+        "productos": fields.get("products", ""),
+        "categoria": fields.get("category", ""),
+        "stands_interes": fields.get("preferred_stands", ""),
+        "archivos_productos": "\n".join(file_urls) if file_urls else pre.get("files_status", "No enviados"),
+        "carpeta_drive": folder_url,
+        "telefono_chat": memory.get("phone", ""),
+    }
+
+
+def preinscription_summary_reply(memory):
+    data = build_preinscription_data(memory)
+    return (
+        "Excelente, antes de enviar tu preinscripcion revisa que todo este correcto:\n\n"
+        f"Razon social: {data['razon_social'] or 'pendiente'}\n"
+        f"Representante: {data['nombre_representante'] or 'pendiente'}\n"
+        f"Nombre para el stand: {data['nombre_para_stand'] or 'pendiente'}\n"
+        f"Ciudad: {data['ciudad_origen'] or 'pendiente'}\n"
+        f"WhatsApp: {data['whatsapp'] or 'pendiente'}\n"
+        f"Correo: {data['correo'] or 'pendiente'}\n"
+        f"Redes: {data['redes'] or 'pendiente'}\n"
+        f"Productos: {data['productos'] or 'pendiente'}\n"
+        f"Categoria: {data['categoria'] or 'pendiente'}\n"
+        f"Archivos de productos: {data['archivos_productos'] or 'No enviados'}\n"
+        f"Stands de interes: {data['stands_interes'] or 'pendiente'}\n\n"
+        "Confirmas que puedo enviar tu preinscripcion?"
+    )
+
+
+def available_stands_text():
+    patio = sorted(
+        item["number"] for item in iter_booths() if item["status"] == "available" and item["zone"] == "patio"
+    )
+    salon = sorted(
+        item["number"] for item in iter_booths() if item["status"] == "available" and item["zone"] == "salon"
+    )
+    return (
+        f"Patio de las Artes: {', '.join(str(item) for item in patio)}.\n"
+        f"Salon Pierre Daguet: {', '.join(str(item) for item in salon)}."
+    )
+
+
+def sync_preinscription_field_to_memory(memory, step, value):
+    if step == "legal_name":
+        memory["brand"] = clean_preinscription_value(value)
+    elif step == "city":
+        memory["city"] = clean_preinscription_value(value)
+    elif step == "products":
+        memory["product"] = clean_preinscription_value(value)
+    elif step == "category":
+        memory["category"] = clean_preinscription_value(value)
+    elif step == "preferred_stands":
+        first_stand = extract_preferred_stands(value)
+        if first_stand:
+            memory["selected_stand"] = first_stand[0]
+
+
+def clean_preinscription_value(value):
+    cleaned = re.sub(r"\s+", " ", str(value or "").strip())
+    if normalize(cleaned) in {"no", "no tengo", "ninguno", "ninguna", "no aplica"}:
+        return "No registra"
+    return cleaned[:500]
+
+
+def extract_preferred_stands(text):
+    numbers = [int(item) for item in re.findall(r"\b\d{1,3}\b", str(text or ""))]
+    output = []
+    for number in numbers:
+        if number not in output:
+            output.append(number)
+    return output[:3]
+
+
+def validate_preferred_stands(stands):
+    valid = []
+    unavailable = []
+    for stand in stands[:3]:
+        booth = find_booth(stand)
+        if booth and booth.get("status") == "available":
+            valid.append(stand)
+        else:
+            unavailable.append(stand)
+    return valid, unavailable
+
+
+def says_no_files(text):
+    return has_any(text, ["no tengo", "no por ahora", "no cuento", "no", "ninguno", "ninguna", "sin archivos"])
+
+
+def is_done_with_files(text):
+    return has_any(text, ["listo", "ya", "termine", "ya termine", "eso es todo", "enviado", "ya envie"])
+
+
+def confirms_preinscription(text):
+    return has_any(text, ["si confirmo", "confirmo", "si", "correcto", "esta correcto", "enviar", "enviala", "enviarla"])
+
+
+def wants_to_correct_preinscription(text):
+    return has_any(text, ["corregir", "corrige", "cambiar", "editar", "modificar", "no esta correcto"])
+
+
+def wants_to_cancel_preinscription(text):
+    return has_any(text, ["cancelar preinscripcion", "detener preinscripcion", "salir preinscripcion", "no quiero seguir"])
 
 
 def update_lead_memory_from_text(memory, raw_message, text, category=None):
@@ -2042,9 +2398,9 @@ def location_reply():
 
 def entry_cost_reply():
     return (
-        "Para visitantes, la informacion cargada indica entrada libre en ediciones anteriores. "
-        "Por ahora no tengo un costo de entrada diferente publicado para la edicion 2027. "
-        "Si el equipo publica algun cambio, te lo confirmare con informacion actualizada."
+        "Si! La entrada para visitantes es 100% gratuita.\n\n"
+        "Puedes venir a recorrer la feria, conocer marcas colombianas, descubrir productos unicos "
+        "y disfrutar la experiencia sin pagar entrada."
     )
 
 
@@ -2052,8 +2408,7 @@ def arrival_and_cost_reply():
     return (
         f"{FAIR_INFO['location']} {FAIR_INFO['arrival_tip']} "
         "Si me dices desde donde sales, te puedo orientar mejor con la ruta. "
-        "Sobre el costo: para visitantes, la informacion cargada indica entrada libre en ediciones anteriores "
-        "y no tengo un costo de entrada diferente publicado para la edicion 2027."
+        "Y si vienes como visitante, la entrada es 100% gratuita."
     )
 
 
@@ -2149,17 +2504,15 @@ def previous_fairs_reply():
 
 def exhibitor_guide_reply():
     return (
-        "Que bueno que quieras ser parte de la feria! Esta es una oportunidad muy bonita para mostrar tu marca y conectar con nuevos clientes. "
-        f"Puedes iniciar tu preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
-        "La disponibilidad del stand queda sujeta a confirmacion del equipo organizador. "
-        "Si quieres, tambien puedo ayudarte a confirmar tu categoria antes de llenar el formulario."
+        "Que bueno que quieras ser parte de la feria! Esta es una oportunidad muy bonita para mostrar tu marca y conectar con nuevos clientes.\n\n"
+        "Puedo tomar tu preinscripcion directamente por este chat. Para empezar, dime la razon social de tu marca."
     )
 
 
 def category_followup_reply(category):
     return (
         f"Perfecto! {category} aplica para la feria. Me alegra que ya tengamos clara la categoria. "
-        f"Puedes avanzar con la preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
+        "Si quieres avanzar, puedo tomar tu preinscripcion directamente por este chat. "
         "Recuerda que el stand o ubicacion queda sujeto a confirmacion del equipo organizador."
     )
 
@@ -2174,7 +2527,7 @@ def product_detail_followup_reply(memory):
         )
     return (
         f"Que bonito proyecto! Ya tengo claro que va por {category}. "
-        f"Si ya quieres avanzar, puedes iniciar tu preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
+        "Si ya quieres avanzar, puedo tomar tu preinscripcion directamente por este chat. "
         "Si prefieres, tambien revisamos primero stands disponibles."
     )
 
@@ -2188,8 +2541,7 @@ def reservation_reply(memory):
     if selected_stand and selected_status == "available":
         return (
             f"Me alegra que te hayas animado a reservar! Esta es una oportunidad unica para darle visibilidad a tu marca. "
-            f"Este es el link para iniciar tu reserva o preinscripcion: "
-            f"{FAIR_INFO['registration_form_url']} "
+            "Puedo tomar tu preinscripcion directamente por este chat. "
             f"Recordemos que el stand {selected_stand} aparece disponible en la informacion cargada, "
             "pero el numero queda sujeto a confirmacion final por parte de los organizadores."
         )
@@ -2202,7 +2554,7 @@ def reservation_reply(memory):
 
     return (
         "Claro! Me alegra que quieras avanzar con tu reserva o preinscripcion. "
-        f"Puedes iniciar aqui: {FAIR_INFO['registration_form_url']} "
+        "Puedo tomar tus datos directamente por este chat. "
         "El numero del stand queda sujeto a confirmacion final por parte de los organizadores."
     )
 
@@ -2215,7 +2567,7 @@ def registration_link_reply(memory):
     return (
         "Me alegra que te hayas decidido a participar! Feria Origen Colombia 2027 es una oportunidad unica "
         "para mostrar tu marca, conectar con visitantes y hacer parte de una experiencia con identidad colombiana. "
-        f"Puedes iniciar tu preinscripcion aqui: {FAIR_INFO['registration_form_url']} "
+        "Puedo tomar tu preinscripcion directamente por este chat. "
         "Recuerda que la disponibilidad del stand o ubicacion queda sujeta a confirmacion del equipo organizador."
         f"{category_note}"
     )
@@ -2283,7 +2635,7 @@ def exhibitor_city_reply(memory, city):
     return (
         f"Perfecto, gracias por contarme que vienes de {city}. "
         f"Lo tengo presente para tu proceso de preinscripcion{selected_note}.\n\n"
-        f"Si ya quieres avanzar, el formulario oficial es:\n{FAIR_INFO['registration_form_url']}\n\n"
+        "Si ya quieres avanzar, puedo tomar tu preinscripcion directamente por este chat.\n\n"
         "Necesitas ayuda con algo mas?"
     )
 
@@ -2447,7 +2799,7 @@ def smart_fallback_reply(message, memory):
         return (
             "Creo que tu consulta va por el lado de participacion como expositor. "
             "Puedo ayudarte con stands disponibles, medidas y zonas. "
-            f"Para registrarte, usa el formulario oficial: {FAIR_INFO['registration_form_url']}"
+            "Si quieres avanzar, tambien puedo tomar tu preinscripcion directamente por aqui."
         )
 
     return (
@@ -2481,16 +2833,14 @@ def describe_stand(number, memory=None):
                 "inscripcion y metodos de pago.\n\n"
                 "Necesitas ayuda con algo mas?"
             )
-        mark_registration_link_sent(memory)
         return (
             f"Genial eleccion! El stand {stand['number']} esta disponible en {zone}.\n\n"
             f"Medidas: {stand['size']}.\n"
             f"{type_line}\n"
             f"{price_line}\n\n"
-            "Si te interesa avanzar, puedes iniciar la preinscripcion aqui:\n"
-            f"{FAIR_INFO['registration_form_url']}\n\n"
+            "Si te interesa avanzar, puedo tomar tu preinscripcion directamente por este chat.\n\n"
             "El numero del stand queda sujeto a confirmacion final por parte de los organizadores. "
-            "Una vez envies el formulario, el equipo revisara tu solicitud y se pondra en contacto contigo para confirmar inscripcion y metodos de pago.\n\n"
+            "Una vez envies la preinscripcion, el equipo revisara tu solicitud y se pondra en contacto contigo para confirmar inscripcion y metodos de pago.\n\n"
             "Necesitas ayuda con algo mas?"
         )
 
