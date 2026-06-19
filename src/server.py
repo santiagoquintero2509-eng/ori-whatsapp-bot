@@ -158,12 +158,12 @@ class OriHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def send_static_file(self, path, content_type, fallback_base64=""):
-        if path.exists() and path.is_file():
+        if path.name == "plano_stands.jpg" and PLANO_STANDS_JPG_BASE64:
+            body = base64.b64decode(PLANO_STANDS_JPG_BASE64)
+        elif path.exists() and path.is_file():
             body = path.read_bytes()
         elif fallback_base64:
             body = base64.b64decode(fallback_base64)
-        elif path.name == "plano_stands.jpg" and PLANO_STANDS_JPG_BASE64:
-            body = base64.b64decode(PLANO_STANDS_JPG_BASE64)
         else:
             self.send_json({"error": "Archivo no encontrado"}, status=404)
             return
@@ -194,11 +194,11 @@ def handle_whatsapp_payload(payload):
                 "Plano de stands Feria Origen Colombia 2027.",
             )
         if should_send_previous_fair_images(message["text"]) and should_send_previous_fair_images_now(message["from"]):
-            for image_url in previous_fair_image_urls()[:MAX_PREVIOUS_FAIR_IMAGES]:
+            for image_url, caption in fair_gallery_image_urls()[:MAX_PREVIOUS_FAIR_IMAGES]:
                 send_whatsapp_image(
                     message["from"],
                     image_url,
-                    "Asi se ha vivido Feria Origen Colombia en ediciones anteriores.",
+                    caption,
                 )
 
 
@@ -403,21 +403,29 @@ def should_send_plan_image_now(user_id):
 
 def should_send_previous_fair_images(message):
     text = normalize_for_match(message)
-    if not previous_fair_image_urls():
+    if not fair_gallery_image_urls():
         return False
 
     explicit_photo_triggers = [
         "fotos",
         "imagenes",
+        "imagen",
         "galeria",
+        "imagenes de la feria",
+        "fotos de la feria",
         "ferias anteriores",
         "ediciones anteriores",
         "versiones anteriores",
         "ver fotos",
+        "ver imagenes",
         "mostrar fotos",
+        "mostrar imagenes",
         "compartir fotos",
+        "compartir imagenes",
         "mandame fotos",
+        "mandame imagenes",
         "enviame fotos",
+        "enviame imagenes",
         "como se ve la feria",
         "como ha sido la feria",
     ]
@@ -443,6 +451,16 @@ def previous_fair_image_urls():
         if path.is_file() and image_content_type(path):
             urls.append(f"{PUBLIC_BASE_URL}/ferias_anteriores/{urllib.parse.quote(path.name)}")
     return urls
+
+
+def fair_gallery_image_urls():
+    previous_urls = [
+        (url, "Asi se ha vivido Feria Origen Colombia en ediciones anteriores.")
+        for url in previous_fair_image_urls()
+    ]
+    if previous_urls:
+        return previous_urls
+    return welcome_image_urls()
 
 
 def welcome_image_urls():
