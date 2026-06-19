@@ -20,6 +20,7 @@ from preinscription import (
     pending_queue_items,
     retry_pending_queue,
     submit_preinscription,
+    update_confirmed_stand,
     upload_product_media,
 )
 
@@ -348,6 +349,8 @@ def get_memory(user_id):
             "registration_link_sent_at": None,
             "preinscription": {},
             "history": [],
+            "welcome_gallery_sent": False,
+            "welcome_gallery_pending": False,
         }
     memory = CONVERSATIONS[key]
     defaults = {
@@ -377,6 +380,8 @@ def get_memory(user_id):
         "registration_link_sent_at": None,
         "preinscription": {},
         "history": [],
+        "welcome_gallery_sent": False,
+        "welcome_gallery_pending": False,
     }
     for field, default in defaults.items():
         memory.setdefault(field, default)
@@ -451,6 +456,9 @@ def handle_admin_command(raw_message, user_id=None):
 
     if action["type"] == "confirmed_stands":
         return admin_confirmed_stands_reply()
+
+    if action["type"] == "unassigned_stands":
+        return admin_unassigned_stands_reply()
 
     if action["type"] == "interested_summary":
         return admin_interested_summary_reply(action.get("category"))
@@ -548,6 +556,9 @@ def parse_admin_action(message, text):
         if period:
             return {"type": "chat_history", "period": period}
         return {"type": "chat_history_prompt"}
+
+    if asks_admin_unassigned_stands(text):
+        return {"type": "unassigned_stands"}
 
     reset_pre_match = re.search(
         r"\b(?:reinicia|reiniciar|resetea|resetear|restablece|restablecer|borra|borrar|limpia|limpiar)\s+"
@@ -669,11 +680,13 @@ def admin_action_from_groq(parsed):
         "form_lookup": "form_lookup",
         "client_info": "client_info",
         "reason_social_lookup": "reason_social_lookup",
+        "brand_stand_assignment": "brand_stand_assignment",
         "confirm_stand": "confirm_stand",
         "block_stand": "block_stand",
         "release_stand": "release_stand",
         "stand_owner": "stand_owner",
         "confirmed_stands": "confirmed_stands",
+        "unassigned_stands": "unassigned_stands",
         "chat_history": "chat_history",
         "queue_status": "queue_status",
         "retry_pending_queue": "retry_pending_queue",
@@ -685,7 +698,7 @@ def admin_action_from_groq(parsed):
     if not action_type:
         return None
 
-    if action_type in {"form_lookup", "client_info", "reason_social_lookup"}:
+    if action_type in {"form_lookup", "client_info", "reason_social_lookup", "brand_stand_assignment"}:
         query = clean_admin_query(parsed.get("query"))
         if not query:
             return None
@@ -748,6 +761,24 @@ def is_admin_chat_history_request(text):
             "chats de ori",
             "personas que escribieron",
             "numeros que escribieron",
+        ],
+    )
+
+
+def asks_admin_unassigned_stands(text):
+    return has_any(
+        text,
+        [
+            "sin stand",
+            "sin estand",
+            "sin puesto",
+            "sin ubicacion",
+            "no tiene stand",
+            "no tienen stand",
+            "pendiente de stand",
+            "pendientes de stand",
+            "stand pendiente",
+            "stand asignado pendiente",
         ],
     )
 
@@ -1059,6 +1090,8 @@ def confirm_stand_for_brand(stand, brand):
     PERSISTENT_STATE.setdefault("stands", {})[str(stand)] = assignment
     save_persistent_state()
 
+    sheet_note = sync_confirmed_stand_to_sheet(assignment, brand, stand)
+
     user_note = ""
     if matched_memory:
         user_note = (
@@ -1069,8 +1102,24 @@ def confirm_stand_for_brand(stand, brand):
 
     return (
         f"Listo. Confirme el stand {stand} para {brand}.\n\n"
-        f"Estado actualizado: ocupado / confirmado.{user_note}"
+        f"Estado actualizado: ocupado / confirmado.{user_note}{sheet_note}"
     )
+
+
+def sync_confirmed_stand_to_sheet(assignment, original_brand, stand):
+    query = assignment.get("brand") or original_brand
+    representative = assignment.get("representative") or ""
+    try:
+        result = update_confirmed_stand(query, stand, representative=representative)
+    except Exception as error:
+        print(f"No se pudo actualizar stand confirmado en Sheet: {error}", flush=True)
+        return "\nHoja de calculo: no pude actualizarla en este momento."
+
+    if result.get("ok"):
+        return "\nHoja de calculo: stand confirmado actualizado."
+    if result.get("queued"):
+        return "\nHoja de calculo: actualizacion pendiente en cola."
+    return f"\nHoja de calculo: no pude actualizarla ({result.get('error') or 'sin detalle'})."
 
 
 def admin_form_lookup_reply(query, admin_key=None, force=False):
@@ -1286,8 +1335,41 @@ def admin_form_summary_reply(category=None, today_only=False):
         city = record.get("city") or "sin ciudad"
         phone = record.get("whatsapp") or "sin WhatsApp"
         product = record.get("products") or "sin producto"
+        stand_status = record_stand_status(record)
+        lines.append(f"- {brand}: {city}, {phone}, {product}. {stand_status}")
+    return "\n".join(lines)
+
+
+def admin_unassigned_stands_reply():
+    records = filter_form_records(force=True)
+    if not records:
+        error = last_form_error()
+        if error:
+            return (
+                "No pude consultar la hoja de preinscripciones en este momento. "
+                "Intenta nuevamente en unos segundos."
+            )
+        return "No encontre preinscritos en la hoja conectada."
+
+    unassigned = [record for record in records if not record.get("confirmed_stand")]
+    if not unassigned:
+        return "Todos los preinscritos de la hoja tienen stand confirmado."
+
+    lines = [f"Preinscritos sin stand confirmado: {len(unassigned)}"]
+    for record in unassigned[:15]:
+        brand = record_brand(record)
+        city = record.get("city") or "sin ciudad"
+        phone = record.get("whatsapp") or "sin WhatsApp"
+        product = record.get("products") or "sin producto"
         lines.append(f"- {brand}: {city}, {phone}, {product}")
     return "\n".join(lines)
+
+
+def record_stand_status(record):
+    stand = str(record.get("confirmed_stand") or "").strip()
+    if stand:
+        return f"Stand confirmado: {stand}"
+    return "Sin stand confirmado"
 
 
 def admin_queue_status_reply():
@@ -1610,6 +1692,18 @@ def admin_stand_owner_reply(stand):
     if not booth:
         return f"No encuentro el stand {stand} en el plano cargado."
 
+    sheet_record = form_record_for_confirmed_stand(stand)
+    if sheet_record:
+        details = [
+            f"Stand {stand}: confirmado / ocupado.",
+            f"Marca o referencia: {record_brand(sheet_record)}",
+            f"Razon social: {sheet_record.get('legal_name') or 'sin dato'}",
+            f"Representante: {sheet_record.get('representative') or 'sin dato'}",
+            f"Producto: {sheet_record.get('products') or 'sin producto cargado'}",
+            f"Telefono: {sheet_record.get('whatsapp') or 'sin telefono'}",
+        ]
+        return "\n".join(details)
+
     assignment = admin_stand_assignment(stand)
     interested = interested_users_for_stand(stand)
 
@@ -1625,6 +1719,12 @@ def admin_stand_owner_reply(stand):
         ]
         return "\n".join(details)
 
+    if last_form_error():
+        return (
+            "No pude consultar la hoja de preinscripciones en este momento. "
+            "Intenta nuevamente en unos segundos."
+        )
+
     status = STATUS_LABELS.get(booth.get("status"), booth.get("status"))
     lines = [f"Stand {stand}: no tiene confirmacion administrativa guardada. Estado actual: {status}."]
     if interested:
@@ -1636,10 +1736,27 @@ def admin_stand_owner_reply(stand):
     return "\n".join(lines)
 
 
+def form_record_for_confirmed_stand(stand):
+    target = str(stand).strip()
+    if not target:
+        return None
+    for record in filter_form_records(force=True):
+        value = str(record.get("confirmed_stand") or "").strip()
+        if value == target:
+            return record
+    return None
+
+
 def admin_brand_stand_assignment_reply(query):
-    assignment = find_admin_assignment_by_brand(query)
     record = find_form_record(query, force=True)
 
+    if record and record.get("confirmed_stand"):
+        return (
+            f"{record_brand(record)} tiene confirmado el stand {record.get('confirmed_stand')} "
+            "en la hoja de preinscripciones."
+        )
+
+    assignment = find_admin_assignment_by_brand(query)
     if assignment:
         stand = assignment.get("stand")
         status = assignment.get("status") or "confirmado"
@@ -1651,11 +1768,10 @@ def admin_brand_stand_assignment_reply(query):
             f"Telefono: {assignment.get('phone') or assignment.get('user_id') or 'sin telefono'}."
         )
 
-    if record and record.get("confirmed_stand"):
+    if last_form_error():
         return (
-            f"{record_brand(record)} aparece en la hoja de preinscripciones con stand asignado: "
-            f"{record.get('confirmed_stand')}.\n\n"
-            "Recuerda validar si esa columna corresponde a confirmacion final del equipo organizador."
+            "No pude consultar la hoja de preinscripciones en este momento. "
+            "Intenta nuevamente en unos segundos."
         )
 
     if record:
@@ -1966,13 +2082,13 @@ def clean_admin_query(value):
 
 
 def extract_brand_assignment_query(text):
-    if "stand" not in text and "ubicacion" not in text:
+    if "stand" not in text and "estand" not in text and "ubicacion" not in text:
         return None
-    if not has_any(text, ["asignado", "asignada", "confirmado", "confirmada", "que stand", "cual stand", "tiene stand"]):
+    if not has_any(text, ["asignado", "asignada", "confirmado", "confirmada", "que stand", "que estand", "cual stand", "cual estand", "tiene stand", "tiene estand"]):
         return None
 
     question_match = re.search(
-        r"\b(?:que|cual)\s+stand\s+(?:tiene|tiene asignado|tiene confirmado|se le asigno|se asigno a)\s+(.+)$",
+        r"\b(?:que|cual)\s+(?:stand|estand)\s+(?:tiene|tiene asignado|tiene confirmado|se le asigno|se asigno a)\s+(.+)$",
         text,
     )
     if question_match:
@@ -2161,6 +2277,8 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
     text = normalize(message)
 
     if not text:
+        return welcome_reply(memory)
+    if not memory.get("history") and not incoming_media:
         return welcome_reply(memory)
 
     category = detect_product_category(text)
@@ -3067,13 +3185,17 @@ def welcome_reply(memory):
         role_hint = " Como visitante, puedo orientarte con fecha, ubicacion, productos y actividades."
 
     if not memory.get("history"):
+        if not memory.get("welcome_gallery_sent"):
+            memory["welcome_gallery_pending"] = True
+            memory["welcome_gallery_sent"] = True
         return (
-            "Hola, Soy Ori, tu asistente virtual de Feria Origen Colombia. "
-            "Soy una asistente artificial y estoy aqui para atenderte hoy!\n\n"
-            f"Puedo ayudarte con informacion de la {FAIR_INFO['name']}, stands, ubicacion, actividades "
-            "y el proceso de participacion.\n\n"
-            f"Si deseas hablar con un asesor humano, puedes escribir aqui: {ADVISOR_WHATSAPP_LINK}\n\n"
-            "En que puedo ayudarte?"
+            "Hola, soy Ori, tu asistente virtual de Feria Origen Colombia 2027!\n\n"
+            "Te comparto una mirada rapida de nuestros espacios: el Patio de las Artes y el Salon Pierre Daguet, "
+            "dos zonas pensadas para vivir la feria entre talento colombiano, tradicion, diseno, gastronomia, "
+            "arte y productos con identidad.\n\n"
+            "Puedo ayudarte con informacion para visitar la feria o guiarte paso a paso si deseas iniciar "
+            "una preinscripcion como expositor.\n\n"
+            "Que te gustaria saber?"
         )
 
     return (
@@ -3082,6 +3204,15 @@ def welcome_reply(memory):
         "Quieres saber algo en particular sobre la feria, los stands o las actividades?"
         f"{role_hint}"
     )
+
+
+def consume_welcome_gallery_signal(user_id):
+    memory = get_memory(user_id)
+    if not memory.get("welcome_gallery_pending"):
+        return False
+    memory["welcome_gallery_pending"] = False
+    save_persistent_state()
+    return True
 
 
 def event_reply():
