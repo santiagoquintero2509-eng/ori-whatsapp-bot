@@ -9,12 +9,17 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from ori import get_ori_reply
+from ori import consume_welcome_gallery_signal, get_ori_reply
 
 try:
     from plano_image import PLANO_STANDS_JPG_BASE64
 except ImportError:
     PLANO_STANDS_JPG_BASE64 = ""
+
+try:
+    from welcome_images import WELCOME_IMAGES_BASE64
+except ImportError:
+    WELCOME_IMAGES_BASE64 = {}
 
 
 def load_env():
@@ -42,6 +47,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrende
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
+WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
 LAST_PLAN_IMAGE_SENT = {}
 LAST_PREVIOUS_FAIR_IMAGES_SENT = {}
 PLAN_IMAGE_COOLDOWN_SECONDS = 600
@@ -77,6 +83,16 @@ class OriHandler(BaseHTTPRequestHandler):
             content_type = image_content_type(file_path)
             if content_type:
                 self.send_static_file(file_path, content_type)
+                return
+            self.send_json({"error": "Archivo no encontrado"}, status=404)
+            return
+
+        if parsed_url.path.startswith("/bienvenida/"):
+            filename = Path(urllib.parse.unquote(parsed_url.path)).name
+            file_path = WELCOME_IMAGES_DIR / filename
+            content_type = image_content_type(file_path)
+            if content_type:
+                self.send_static_file(file_path, content_type, fallback_base64=WELCOME_IMAGES_BASE64.get(filename, ""))
                 return
             self.send_json({"error": "Archivo no encontrado"}, status=404)
             return
@@ -141,9 +157,11 @@ class OriHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def send_static_file(self, path, content_type):
+    def send_static_file(self, path, content_type, fallback_base64=""):
         if path.exists() and path.is_file():
             body = path.read_bytes()
+        elif fallback_base64:
+            body = base64.b64decode(fallback_base64)
         elif path.name == "plano_stands.jpg" and PLANO_STANDS_JPG_BASE64:
             body = base64.b64decode(PLANO_STANDS_JPG_BASE64)
         else:
@@ -169,6 +187,9 @@ def handle_whatsapp_payload(payload):
         print(f"Mensaje de {message['from']}: {message['text'] or message.get('type')}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
         send_whatsapp_text(message["from"], reply)
+        if consume_welcome_gallery_signal(message["from"]):
+            for image_url, caption in welcome_image_urls():
+                send_whatsapp_image(message["from"], image_url, caption)
         if should_send_plan_image(message["text"], reply) and should_send_plan_image_now(message["from"]):
             send_whatsapp_image(
                 message["from"],
@@ -441,6 +462,23 @@ def previous_fair_image_urls():
         if path.is_file() and image_content_type(path):
             urls.append(f"{PUBLIC_BASE_URL}/ferias_anteriores/{urllib.parse.quote(path.name)}")
     return urls
+
+
+def welcome_image_urls():
+    return [
+        (
+            f"{PUBLIC_BASE_URL}/bienvenida/patio_de_las_artes.jpg",
+            "Patio de las Artes - Feria Origen Colombia 2027.",
+        ),
+        (
+            f"{PUBLIC_BASE_URL}/bienvenida/patio_de_las_artes_pasillos.jpg",
+            "Patio de las Artes, pasillos cubiertos - Feria Origen Colombia 2027.",
+        ),
+        (
+            f"{PUBLIC_BASE_URL}/bienvenida/salon_pierre_daguet.jpg",
+            "Salon Pierre Daguet - Feria Origen Colombia 2027.",
+        ),
+    ]
 
 
 def image_content_type(path):
