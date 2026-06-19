@@ -119,6 +119,116 @@ def post_to_webhook_or_queue(payload):
         return {"ok": False, "queued": True, "error": str(error)}
 
 
+def pending_queue_items():
+    if not QUEUE_PATH.exists():
+        return []
+
+    items = []
+    try:
+        with QUEUE_PATH.open("r", encoding="utf-8") as file:
+            for line in file:
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(payload, dict):
+                    items.append(payload)
+    except OSError as error:
+        print(f"No se pudo leer cola de preinscripcion: {error}", flush=True)
+    return items
+
+
+def retry_pending_queue():
+    items = pending_queue_items()
+    if not items:
+        return {"ok": True, "total": 0, "sent": 0, "failed": 0, "remaining": 0, "failures": []}
+
+    sent = 0
+    remaining = []
+    failures = []
+
+    for payload in items:
+        if payload.get("action") == "upload_file" and not payload.get("base64"):
+            remaining.append(payload)
+            failures.append(queue_item_label(payload) + ": archivo sin contenido descargable")
+            continue
+
+        try:
+            result = post_payload_once(payload)
+            if result.get("ok"):
+                sent += 1
+            else:
+                raise RuntimeError(result.get("error") or "Apps Script no confirmo la operacion.")
+        except Exception as error:
+            payload = dict(payload)
+            payload["last_retry_at"] = datetime.now(timezone.utc).isoformat()
+            payload["error"] = str(error)
+            remaining.append(payload)
+            failures.append(queue_item_label(payload) + f": {error}")
+
+    rewrite_queue(remaining)
+    return {
+        "ok": not remaining,
+        "total": len(items),
+        "sent": sent,
+        "failed": len(remaining),
+        "remaining": len(remaining),
+        "failures": failures[:5],
+    }
+
+
+def post_payload_once(payload):
+    url = webhook_url()
+    if not url:
+        raise RuntimeError("Falta configurar PREINSCRIPTION_WEBHOOK_URL.")
+
+    clean_payload = dict(payload)
+    clean_payload["secret"] = webhook_secret()
+    clean_payload.setdefault("drive_folder_id", drive_folder_id())
+    clean_payload.pop("queued_at", None)
+    clean_payload.pop("last_retry_at", None)
+    clean_payload.pop("error", None)
+    clean_payload.pop("note", None)
+
+    data = json.dumps(clean_payload, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={"Content-Type": "application/json; charset=utf-8"},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        body = response.read().decode("utf-8", errors="replace")
+    parsed = json.loads(body or "{}")
+    if not parsed.get("ok"):
+        raise RuntimeError(parsed.get("error") or body or "Apps Script no confirmo la operacion.")
+    return parsed
+
+
+def rewrite_queue(items):
+    try:
+        QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if not items:
+            if QUEUE_PATH.exists():
+                QUEUE_PATH.unlink()
+            return
+        with QUEUE_PATH.open("w", encoding="utf-8") as file:
+            for payload in items:
+                file.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except OSError as error:
+        print(f"No se pudo reescribir cola de preinscripcion: {error}", flush=True)
+
+
+def queue_item_label(payload):
+    action = payload.get("action") or "accion"
+    data = payload.get("data") or {}
+    if action == "submit_preinscription":
+        return data.get("razon_social") or data.get("nombre_para_stand") or "preinscripcion sin nombre"
+    if action == "upload_file":
+        return payload.get("legal_name") or payload.get("filename") or "archivo pendiente"
+    return action
+
+
 def download_whatsapp_media(media, whatsapp_token, graph_version):
     media_id = media.get("id")
     if not media_id:
