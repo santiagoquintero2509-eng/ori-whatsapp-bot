@@ -2,7 +2,7 @@ import json
 import os
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from data import BOOTHS, FAIR_INFO, STAND_PRICES
@@ -29,6 +29,8 @@ ZONE_LABELS = {
 }
 
 ADMIN_PHONE_DEFAULT = "573004851602"
+ADVISOR_WHATSAPP_LINK = "https://wa.me/573160282537"
+BOGOTA_TZ = timezone(timedelta(hours=-5))
 MEMORY_PATH = Path(os.getenv("ORI_USER_MEMORY_PATH", "memoria_revisable/usuarios.json"))
 PERSISTENT_STATE = {}
 CONVERSATIONS = {}
@@ -358,6 +360,14 @@ def handle_admin_command(raw_message, user_id=None):
     if action["type"] == "admin_help":
         return admin_help_reply()
 
+    if action["type"] == "chat_history_prompt":
+        remember_admin_context(admin_key, "chat_history_period")
+        return "Claro, administrador. Que historial quieres revisar: hoy, ayer o en general?"
+
+    if action["type"] == "chat_history":
+        remember_admin_context(admin_key, "chat_history_period")
+        return admin_chat_history_reply(action.get("period", "all"))
+
     if action["type"] == "form_lookup":
         remember_admin_context(admin_key, "form_lookup")
         return admin_form_lookup_reply(action["query"], admin_key)
@@ -377,6 +387,12 @@ def handle_admin_command(raw_message, user_id=None):
 def parse_admin_action(message, text):
     if has_any(text, ["soy el administrador", "soy administrador", "modo administrador", "admin"]):
         return {"type": "admin_help"}
+
+    if is_admin_chat_history_request(text):
+        period = detect_admin_history_period(text)
+        if period:
+            return {"type": "chat_history", "period": period}
+        return {"type": "chat_history_prompt"}
 
     confirm_match = re.search(
         r"\bconfirm\w*\s+(?:el\s+)?stand\s*(\d{1,3})\s+para\s+(.+)$",
@@ -458,8 +474,44 @@ def parse_admin_action(message, text):
     return None
 
 
+def is_admin_chat_history_request(text):
+    return has_any(
+        text,
+        [
+            "quienes le han escrito",
+            "quien le ha escrito",
+            "quienes han escrito",
+            "quien escribio",
+            "quienes escribieron",
+            "historial de chats",
+            "historial de conversaciones",
+            "mensajes recibidos",
+            "conversaciones de ori",
+            "chats de ori",
+            "personas que escribieron",
+            "numeros que escribieron",
+        ],
+    )
+
+
+def detect_admin_history_period(text):
+    if has_any(text, ["hoy", "dia de hoy", "del dia"]):
+        return "today"
+    if has_any(text, ["ayer"]):
+        return "yesterday"
+    if has_any(text, ["general", "en general", "todos", "todas", "completo", "completa"]):
+        return "all"
+    return None
+
+
 def parse_admin_followup_action(message, text, admin_key):
     context = PERSISTENT_STATE.setdefault("admin_last_context", {}).get(admin_key) or {}
+    if context.get("type") == "chat_history_period":
+        period = detect_admin_history_period(text)
+        if period:
+            return {"type": "chat_history", "period": period}
+        return None
+
     if context.get("type") not in {"brand_stand_assignment", "client_info", "form_lookup"}:
         return None
 
@@ -617,7 +669,7 @@ def confirm_stand_for_brand(stand, brand):
         return f"No encuentro el stand {stand} en el plano cargado, asi que no lo confirme."
 
     matched_user_id, matched_memory = find_user_by_brand(brand)
-    form_record = find_form_record(brand)
+    form_record = find_form_record(brand, force=True)
     now = datetime.now(timezone.utc).isoformat()
     assignment = {
         "stand": stand,
@@ -687,7 +739,7 @@ def admin_form_lookup_reply(query, admin_key=None, force=False):
         except Exception as error:
             print(f"No se pudo refrescar hoja de formularios: {error}", flush=True)
 
-    record = find_form_record(query)
+    record = find_form_record(query, force=True)
     if not record:
         error = last_form_error()
         if error:
@@ -702,7 +754,7 @@ def admin_form_lookup_reply(query, admin_key=None, force=False):
 
 
 def admin_client_info_reply(query):
-    record = find_form_record(query)
+    record = find_form_record(query, force=True)
     assignment = find_admin_assignment_by_brand(query)
     memories = find_user_memories_for_client(query, record)
     brand = resolved_client_brand(query, record, assignment, memories)
@@ -829,6 +881,7 @@ def admin_help_reply():
         "- Ori, busca Aurora Boreal en el formulario\n"
         "- Ori, Aurora Boreal ya lleno formulario?\n"
         "- Ori, muestra preinscritos\n"
+        "- Ori, quienes le han escrito\n"
         "- Ori, confirma el stand 3 para Aurora Boreal\n"
         "- Ori, bloquea el stand 3\n"
         "- Ori, quien tiene el stand 3"
@@ -836,7 +889,7 @@ def admin_help_reply():
 
 
 def admin_form_summary_reply(category=None, today_only=False):
-    records = filter_form_records(category=category, today_only=today_only)
+    records = filter_form_records(category=category, today_only=today_only, force=True)
     if not records:
         error = last_form_error()
         if error:
@@ -861,6 +914,90 @@ def admin_form_summary_reply(category=None, today_only=False):
         product = record.get("products") or "sin producto"
         lines.append(f"- {brand}: {city}, {phone}, {product}")
     return "\n".join(lines)
+
+
+def admin_chat_history_reply(period="all"):
+    contacts = []
+    for user_id, memory in CONVERSATIONS.items():
+        if is_admin_user(user_id):
+            continue
+        if not memory.get("history"):
+            continue
+
+        updated_at = parse_datetime(memory.get("updated_at") or memory.get("created_at"))
+        if not history_period_matches(updated_at, period):
+            continue
+        contacts.append((updated_at or datetime.min.replace(tzinfo=timezone.utc), user_id, memory))
+
+    contacts.sort(key=lambda item: item[0], reverse=True)
+
+    label = {"today": "hoy", "yesterday": "ayer", "all": "en general"}.get(period, "en general")
+    if not contacts:
+        return f"No encontre conversaciones de {label} en la memoria de Ori."
+
+    lines = [f"Conversaciones de {label}: {len(contacts)}"]
+    for updated_at, user_id, memory in contacts[:15]:
+        phone = memory.get("phone") or user_id or "sin telefono"
+        brand = memory.get("brand") or "sin marca"
+        role = memory.get("role") or "sin rol"
+        stage = lead_stage(memory) if is_lead_memory(memory) else "sin etapa comercial"
+        stand = memory.get("confirmed_stand") or memory.get("selected_stand") or memory.get("last_suggested_stand") or "sin stand"
+        last_message = latest_user_message(memory) or "sin ultimo mensaje"
+        lines.append(
+            f"- {phone}: {brand}, {role}, stand {stand}, {stage}. "
+            f"Ultimo: {shorten_text(last_message, 80)} ({format_local_datetime(updated_at)})"
+        )
+
+    if len(contacts) > 15:
+        lines.append(f"... y {len(contacts) - 15} conversaciones mas.")
+    return "\n".join(lines)
+
+
+def history_period_matches(updated_at, period):
+    if period == "all":
+        return True
+    if not updated_at:
+        return False
+    local_date = updated_at.astimezone(BOGOTA_TZ).date()
+    today = datetime.now(BOGOTA_TZ).date()
+    if period == "today":
+        return local_date == today
+    if period == "yesterday":
+        return local_date == today - timedelta(days=1)
+    return True
+
+
+def parse_datetime(value):
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def format_local_datetime(value):
+    if not value:
+        return "sin fecha"
+    return value.astimezone(BOGOTA_TZ).strftime("%Y-%m-%d %H:%M")
+
+
+def latest_user_message(memory):
+    for item in reversed(memory.get("history", [])):
+        message = item.get("user")
+        if message:
+            return message
+    return ""
+
+
+def shorten_text(value, max_length):
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 3].rstrip() + "..."
 
 
 def release_stand_confirmation(stand):
@@ -912,7 +1049,7 @@ def admin_stand_owner_reply(stand):
 
 def admin_brand_stand_assignment_reply(query):
     assignment = find_admin_assignment_by_brand(query)
-    record = find_form_record(query)
+    record = find_form_record(query, force=True)
 
     if assignment:
         stand = assignment.get("stand")
@@ -1733,6 +1870,16 @@ def welcome_reply(memory):
         role_hint = " Como expositor, puedo orientarte con stands, disponibilidad, medidas y pasos para participar."
     elif memory.get("role") == "visitante":
         role_hint = " Como visitante, puedo orientarte con fecha, ubicacion, productos y actividades."
+
+    if not memory.get("history"):
+        return (
+            "Hola, Soy Ori, tu asistente virtual de Feria Origen Colombia. "
+            "Soy una asistente artificial y estoy aqui para atenderte hoy!\n\n"
+            f"Puedo ayudarte con informacion de la {FAIR_INFO['name']}, stands, ubicacion, actividades "
+            "y el proceso de participacion.\n\n"
+            f"Si deseas hablar con un asesor humano, puedes escribir aqui: {ADVISOR_WHATSAPP_LINK}\n\n"
+            "En que puedo ayudarte?"
+        )
 
     return (
         "Hola, Soy Ori, encantada de atenderte hoy! "
@@ -3118,9 +3265,10 @@ def soften_repeated_plan_phrase(base_reply, final_reply):
 
 def remember_turn(memory, user_message, reply):
     history = memory.setdefault("history", [])
-    history.append({"user": user_message, "ori": reply})
+    now = datetime.now(timezone.utc).isoformat()
+    history.append({"user": user_message, "ori": reply, "created_at": now})
     del history[:-4]
-    memory["updated_at"] = datetime.now(timezone.utc).isoformat()
+    memory["updated_at"] = now
     save_persistent_state()
 
 
