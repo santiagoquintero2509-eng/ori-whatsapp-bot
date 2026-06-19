@@ -15,6 +15,9 @@ function doPost(e) {
     if (body.action === 'submit_preinscription') {
       return jsonResponse(submitPreinscription(body));
     }
+    if (body.action === 'update_confirmed_stand') {
+      return jsonResponse(updateConfirmedStand(body));
+    }
 
     return jsonResponse({ ok: false, error: 'Accion no reconocida' });
   } catch (error) {
@@ -63,6 +66,24 @@ function submitPreinscription(body) {
   ]);
 
   return { ok: true };
+}
+
+function updateConfirmedStand(body) {
+  const sheet = getSheet();
+  ensureHeaders(sheet);
+
+  const row = findMatchingRow(sheet, body.query || '', body.representative || '');
+  if (!row) {
+    return { ok: false, error: 'No encontre una fila que coincida con la marca, razon social o representante.' };
+  }
+
+  const headers = headerIndexMap(sheet);
+  sheet.getRange(row, headers['Stand confirmado']).setValue(String(body.stand || '').trim());
+  sheet.getRange(row, headers['Estado administrativo']).setValue(body.status || 'stand confirmado');
+  sheet.getRange(row, headers['Fecha confirmacion']).setValue(body.updated_at || new Date().toISOString());
+  sheet.getRange(row, headers['Confirmado por']).setValue(body.confirmed_by || 'Ori admin');
+
+  return { ok: true, row: row };
 }
 
 function listPreinscriptions() {
@@ -137,7 +158,11 @@ function ensureHeaders(sheet) {
     'Stands de interes',
     'Archivos de productos',
     'Carpeta Drive',
-    'Telefono chat'
+    'Telefono chat',
+    'Stand confirmado',
+    'Estado administrativo',
+    'Fecha confirmacion',
+    'Confirmado por'
   ];
 
   if (sheet.getLastRow() === 0) {
@@ -145,11 +170,93 @@ function ensureHeaders(sheet) {
     return;
   }
 
-  const current = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  const current = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0];
   const isEmpty = current.every(value => !value);
   if (isEmpty) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    return;
   }
+
+  const existing = current.map(value => String(value || '').trim());
+  headers.forEach(header => {
+    if (existing.indexOf(header) === -1) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
+      existing.push(header);
+    }
+  });
+}
+
+function headerIndexMap(sheet) {
+  ensureHeaders(sheet);
+  const values = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const output = {};
+  values.forEach((value, index) => {
+    const header = String(value || '').trim();
+    if (header) {
+      output[header] = index + 1;
+    }
+  });
+  return output;
+}
+
+function findMatchingRow(sheet, query, representative) {
+  const headers = headerIndexMap(sheet);
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return null;
+  }
+
+  const target = normalizeText(query);
+  const representativeTarget = normalizeText(representative);
+  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+
+  let bestRow = null;
+  let bestScore = 0;
+  data.forEach((row, index) => {
+    const candidates = [
+      [row[(headers['Razon social'] || 1) - 1], 4],
+      [row[(headers['Nombre para el stand'] || 1) - 1], 4],
+      [row[(headers['Nombre representante'] || 1) - 1], 3],
+      [row[(headers['Whatsapp'] || 1) - 1], 2],
+      [row[(headers['Telefono chat'] || 1) - 1], 2]
+    ];
+    let score = 0;
+    candidates.forEach(item => {
+      score = Math.max(score, matchScore(target, normalizeText(item[0]), item[1]));
+      if (representativeTarget) {
+        score = Math.max(score, matchScore(representativeTarget, normalizeText(item[0]), item[1]));
+      }
+    });
+    if (score > bestScore) {
+      bestScore = score;
+      bestRow = index + 2;
+    }
+  });
+
+  return bestScore >= 3 ? bestRow : null;
+}
+
+function matchScore(target, value, weight) {
+  if (!target || !value) {
+    return 0;
+  }
+  if (target === value) {
+    return 5 * weight;
+  }
+  if (target.indexOf(value) !== -1 || value.indexOf(target) !== -1) {
+    return 3 * weight;
+  }
+  return 0;
+}
+
+function normalizeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9@.]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function getOrCreateFolder(parent, name) {
