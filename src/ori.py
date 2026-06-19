@@ -3217,17 +3217,13 @@ def welcome_reply(memory):
         role_hint = " Como visitante, puedo orientarte con fecha, ubicacion, productos y actividades."
 
     if not memory.get("history"):
-        if not memory.get("welcome_gallery_sent"):
-            memory["welcome_gallery_pending"] = True
-            memory["welcome_gallery_sent"] = True
         return (
-            "Hola, soy Ori, tu asistente virtual de Feria Origen Colombia 2027!\n\n"
-            "Te comparto una mirada rapida de nuestros espacios: el Patio de las Artes y el Salon Pierre Daguet, "
-            "dos zonas pensadas para vivir la feria entre talento colombiano, tradicion, diseno, gastronomia, "
-            "arte y productos con identidad.\n\n"
-            "Puedo ayudarte con informacion para visitar la feria o guiarte paso a paso si deseas iniciar "
-            "una preinscripcion como expositor.\n\n"
-            "Que te gustaria saber?"
+            "Hola, soy Ori, tu asistente virtual de Feria Origen Colombia 2027.\n\n"
+            "Me alegra saludarte. Esta feria es un espacio para descubrir y conectar con el talento colombiano: "
+            "arte, diseno, moda, joyeria, gastronomia, artesanias, bienestar, cultura y emprendimientos con identidad.\n\n"
+            "Estoy aqui para ayudarte con lo que necesites: informacion del evento, ubicacion, fechas, actividades, "
+            "stands, precios o el proceso para participar como expositor.\n\n"
+            "Cuentame, que te gustaria saber o como puedo ayudarte hoy?"
         )
 
     return (
@@ -3249,13 +3245,14 @@ def consume_welcome_gallery_signal(user_id):
 
 def event_reply():
     return (
-        f"La {FAIR_INFO['name']} es un espacio para {FAIR_INFO['purpose']} "
-        f"Esta pensada para visitantes que quieren descubrir {FAIR_INFO['products'].rstrip('.')} "
-        "y vivir un recorrido con identidad colombiana en el centro historico de Cartagena. "
-        "Si vienes como turista, vale mucho la pena incluirla en tu visita: es una forma cercana de conocer talento local, "
-        "comprar piezas especiales y conversar con sus creadores. "
-        f"Origen Colombia cuenta con {FAIR_INFO['experience_years']}, {FAIR_INFO['total_fairs']}, "
-        f"{FAIR_INFO['total_exhibitors']} y {FAIR_INFO['visitors_per_event']}."
+        f"La {FAIR_INFO['name']} se realizara {FAIR_INFO['dates']} en la sede UNIBAC, "
+        "en el Centro Historico de Cartagena.\n\n"
+        "Es un encuentro para disfrutar y descubrir talento colombiano: arte, diseno, moda, joyeria, "
+        "gastronomia, artesanias, bienestar, cultura y emprendimientos con identidad.\n\n"
+        "El acceso para visitantes es 100% gratuito.\n\n"
+        "Si quieres, tambien puedo contarte como llegar, imagenes de ferias anteriores, "
+        "que productos encontraras o lugares de interes cercanos.\n\n"
+        "Que te gustaria revisar primero: ubicacion, productos, actividades o imagenes de la feria?"
     )
 
 
@@ -3560,8 +3557,12 @@ def products_reply(text):
         )
 
     return (
-        f"En la feria encontraras {FAIR_INFO['products']} "
-        "Si me dices una categoria, por ejemplo moda, gastronomia o artesanias, te respondo mas puntual."
+        "En la Feria Origen Colombia podras encontrar una variedad de productos colombianos con identidad: "
+        "artesanias, joyeria, moda, accesorios, gastronomia, decoracion, bienestar, arte, diseno "
+        "y emprendimientos creativos.\n\n"
+        "Tambien suelen participar marcas con productos hechos a mano, propuestas locales, piezas unicas "
+        "y articulos inspirados en la cultura colombiana.\n\n"
+        "Quieres que te cuente mas sobre alguna categoria en especial, como gastronomia, joyeria, moda o artesanias?"
     )
 
 
