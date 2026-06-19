@@ -359,6 +359,7 @@ def handle_admin_command(raw_message, user_id=None):
         return "Acceso interno activo. Puedes consultar datos de formularios, historial, clientes y stands."
 
     if is_admin_exit_message(message):
+        clear_admin_own_active_preinscription(admin_key)
         deactivate_admin_session(admin_key)
         return "Acceso interno cerrado."
 
@@ -383,7 +384,7 @@ def handle_admin_command(raw_message, user_id=None):
     if not action:
         return None
 
-    if action["type"] in {"confirm_stand", "block_stand", "release_stand"}:
+    if action["type"] in {"confirm_stand", "block_stand", "release_stand", "reset_preinscription"}:
         PERSISTENT_STATE.setdefault("admin_pending_actions", {})[admin_key] = action
         save_persistent_state()
         return admin_action_confirmation_prompt(action)
@@ -453,6 +454,17 @@ def parse_admin_action(message, text):
         if period:
             return {"type": "chat_history", "period": period}
         return {"type": "chat_history_prompt"}
+
+    reset_pre_match = re.search(
+        r"\b(?:reinicia|reiniciar|resetea|resetear|restablece|restablecer|borra|borrar|limpia|limpiar)\s+"
+        r"(?:la\s+)?preinscripcion\b",
+        text,
+    )
+    if reset_pre_match:
+        phone = extract_phone_candidate(message)
+        if phone:
+            return {"type": "reset_preinscription", "phone": phone}
+        return {"type": "admin_help"}
 
     confirm_match = re.search(
         r"\bconfirm\w*\s+(?:el\s+)?stand\s*(\d{1,3})\s+para\s+(.+)$",
@@ -713,6 +725,14 @@ def admin_action_confirmation_prompt(action):
             "Para dejarlo igual, responde: cancelar."
         )
 
+    if action["type"] == "reset_preinscription":
+        return (
+            f"Voy a reiniciar el estado de preinscripcion del numero {action['phone']}.\n\n"
+            "Esto permite que ese contacto pueda iniciar una nueva preinscripcion por WhatsApp.\n\n"
+            "Para aplicar el cambio, responde: si confirma.\n"
+            "Para dejarlo igual, responde: cancelar."
+        )
+
     return "Necesito que confirmes el cambio antes de guardarlo."
 
 
@@ -723,6 +743,8 @@ def execute_admin_action(admin_key, action):
         reply = block_stand_by_admin(action["stand"], action.get("brand"))
     elif action["type"] == "release_stand":
         reply = release_stand_confirmation(action["stand"])
+    elif action["type"] == "reset_preinscription":
+        reply = reset_preinscription_for_phone(action["phone"])
     else:
         reply = "No pude aplicar esa accion."
 
@@ -993,6 +1015,7 @@ def admin_help_reply():
         "- Ori, muestra preinscritos\n"
         "- Ori, quienes le han escrito\n"
         "- Ori, confirma el stand 3 para Aurora Boreal\n"
+        "- Ori, reinicia preinscripcion de este numero 573004851602\n"
         "- Ori, bloquea el stand 3\n"
         "- Ori, quien tiene el stand 3"
     )
@@ -1199,6 +1222,52 @@ def release_stand_confirmation(stand):
     if not removed:
         return f"El stand {stand} no tenia una confirmacion administrativa guardada."
     return f"Listo. Libere la confirmacion administrativa del stand {stand}."
+
+
+def reset_preinscription_for_phone(phone):
+    user_id, memory = find_user_by_phone(phone)
+    if not memory:
+        return f"No encontre memoria de WhatsApp para el numero {phone}."
+
+    clear_preinscription_state(memory)
+    memory["updated_at"] = datetime.now(timezone.utc).isoformat()
+    save_persistent_state()
+    return f"Listo. Reinicie el estado de preinscripcion del numero {memory.get('phone') or user_id}."
+
+
+def clear_admin_own_active_preinscription(admin_key):
+    user_id, memory = find_user_by_phone(admin_key)
+    if not memory:
+        return
+    pre = memory.get("preinscription") or {}
+    if pre.get("active") or memory.get("pending_field") == "preinscription":
+        clear_preinscription_state(memory)
+        memory["updated_at"] = datetime.now(timezone.utc).isoformat()
+        save_persistent_state()
+
+
+def clear_preinscription_state(memory):
+    memory["preinscription"] = {}
+    memory["form_submitted"] = False
+    memory["form_submitted_at"] = None
+    memory["registration_link_sent_at"] = None
+    memory["pending_field"] = None
+    memory["last_offer"] = None
+    memory["last_intent"] = None
+    memory["lead_stage"] = None
+    memory["process_stage"] = None
+    memory["post_submission_corrections"] = []
+
+
+def find_user_by_phone(phone):
+    target = normalize_phone(phone)
+    if not target:
+        return None, None
+    for user_id, memory in CONVERSATIONS.items():
+        memory_phone = normalize_phone(memory.get("phone") or user_id)
+        if phones_are_equivalent(memory_phone, target) or phones_are_equivalent(normalize_phone(user_id), target):
+            return user_id, memory
+    return None, None
 
 
 def admin_stand_owner_reply(stand):
@@ -1729,6 +1798,17 @@ def mentions_internal_access(text):
 
 def normalize_phone(value):
     return re.sub(r"\D+", "", str(value or ""))
+
+
+def extract_phone_candidate(message):
+    for match in re.findall(r"\+?\d[\d\s().-]{8,}\d", str(message or "")):
+        phone = normalize_phone(match)
+        if 10 <= len(phone) <= 15:
+            return phone
+    digits = normalize_phone(message)
+    if 10 <= len(digits) <= 15:
+        return digits
+    return ""
 
 
 def phones_are_equivalent(left, right):
