@@ -29,6 +29,8 @@ ZONE_LABELS = {
 }
 
 ADMIN_PHONE_DEFAULT = "573004851602"
+ADMIN_ENTRY_CODE_DEFAULT = "In_adm1n"
+ADMIN_EXIT_CODE_DEFAULT = "Out_adm1n"
 ADVISOR_WHATSAPP_LINK = "https://wa.me/573160282537"
 BOGOTA_TZ = timezone(timedelta(hours=-5))
 MEMORY_PATH = Path(os.getenv("ORI_USER_MEMORY_PATH", "memoria_revisable/usuarios.json"))
@@ -38,19 +40,20 @@ CONVERSATIONS = {}
 
 def load_persistent_state():
     if not MEMORY_PATH.exists():
-        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}, "admin_last_context": {}}
+        return {"users": {}, "stands": {}, "admin_sessions": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}, "admin_last_context": {}}
 
     try:
         state = json.loads(MEMORY_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         print(f"No se pudo cargar memoria persistente: {error}", flush=True)
-        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}, "admin_last_context": {}}
+        return {"users": {}, "stands": {}, "admin_sessions": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}, "admin_last_context": {}}
 
     if not isinstance(state, dict):
-        return {"users": {}, "stands": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}, "admin_last_context": {}}
+        return {"users": {}, "stands": {}, "admin_sessions": {}, "admin_pending_actions": {}, "admin_last_form_lookup": {}, "admin_last_context": {}}
 
     state.setdefault("users", {})
     state.setdefault("stands", {})
+    state.setdefault("admin_sessions", {})
     state.setdefault("admin_pending_actions", {})
     state.setdefault("admin_last_form_lookup", {})
     state.setdefault("admin_last_context", {})
@@ -313,12 +316,23 @@ def get_memory(user_id):
 
 
 def handle_admin_command(raw_message, user_id=None):
-    if not is_admin_user(user_id):
-        return None
-
     message = str(raw_message or "").strip()
     text = normalize(message)
     admin_key = normalize_phone(user_id)
+
+    if is_admin_entry_message(message):
+        activate_admin_session(admin_key)
+        return "Acceso interno activo. Puedes consultar datos de formularios, historial, clientes y stands."
+
+    if is_admin_exit_message(message):
+        deactivate_admin_session(admin_key)
+        return "Acceso interno cerrado."
+
+    if not is_admin_user(user_id):
+        if mentions_internal_access(text):
+            return "Puedo ayudarte con informacion de la feria, ubicacion, stands, productos y participacion."
+        return None
+
     pending = PERSISTENT_STATE.setdefault("admin_pending_actions", {}).get(admin_key)
 
     if pending and confirms_admin_action(text):
@@ -362,7 +376,7 @@ def handle_admin_command(raw_message, user_id=None):
 
     if action["type"] == "chat_history_prompt":
         remember_admin_context(admin_key, "chat_history_period")
-        return "Claro, administrador. Que historial quieres revisar: hoy, ayer o en general?"
+        return "Claro. Que historial quieres revisar: hoy, ayer o en general?"
 
     if action["type"] == "chat_history":
         remember_admin_context(admin_key, "chat_history_period")
@@ -379,6 +393,12 @@ def handle_admin_command(raw_message, user_id=None):
         return admin_form_lookup_reply(last_query, admin_key, force=True)
 
     if action["type"] == "form_summary":
+        remember_admin_context(
+            admin_key,
+            "form_summary",
+            category=action.get("category"),
+            today_only=action.get("today_only", False),
+        )
         return admin_form_summary_reply(action.get("category"), action.get("today_only", False))
 
     return None
@@ -480,6 +500,8 @@ def is_admin_chat_history_request(text):
         [
             "quienes le han escrito",
             "quien le ha escrito",
+            "quienes te han escrito",
+            "quien te ha escrito",
             "quienes han escrito",
             "quien escribio",
             "quienes escribieron",
@@ -512,6 +534,13 @@ def parse_admin_followup_action(message, text, admin_key):
             return {"type": "chat_history", "period": period}
         return None
 
+    if context.get("type") == "form_summary" and asks_to_refresh_previous_admin_answer(text):
+        return {
+            "type": "form_summary",
+            "category": context.get("category"),
+            "today_only": bool(context.get("today_only", False)),
+        }
+
     if context.get("type") not in {"brand_stand_assignment", "client_info", "form_lookup"}:
         return None
 
@@ -526,10 +555,31 @@ def parse_admin_followup_action(message, text, admin_key):
     return {"type": "brand_stand_assignment", "query": query}
 
 
-def remember_admin_context(admin_key, context_type):
+def asks_to_refresh_previous_admin_answer(text):
+    return has_any(
+        text,
+        [
+            "actualiza",
+            "actualizar",
+            "actualizala",
+            "actualizalo",
+            "esa informacion",
+            "enviala de nuevo",
+            "enviamela de nuevo",
+            "mandala de nuevo",
+            "muestrala de nuevo",
+            "otra vez",
+            "nuevamente",
+            "intenta nuevamente",
+        ],
+    )
+
+
+def remember_admin_context(admin_key, context_type, **details):
     PERSISTENT_STATE.setdefault("admin_last_context", {})[admin_key] = {
         "type": context_type,
         "updated_at": datetime.now(timezone.utc).isoformat(),
+        **details,
     }
     save_persistent_state()
 
@@ -874,7 +924,7 @@ def format_admin_memory_lines(memory_item):
 
 def admin_help_reply():
     return (
-        "Si, te reconozco como administrador.\n\n"
+        "Acceso interno activo.\n\n"
         "Puedes pedirme, por ejemplo:\n"
         "- Ori, dame mas informacion sobre Aurora Boreal\n"
         "- Ori, que datos tienes de Panta\n"
@@ -1115,7 +1165,7 @@ def admin_confirmed_stands_reply():
         key=lambda item: int(item.get("stand", 0)),
     )
     if not assignments:
-        return "Por ahora no hay stands confirmados desde el modo administrador."
+        return "Por ahora no hay stands confirmados en el panel interno."
 
     lines = ["Stands confirmados o bloqueados:"]
     for assignment in assignments:
@@ -1478,10 +1528,68 @@ def cancels_admin_action(text):
 
 
 def is_admin_user(user_id):
-    phone = normalize_phone(user_id)
-    admin_values = os.getenv("ADMIN_PHONES") or os.getenv("ADMIN_PHONE") or ADMIN_PHONE_DEFAULT
-    allowed = {normalize_phone(value) for value in re.split(r"[,;]", admin_values) if normalize_phone(value)}
-    return bool(phone and any(phones_are_equivalent(phone, admin_phone) for admin_phone in allowed))
+    return is_admin_session_active(user_id)
+
+
+def is_admin_session_active(user_id):
+    key = normalize_phone(user_id)
+    if not key:
+        return False
+    session = PERSISTENT_STATE.setdefault("admin_sessions", {}).get(key) or {}
+    return bool(session.get("active"))
+
+
+def activate_admin_session(admin_key):
+    if not admin_key:
+        return
+    PERSISTENT_STATE.setdefault("admin_sessions", {})[admin_key] = {
+        "active": True,
+        "activated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    save_persistent_state()
+
+
+def deactivate_admin_session(admin_key):
+    if not admin_key:
+        return
+    PERSISTENT_STATE.setdefault("admin_sessions", {}).pop(admin_key, None)
+    PERSISTENT_STATE.setdefault("admin_pending_actions", {}).pop(admin_key, None)
+    PERSISTENT_STATE.setdefault("admin_last_context", {}).pop(admin_key, None)
+    save_persistent_state()
+
+
+def is_admin_entry_message(message):
+    return clean_admin_access_code(message) == admin_entry_code()
+
+
+def is_admin_exit_message(message):
+    return clean_admin_access_code(message) == admin_exit_code()
+
+
+def clean_admin_access_code(message):
+    return str(message or "").strip().strip("*`_ ")
+
+
+def admin_entry_code():
+    return os.getenv("ORI_ADMIN_ENTRY_CODE", ADMIN_ENTRY_CODE_DEFAULT).strip()
+
+
+def admin_exit_code():
+    return os.getenv("ORI_ADMIN_EXIT_CODE", ADMIN_EXIT_CODE_DEFAULT).strip()
+
+
+def mentions_internal_access(text):
+    return has_any(
+        text,
+        [
+            "modo administrador",
+            "administrador",
+            "admin",
+            "clave interna",
+            "acceso interno",
+            "codigo interno",
+        ],
+    )
 
 
 def normalize_phone(value):
