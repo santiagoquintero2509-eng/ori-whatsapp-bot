@@ -13,7 +13,7 @@ from form_responses import (
     last_form_error,
     record_brand,
 )
-from groq_client import GroqClientError, is_groq_enabled, polish_with_groq
+from groq_client import GroqClientError, classify_admin_intent_with_groq, is_groq_enabled, polish_with_groq
 from openai_client import OpenAIClientError, ask_chatgpt, is_openai_enabled
 from preinscription import (
     DEFAULT_DRIVE_FOLDER_ID,
@@ -416,6 +416,8 @@ def handle_admin_command(raw_message, user_id=None):
     if not action:
         action = parse_admin_followup_action(message, text, admin_key)
     if not action:
+        action = parse_admin_action_with_groq(message, admin_key)
+    if not action:
         return (
             "Acceso interno activo.\n\n"
             "No voy a iniciar un flujo de cliente mientras estes en acceso interno. "
@@ -423,8 +425,8 @@ def handle_admin_command(raw_message, user_id=None):
             "Ejemplos:\n"
             "- quienes han llenado el formulario\n"
             "- quienes te han escrito hoy\n"
-            "- busca una razon social en el formulario\n"
-            "- confirma el stand 4 para una marca"
+            "- dame la razon social de Arroz\n"
+            "- dale el stand 4 a una marca"
         )
 
     if action["type"] in {"confirm_stand", "block_stand", "release_stand", "reset_preinscription"}:
@@ -434,6 +436,10 @@ def handle_admin_command(raw_message, user_id=None):
 
     if action["type"] == "stand_owner":
         return admin_stand_owner_reply(action["stand"])
+
+    if action["type"] == "reason_social_lookup":
+        remember_admin_context(admin_key, "reason_social_lookup")
+        return admin_reason_social_lookup_reply(action["query"])
 
     if action["type"] == "brand_stand_assignment":
         remember_admin_context(admin_key, "brand_stand_assignment")
@@ -494,6 +500,39 @@ def handle_admin_command(raw_message, user_id=None):
 def parse_admin_action(message, text):
     if has_any(text, ["soy el administrador", "soy administrador", "modo administrador", "admin"]):
         return {"type": "admin_help"}
+
+    natural_reason_match = re.search(
+        r"\b(?:dame|dime|busca|buscar|cual\s+es|cual\s+seria|que\s+es|que)\s+"
+        r"(?:la\s+)?razon\s+social\s+(?:de|del|para|asociada\s+a)\s+(.+)$",
+        text,
+    )
+    if natural_reason_match:
+        query = clean_admin_query(natural_reason_match.group(1))
+        if query:
+            return {"type": "reason_social_lookup", "query": query}
+
+    natural_assign_match = re.search(
+        r"\b(?:dale|darle|asigna|asignar|ponle|pon|dejale|dejarle|entregale)\s+"
+        r"(?:el\s+)?stand\s*(\d{1,3})\s+(?:a|para)\s+(.+)$",
+        text,
+    )
+    if natural_assign_match:
+        return {
+            "type": "confirm_stand",
+            "stand": int(natural_assign_match.group(1)),
+            "brand": clean_admin_query(natural_assign_match.group(2)),
+        }
+
+    natural_brand_gets_stand = re.search(
+        r"^(.+?)\s+(?:queda|quedaria|va|iria|se\s+queda)\s+(?:con|en)\s+(?:el\s+)?stand\s*(\d{1,3})\b",
+        text,
+    )
+    if natural_brand_gets_stand:
+        return {
+            "type": "confirm_stand",
+            "stand": int(natural_brand_gets_stand.group(2)),
+            "brand": clean_admin_query(natural_brand_gets_stand.group(1)),
+        }
 
     if is_admin_queue_retry_request(text):
         return {"type": "retry_pending_queue"}
@@ -599,6 +638,96 @@ def parse_admin_action(message, text):
         return {"type": "interested_summary", "category": category}
 
     return None
+
+
+def parse_admin_action_with_groq(message, admin_key):
+    if not is_groq_enabled():
+        return None
+
+    try:
+        parsed = classify_admin_intent_with_groq(
+            message,
+            {
+                "last_context": PERSISTENT_STATE.setdefault("admin_last_context", {}).get(admin_key) or {},
+                "pending_action": PERSISTENT_STATE.setdefault("admin_pending_actions", {}).get(admin_key) or {},
+            },
+        )
+    except GroqClientError as error:
+        print(f"No se pudo interpretar comando administrativo con Groq: {error}", flush=True)
+        return None
+
+    return admin_action_from_groq(parsed)
+
+
+def admin_action_from_groq(parsed):
+    intent = normalize(parsed.get("intent") or "")
+    if not intent or intent == "unknown":
+        return None
+
+    intent_map = {
+        "form_summary": "form_summary",
+        "form_lookup": "form_lookup",
+        "client_info": "client_info",
+        "reason_social_lookup": "reason_social_lookup",
+        "confirm_stand": "confirm_stand",
+        "block_stand": "block_stand",
+        "release_stand": "release_stand",
+        "stand_owner": "stand_owner",
+        "confirmed_stands": "confirmed_stands",
+        "chat_history": "chat_history",
+        "queue_status": "queue_status",
+        "retry_pending_queue": "retry_pending_queue",
+        "connection_status": "connection_status",
+        "reset_preinscription": "reset_preinscription",
+        "admin_help": "admin_help",
+    }
+    action_type = intent_map.get(intent)
+    if not action_type:
+        return None
+
+    if action_type in {"form_lookup", "client_info", "reason_social_lookup"}:
+        query = clean_admin_query(parsed.get("query"))
+        if not query:
+            return None
+        return {"type": action_type, "query": query}
+
+    if action_type == "form_summary":
+        category = clean_admin_query(parsed.get("category"))
+        return {"type": "form_summary", "category": category or None, "today_only": bool(parsed.get("today_only"))}
+
+    if action_type == "chat_history":
+        period = normalize(parsed.get("period") or "")
+        if period not in {"today", "yesterday", "all"}:
+            return {"type": "chat_history_prompt"}
+        return {"type": "chat_history", "period": period}
+
+    if action_type in {"confirm_stand", "block_stand"}:
+        stand = clean_int(parsed.get("stand"))
+        brand = clean_admin_query(parsed.get("brand"))
+        if not stand:
+            return None
+        if action_type == "confirm_stand" and not brand:
+            return None
+        return {"type": action_type, "stand": stand, "brand": brand or None}
+
+    if action_type in {"release_stand", "stand_owner"}:
+        stand = clean_int(parsed.get("stand"))
+        if not stand:
+            return None
+        return {"type": action_type, "stand": stand}
+
+    if action_type == "reset_preinscription":
+        phone = normalize_phone(parsed.get("phone"))
+        if not phone:
+            return None
+        return {"type": "reset_preinscription", "phone": phone}
+
+    return {"type": action_type}
+
+
+def clean_int(value):
+    match = re.search(r"\d{1,3}", str(value or ""))
+    return int(match.group(0)) if match else None
 
 
 def is_admin_chat_history_request(text):
@@ -971,6 +1100,28 @@ def admin_form_lookup_reply(query, admin_key=None, force=False):
     return "Si, encontre esta preinscripcion:\n\n" + format_form_record(record)
 
 
+def admin_reason_social_lookup_reply(query):
+    record = find_form_record(query, force=True)
+    if not record:
+        error = last_form_error()
+        if error:
+            return (
+                "No pude consultar la hoja de preinscripciones en este momento. "
+                "Intenta nuevamente en unos segundos."
+            )
+        return f"No encontre una razon social asociada a {query} en la hoja conectada."
+
+    legal_name = record.get("legal_name") or "sin dato"
+    stand_name = record.get("stand_name") or query
+    representative = record.get("representative") or "sin dato"
+    whatsapp = record.get("whatsapp") or "sin dato"
+    return (
+        f"La razon social asociada a {stand_name} es: {legal_name}.\n\n"
+        f"Representante: {representative}\n"
+        f"WhatsApp: {whatsapp}"
+    )
+
+
 def admin_client_info_reply(query):
     record = find_form_record(query, force=True)
     assignment = find_admin_assignment_by_brand(query)
@@ -1096,6 +1247,7 @@ def admin_help_reply():
         "Puedes pedirme, por ejemplo:\n"
         "- Ori, dame mas informacion sobre Aurora Boreal\n"
         "- Ori, que datos tienes de Panta\n"
+        "- Ori, dame la razon social de Arroz\n"
         "- Ori, busca Aurora Boreal en el formulario\n"
         "- Ori, Aurora Boreal ya lleno formulario?\n"
         "- Ori, muestra preinscritos\n"
@@ -1103,6 +1255,7 @@ def admin_help_reply():
         "- Ori, reenviar formularios pendientes\n"
         "- Ori, quienes le han escrito\n"
         "- Ori, confirma el stand 3 para Aurora Boreal\n"
+        "- Ori, dale el stand 29 a Zonum SAS\n"
         "- Ori, reinicia preinscripcion de este numero 573004851602\n"
         "- Ori, bloquea el stand 3\n"
         "- Ori, quien tiene el stand 3"
