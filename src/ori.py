@@ -15,7 +15,7 @@ from form_responses import (
 )
 from groq_client import GroqClientError, is_groq_enabled, polish_with_groq
 from openai_client import OpenAIClientError, ask_chatgpt, is_openai_enabled
-from preinscription import submit_preinscription, upload_product_media
+from preinscription import DEFAULT_DRIVE_FOLDER_ID, submit_preinscription, upload_product_media
 
 
 STATUS_LABELS = {
@@ -408,13 +408,16 @@ def handle_admin_command(raw_message, user_id=None):
     if action["type"] == "admin_help":
         return admin_help_reply()
 
+    if action["type"] == "connection_status":
+        return admin_connection_status_reply()
+
     if action["type"] == "chat_history_prompt":
         remember_admin_context(admin_key, "chat_history_period")
         return "Claro. Que historial quieres revisar: hoy, ayer o en general?"
 
     if action["type"] == "chat_history":
         remember_admin_context(admin_key, "chat_history_period")
-        return admin_chat_history_reply(action.get("period", "all"))
+        return admin_chat_history_reply(action.get("period", "all"), admin_key=admin_key)
 
     if action["type"] == "form_lookup":
         remember_admin_context(admin_key, "form_lookup")
@@ -441,6 +444,9 @@ def handle_admin_command(raw_message, user_id=None):
 def parse_admin_action(message, text):
     if has_any(text, ["soy el administrador", "soy administrador", "modo administrador", "admin"]):
         return {"type": "admin_help"}
+
+    if asks_connection_status(text):
+        return {"type": "connection_status"}
 
     if is_admin_chat_history_request(text):
         period = detect_admin_history_period(text)
@@ -587,6 +593,26 @@ def parse_admin_followup_action(message, text, admin_key):
     if context.get("type") == "form_lookup":
         return {"type": "form_lookup", "query": query}
     return {"type": "brand_stand_assignment", "query": query}
+
+
+def asks_connection_status(text):
+    return has_any(
+        text,
+        [
+            "estado conexiones",
+            "estado de conexiones",
+            "revisa conexiones",
+            "revisar conexiones",
+            "sheet y drive",
+            "google sheet y drive",
+            "esta conectado a sheet",
+            "esta conectado al sheet",
+            "esta conectado a drive",
+            "conexion con drive",
+            "conexion con sheet",
+            "apps script",
+        ],
+    )
 
 
 def asks_to_refresh_previous_admin_answer(text):
@@ -1000,18 +1026,45 @@ def admin_form_summary_reply(category=None, today_only=False):
     return "\n".join(lines)
 
 
-def admin_chat_history_reply(period="all"):
+def admin_connection_status_reply():
+    sheet_enabled = os.getenv("USE_FORM_SHEET", "true").lower() != "false"
+    sheet_id = os.getenv("FORM_RESPONSES_SHEET_ID", "")
+    form_url = os.getenv("FORM_RESPONSES_CSV_URL", "")
+    webhook = os.getenv("PREINSCRIPTION_WEBHOOK_URL", "").strip()
+    drive_id = os.getenv("PREINSCRIPTION_DRIVE_FOLDER_ID", DEFAULT_DRIVE_FOLDER_ID).strip()
+
+    lines = ["Estado de conexiones:"]
+    if sheet_enabled and (sheet_id or form_url):
+        lines.append("- Google Sheet lectura: configurado.")
+    else:
+        lines.append("- Google Sheet lectura: falta configurar FORM_RESPONSES_SHEET_ID o FORM_RESPONSES_CSV_URL.")
+
+    if webhook:
+        lines.append("- Guardado de preinscripciones en Sheet/Drive: configurado.")
+    else:
+        lines.append("- Guardado de preinscripciones en Sheet/Drive: falta PREINSCRIPTION_WEBHOOK_URL.")
+
+    if drive_id:
+        lines.append("- Carpeta madre de Drive: configurada.")
+    else:
+        lines.append("- Carpeta madre de Drive: falta PREINSCRIPTION_DRIVE_FOLDER_ID.")
+
+    lines.append("")
+    lines.append("Si falta el webhook, Ori puede conversar y recibir datos, pero no puede escribirlos todavia en Google Sheet/Drive.")
+    return "\n".join(lines)
+
+
+def admin_chat_history_reply(period="all", admin_key=None):
     contacts = []
     for user_id, memory in CONVERSATIONS.items():
-        if is_admin_user(user_id):
-            continue
-        if not memory.get("history"):
+        history_item = latest_customer_history_item(user_id, memory, admin_key)
+        if not history_item:
             continue
 
-        updated_at = parse_datetime(memory.get("updated_at") or memory.get("created_at"))
+        updated_at = parse_datetime(history_item.get("created_at")) or parse_datetime(memory.get("updated_at") or memory.get("created_at"))
         if not history_period_matches(updated_at, period):
             continue
-        contacts.append((updated_at or datetime.min.replace(tzinfo=timezone.utc), user_id, memory))
+        contacts.append((updated_at or datetime.min.replace(tzinfo=timezone.utc), user_id, memory, history_item))
 
     contacts.sort(key=lambda item: item[0], reverse=True)
 
@@ -1020,13 +1073,13 @@ def admin_chat_history_reply(period="all"):
         return f"No encontre conversaciones de {label} en la memoria de Ori."
 
     lines = [f"Conversaciones de {label}: {len(contacts)}"]
-    for updated_at, user_id, memory in contacts[:15]:
+    for updated_at, user_id, memory, history_item in contacts[:15]:
         phone = memory.get("phone") or user_id or "sin telefono"
         brand = memory.get("brand") or "sin marca"
         role = memory.get("role") or "sin rol"
         stage = lead_stage(memory) if is_lead_memory(memory) else "sin etapa comercial"
         stand = memory.get("confirmed_stand") or memory.get("selected_stand") or memory.get("last_suggested_stand") or "sin stand"
-        last_message = latest_user_message(memory) or "sin ultimo mensaje"
+        last_message = history_item.get("user") or "sin ultimo mensaje"
         lines.append(
             f"- {phone}: {brand}, {role}, stand {stand}, {stage}. "
             f"Ultimo: {shorten_text(last_message, 80)} ({format_local_datetime(updated_at)})"
@@ -1035,6 +1088,54 @@ def admin_chat_history_reply(period="all"):
     if len(contacts) > 15:
         lines.append(f"... y {len(contacts) - 15} conversaciones mas.")
     return "\n".join(lines)
+
+
+def latest_customer_history_item(user_id, memory, admin_key=None):
+    history = memory.get("history", [])
+    if not history:
+        return None
+
+    activation_time = None
+    if admin_key and phones_are_equivalent(normalize_phone(user_id), admin_key):
+        session = PERSISTENT_STATE.setdefault("admin_sessions", {}).get(admin_key) or {}
+        activation_time = parse_datetime(session.get("activated_at"))
+
+    for item in reversed(history):
+        user_message = item.get("user", "")
+        if is_internal_history_message(user_message):
+            continue
+
+        item_time = parse_datetime(item.get("created_at"))
+        if activation_time and item_time and item_time >= activation_time:
+            continue
+
+        if is_customer_context_message(user_message, memory):
+            return item
+    return None
+
+
+def is_internal_history_message(message):
+    text = normalize(message)
+    raw = clean_admin_access_code(message)
+    if raw in {admin_entry_code(), admin_exit_code()}:
+        return True
+    return bool(
+        is_admin_chat_history_request(text)
+        or asks_connection_status(text)
+        or has_any(text, ["muestra preinscritos", "quienes han llenado formulario", "quienes han llenado el formulario"])
+    )
+
+
+def is_customer_context_message(message, memory):
+    text = normalize(message)
+    if not text:
+        return False
+    if is_lead_memory(memory):
+        return True
+    pre = memory.get("preinscription") or {}
+    if pre.get("last_submission") or pre.get("fields"):
+        return True
+    return not has_any(text, ["acceso interno", "estado conexiones"])
 
 
 def history_period_matches(updated_at, period):
