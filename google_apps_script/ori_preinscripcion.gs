@@ -1,4 +1,5 @@
 const SHEET_NAME = 'Respuestas Ori';
+const SPREADSHEET_ID = '1zfw1C4a0PxP1zZFJY4fD4C8x-5_ONDq1CPuwszVDXDo';
 
 function doPost(e) {
   try {
@@ -68,7 +69,10 @@ function uploadFile(body) {
 }
 
 function getSheet() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const configuredId = PropertiesService.getScriptProperties().getProperty('FORM_RESPONSES_SHEET_ID') || SPREADSHEET_ID;
+  const spreadsheet = configuredId
+    ? SpreadsheetApp.openById(configuredId)
+    : SpreadsheetApp.getActiveSpreadsheet();
   let sheet = spreadsheet.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = spreadsheet.insertSheet(SHEET_NAME);
