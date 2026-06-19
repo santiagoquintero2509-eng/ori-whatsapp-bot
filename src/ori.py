@@ -2010,6 +2010,36 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
 def handle_preinscription_flow(message, text, memory, incoming_media=None):
     pre = memory.setdefault("preinscription", {})
 
+    if submitted_preinscription_exists(memory):
+        if memory.get("pending_field") == "post_submission_correction" and message.strip():
+            return record_post_submission_correction(memory, message)
+        if incoming_media:
+            return (
+                "Recibi el archivo como complemento de tu preinscripcion.\n\n"
+                "No cree una nueva solicitud. El equipo revisara la informacion enviada y se comunicara contigo "
+                "para confirmar disponibilidad, inscripcion y metodos de pago."
+            )
+        if wants_to_correct_preinscription(text):
+            memory["pending_field"] = "post_submission_correction"
+            save_persistent_state()
+            return (
+                "Claro, no voy a crear una nueva preinscripcion.\n\n"
+                "Escribeme el dato que quieres ajustar y lo dejare como nota para el equipo."
+            )
+        if pre.get("active"):
+            pre["active"] = False
+            memory["pending_field"] = None
+            save_persistent_state()
+            return duplicate_preinscription_reply(memory)
+        if (
+            wants_registration_link(text)
+            or wants_to_reserve(text)
+            or wants_to_participate(text)
+            or has_submitted_form(text, memory)
+            or has_any(text, ["inscribirme", "preinscribirme", "formulario", "registrarme"])
+        ):
+            return duplicate_preinscription_reply(memory)
+
     if incoming_media:
         if pre.get("active") and pre.get("step") == "files":
             return receive_preinscription_media(memory, incoming_media)
@@ -2094,6 +2124,11 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
 
 
 def start_preinscription_flow(memory):
+    if submitted_preinscription_exists(memory):
+        memory["pending_field"] = None
+        save_persistent_state()
+        return duplicate_preinscription_reply(memory)
+
     pre = memory.setdefault("preinscription", {})
     if pre.get("active"):
         return preinscription_prompt(pre.get("step") or next_preinscription_step(pre), memory)
@@ -2225,7 +2260,55 @@ def finish_preinscription(memory):
     return (
         "Listo! Tu preinscripcion fue recibida correctamente.\n\n"
         "El equipo revisara la informacion, los productos y los stands de interes. "
-        "Luego se comunicara contigo para confirmar disponibilidad, inscripcion y metodos de pago."
+        "Luego se comunicara contigo para confirmar disponibilidad, inscripcion y metodos de pago.\n\n"
+        "Si necesitas apoyo adicional, puedes hablar con un asesor aqui:\n"
+        f"{ADVISOR_WHATSAPP_LINK}"
+    )
+
+
+def submitted_preinscription_exists(memory):
+    pre = memory.get("preinscription") or {}
+    return bool(
+        memory.get("form_submitted")
+        or pre.get("submitted_at")
+        or pre.get("last_submission")
+        or memory.get("process_stage") in {"preinscripcion_recibida", "preinscripcion_reportada"}
+    )
+
+
+def duplicate_preinscription_reply(memory):
+    selected_stand = memory.get("selected_stand")
+    stand_note = ""
+    if selected_stand:
+        stand_note = (
+            f"\n\nTengo presente tu interes por el stand {selected_stand}. "
+            "El numero queda sujeto a confirmacion final por parte del equipo organizador."
+        )
+    return (
+        "Tu preinscripcion ya fue recibida, asi que no necesitas enviarla de nuevo.\n\n"
+        "El equipo revisara la informacion, los productos y los stands de interes. Luego se comunicara contigo "
+        "para confirmar disponibilidad, inscripcion y metodos de pago."
+        f"{stand_note}\n\n"
+        "Si necesitas apoyo adicional, puedes hablar con un asesor aqui:\n"
+        f"{ADVISOR_WHATSAPP_LINK}"
+    )
+
+
+def record_post_submission_correction(memory, message):
+    now = datetime.now(timezone.utc).isoformat()
+    memory.setdefault("post_submission_corrections", []).append(
+        {
+            "at": now,
+            "message": message.strip(),
+        }
+    )
+    memory["pending_field"] = None
+    memory["updated_at"] = now
+    save_persistent_state()
+    return (
+        "Listo, deje esa correccion como nota para el equipo.\n\n"
+        "No cree una nueva preinscripcion. El equipo revisara tu solicitud y se comunicara contigo para confirmar "
+        "disponibilidad, inscripcion y metodos de pago."
     )
 
 
