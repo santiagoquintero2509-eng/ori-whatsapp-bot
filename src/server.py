@@ -163,10 +163,10 @@ class OriHandler(BaseHTTPRequestHandler):
 
 def handle_whatsapp_payload(payload):
     messages = extract_incoming_messages(payload)
-    print(f"Mensajes de texto extraidos: {len(messages)}", flush=True)
+    print(f"Mensajes extraidos: {len(messages)}", flush=True)
     for message in messages:
-        reply = get_ori_reply(message["text"], user_id=message["from"])
-        print(f"Mensaje de {message['from']}: {message['text']}", flush=True)
+        reply = get_ori_reply(message["text"], user_id=message["from"], incoming_media=message.get("media"))
+        print(f"Mensaje de {message['from']}: {message['text'] or message.get('type')}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
         send_whatsapp_text(message["from"], reply)
         if should_send_plan_image(message["text"], reply) and should_send_plan_image_now(message["from"]):
@@ -204,12 +204,27 @@ def extract_incoming_messages(payload):
         for change in entry.get("changes", []):
             value = change.get("value", {})
             for message in value.get("messages", []):
-                if message.get("type") != "text":
+                message_type = message.get("type")
+                if message_type not in {"text", "image", "document"}:
                     continue
+                text = message.get("text", {}).get("body", "")
+                media = None
+                if message_type in {"image", "document"}:
+                    media_payload = message.get(message_type, {})
+                    text = media_payload.get("caption", "")
+                    media = {
+                        "type": message_type,
+                        "id": media_payload.get("id", ""),
+                        "mime_type": media_payload.get("mime_type", ""),
+                        "filename": media_payload.get("filename", ""),
+                        "sha256": media_payload.get("sha256", ""),
+                    }
                 output.append(
                     {
                         "from": message.get("from", ""),
-                        "text": message.get("text", {}).get("body", ""),
+                        "text": text,
+                        "type": message_type,
+                        "media": media,
                     }
                 )
     return output
@@ -356,7 +371,7 @@ def should_send_plan_image(message, reply=""):
     ]
     if any(trigger in text for trigger in triggers):
         return True
-    return "estos son los stands disponibles cargados" in reply_text
+    return "estos son los stands disponibles cargados" in reply_text or "te comparto el plano actual" in reply_text
 
 
 def should_send_plan_image_now(user_id):
