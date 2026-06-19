@@ -434,7 +434,7 @@ def handle_admin_command(raw_message, user_id=None):
             "- dale el stand 4 a una marca"
         )
 
-    if action["type"] in {"confirm_stand", "block_stand", "release_stand", "reset_preinscription"}:
+    if action["type"] in {"confirm_stand", "block_stand", "release_stand", "reset_preinscription", "forget_chat_memory"}:
         PERSISTENT_STATE.setdefault("admin_pending_actions", {})[admin_key] = action
         save_persistent_state()
         return admin_action_confirmation_prompt(action)
@@ -508,6 +508,12 @@ def handle_admin_command(raw_message, user_id=None):
 def parse_admin_action(message, text):
     if has_any(text, ["soy el administrador", "soy administrador", "modo administrador", "admin"]):
         return {"type": "admin_help"}
+
+    forget_match = re.search(r"\bforg[_\s-]*(\+?\d[\d\s().-]{8,}\d)\b", message, flags=re.IGNORECASE)
+    if forget_match:
+        phone = normalize_phone(forget_match.group(1))
+        if phone:
+            return {"type": "forget_chat_memory", "phone": phone}
 
     natural_reason_match = re.search(
         r"\b(?:dame|dime|busca|buscar|cual\s+es|cual\s+seria|que\s+es|que)\s+"
@@ -979,6 +985,15 @@ def admin_action_confirmation_prompt(action):
             "Para dejarlo igual, responde: cancelar."
         )
 
+    if action["type"] == "forget_chat_memory":
+        return (
+            f"Voy a borrar la memoria del chat {action['phone']}.\n\n"
+            "Esto reinicia la conversacion de ese numero como si escribiera por primera vez. "
+            "No borra formularios, archivos, stands confirmados ni datos de Google Sheet.\n\n"
+            "Para aplicar el cambio, responde: si confirma.\n"
+            "Para dejarlo igual, responde: cancelar."
+        )
+
     return "Necesito que confirmes el cambio antes de guardarlo."
 
 
@@ -991,6 +1006,8 @@ def execute_admin_action(admin_key, action):
         reply = release_stand_confirmation(action["stand"])
     elif action["type"] == "reset_preinscription":
         reply = reset_preinscription_for_phone(action["phone"])
+    elif action["type"] == "forget_chat_memory":
+        reply = forget_chat_memory_for_phone(action["phone"])
     else:
         reply = "No pude aplicar esa accion."
 
@@ -1306,6 +1323,7 @@ def admin_help_reply():
         "- Ori, confirma el stand 3 para Aurora Boreal\n"
         "- Ori, dale el stand 29 a Zonum SAS\n"
         "- Ori, reinicia preinscripcion de este numero 573004851602\n"
+        "- Ori, forg_573004851602\n"
         "- Ori, bloquea el stand 3\n"
         "- Ori, quien tiene el stand 3"
     )
@@ -1650,6 +1668,20 @@ def reset_preinscription_for_phone(phone):
     memory["updated_at"] = datetime.now(timezone.utc).isoformat()
     save_persistent_state()
     return f"Listo. Reinicie el estado de preinscripcion del numero {memory.get('phone') or user_id}."
+
+
+def forget_chat_memory_for_phone(phone):
+    user_id, memory = find_user_by_phone(phone)
+    if not memory:
+        return f"No encontre memoria de WhatsApp para el numero {phone}."
+
+    display_phone = memory.get("phone") or user_id
+    CONVERSATIONS.pop(user_id, None)
+    save_persistent_state()
+    return (
+        f"Listo. Olvide la memoria del chat {display_phone}.\n\n"
+        "Ese contacto iniciara una conversacion nueva la proxima vez que escriba."
+    )
 
 
 def clear_admin_own_active_preinscription(admin_key):
