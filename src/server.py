@@ -9,7 +9,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from ori import consume_welcome_gallery_signal, get_ori_reply
+from ori import get_ori_reply
 
 try:
     from plano_image import PLANO_STANDS_JPG_BASE64
@@ -187,9 +187,6 @@ def handle_whatsapp_payload(payload):
         print(f"Mensaje de {message['from']}: {message['text'] or message.get('type')}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
         send_whatsapp_text(message["from"], reply)
-        if consume_welcome_gallery_signal(message["from"]):
-            for image_url, caption in welcome_image_urls():
-                send_whatsapp_image(message["from"], image_url, caption)
         if should_send_plan_image(message["text"], reply) and should_send_plan_image_now(message["from"]):
             send_whatsapp_image(
                 message["from"],
@@ -424,24 +421,8 @@ def should_send_previous_fair_images(message):
         "como se ve la feria",
         "como ha sido la feria",
     ]
-    visitor_triggers = [
-        "soy turista",
-        "soy visitante",
-        "voy como turista",
-        "voy como visitante",
-        "quiero visitar",
-        "quiero asistir",
-        "ir a la feria",
-        "que encontrare",
-        "que hay para ver",
-    ]
-    exhibitor_context = ["stand", "stands", "participar", "expositor", "marca", "preinscripcion", "inscripcion"]
 
-    if any(trigger in text for trigger in explicit_photo_triggers):
-        return True
-    if any(trigger in text for trigger in visitor_triggers) and not any(word in text for word in exhibitor_context):
-        return True
-    return False
+    return any(trigger in text for trigger in explicit_photo_triggers)
 
 
 def should_send_previous_fair_images_now(user_id):
