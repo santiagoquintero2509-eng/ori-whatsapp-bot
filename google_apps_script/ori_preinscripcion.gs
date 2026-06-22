@@ -18,6 +18,9 @@ function doPost(e) {
     if (body.action === 'update_confirmed_stand') {
       return jsonResponse(updateConfirmedStand(body));
     }
+    if (body.action === 'delete_preinscription_by_chat_phone') {
+      return jsonResponse(deletePreinscriptionByChatPhone(body));
+    }
 
     return jsonResponse({ ok: false, error: 'Accion no reconocida' });
   } catch (error) {
@@ -84,6 +87,38 @@ function updateConfirmedStand(body) {
   sheet.getRange(row, headers['Confirmado por']).setValue(body.confirmed_by || 'Ori admin');
 
   return { ok: true, row: row };
+}
+
+function deletePreinscriptionByChatPhone(body) {
+  const phone = normalizePhone(body.phone || '');
+  if (!phone) {
+    return { ok: false, error: 'Falta phone' };
+  }
+
+  const sheet = getSheet();
+  ensureHeaders(sheet);
+  const headers = headerIndexMap(sheet);
+  const phoneColumn = headers['Telefono chat'];
+  if (!phoneColumn) {
+    return { ok: true, deleted: 0 };
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return { ok: true, deleted: 0 };
+  }
+
+  const values = sheet.getRange(2, phoneColumn, lastRow - 1, 1).getValues();
+  const rowsToDelete = [];
+  values.forEach((row, index) => {
+    const rowPhone = normalizePhone(row[0]);
+    if (phonesMatch(rowPhone, phone)) {
+      rowsToDelete.push(index + 2);
+    }
+  });
+
+  rowsToDelete.reverse().forEach(rowNumber => sheet.deleteRow(rowNumber));
+  return { ok: true, deleted: rowsToDelete.length };
 }
 
 function listPreinscriptions() {
@@ -257,6 +292,20 @@ function normalizeText(value) {
     .replace(/[^a-z0-9@.]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function normalizePhone(value) {
+  return String(value || '').replace(/\D+/g, '');
+}
+
+function phonesMatch(left, right) {
+  if (!left || !right) {
+    return false;
+  }
+  if (left === right) {
+    return true;
+  }
+  return left.slice(-10) === right.slice(-10);
 }
 
 function getOrCreateFolder(parent, name) {
