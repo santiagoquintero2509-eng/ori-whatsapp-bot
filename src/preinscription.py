@@ -39,6 +39,16 @@ def update_confirmed_stand(query, stand, representative=""):
     return post_to_webhook_or_queue(payload)
 
 
+def delete_preinscription_by_chat_phone(phone):
+    payload = {
+        "action": "delete_preinscription_by_chat_phone",
+        "secret": webhook_secret(),
+        "deleted_at": datetime.now(timezone.utc).isoformat(),
+        "phone": normalize_phone(phone),
+    }
+    return post_to_webhook_or_queue(payload)
+
+
 def upload_product_media(legal_name, media, whatsapp_token, graph_version):
     if not media:
         return {"ok": False, "queued": False, "error": "No llego archivo para subir."}
@@ -191,6 +201,38 @@ def retry_pending_queue():
     }
 
 
+def remove_pending_preinscriptions_for_phone(phone):
+    target = normalize_phone(phone)
+    if not target:
+        return 0
+
+    items = pending_queue_items()
+    if not items:
+        return 0
+
+    kept = []
+    removed = 0
+    for payload in items:
+        if queued_payload_matches_phone(payload, target):
+            removed += 1
+            continue
+        kept.append(payload)
+
+    if removed:
+        rewrite_queue(kept)
+    return removed
+
+
+def queued_payload_matches_phone(payload, target_phone):
+    data = payload.get("data") or {}
+    candidates = [
+        payload.get("phone"),
+        data.get("whatsapp"),
+        data.get("telefono_chat"),
+    ]
+    return any(phones_match(normalize_phone(candidate), target_phone) for candidate in candidates)
+
+
 def post_payload_once(payload):
     url = webhook_url()
     if not url:
@@ -293,6 +335,16 @@ def queue_payload(payload):
             file.write(json.dumps(payload, ensure_ascii=False) + "\n")
     except OSError as error:
         print(f"No se pudo guardar cola de preinscripcion: {error}", flush=True)
+
+
+def normalize_phone(value):
+    return re.sub(r"\D+", "", str(value or ""))
+
+
+def phones_match(left, right):
+    if not left or not right:
+        return False
+    return left == right or left.endswith(right[-10:]) or right.endswith(left[-10:])
 
 
 def webhook_url():
