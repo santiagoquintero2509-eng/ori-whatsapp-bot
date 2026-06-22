@@ -161,8 +161,15 @@ INTENTS = {
         "marcas",
         "marcas confirmadas",
         "quienes participan",
+        "quienes participaran",
         "quien participa",
+        "quien participara",
         "que marcas",
+        "que marcas participan",
+        "que marcas participaran",
+        "que expositores hay",
+        "expositores confirmados",
+        "quienes estaran",
         "que encontrare",
     ],
     "nearby": [
@@ -223,6 +230,11 @@ INTENTS = {
         "venden",
         "encuentro",
         "artesania",
+        "artesanias",
+        "joyeria",
+        "joyas",
+        "bisuteria",
+        "accesorios",
         "moda",
         "gastronomia",
         "categoria",
@@ -303,10 +315,6 @@ def get_ori_reply(raw_message, user_id=None, incoming_media=None):
 
 def should_keep_base_reply(base_reply, memory=None):
     text = normalize(base_reply)
-    if memory and memory.get("last_intent") == "greeting":
-        return True
-    if "te comparto el plano actual" in text:
-        return True
     if memory and memory.get("last_intent") == "preinscription_flow":
         return True
     return False
@@ -2457,6 +2465,13 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
             memory["pending_field"] = None
             return visitor_guide_reply()
 
+    if category and should_treat_category_as_visitor_product(text, memory):
+        memory["role"] = "visitante"
+        memory["last_intent"] = "products"
+        memory["pending_field"] = None
+        memory["last_offer"] = None
+        return products_reply(text)
+
     city = detect_city_origin(text)
     if city and memory.get("role") == "expositor":
         memory["city"] = city
@@ -3441,7 +3456,7 @@ def reservation_reply(memory):
         return (
             f"Me alegra que te hayas animado a reservar! Esta es una oportunidad unica para darle visibilidad a tu marca. "
             "Puedo tomar tu preinscripcion directamente por este chat. "
-            f"Recordemos que el stand {selected_stand} aparece disponible en la informacion cargada, "
+            f"Recordemos que el stand {selected_stand} aparece disponible por ahora, "
             "pero el numero queda sujeto a confirmacion final por parte de los organizadores."
         )
 
@@ -3558,10 +3573,20 @@ def products_reply(text):
 
     category = detect_product_category(text)
     if category:
+        category_notes = {
+            "Joyeria": "piezas artesanales, accesorios, disenos hechos a mano y propuestas con identidad colombiana.",
+            "Gastronomia": "sabores locales, productos especiales, cafe, dulces, bebidas y propuestas para disfrutar durante el recorrido.",
+            "Calzado y vestuario": "moda, ropa, calzado, bolsos y accesorios de marcas colombianas con estilo propio.",
+            "Decoracion": "piezas para el hogar, objetos decorativos y propuestas con diseno local.",
+            "Anticuarios": "piezas con historia, objetos especiales y propuestas para quienes disfrutan lo autentico.",
+            "Salud y belleza": "bienestar, cuidado personal, belleza y productos pensados para consentirte.",
+            "Artesania tipica": "oficios hechos a mano, piezas tradicionales y creaciones con mucha identidad regional.",
+            "Arte": "obras, ilustracion, pintura, escultura y propuestas creativas de talento colombiano.",
+        }
         return (
-            f"Si buscas {category}, Ori lo puede orientar dentro de las categorias de la feria. "
-            f"La web oficial confirma categorias como: {FAIR_INFO['registration_categories']} "
-            "Para una marca o expositor especifico, aun falta cargar el contacto oficial del equipo."
+            f"Que buena eleccion! En {category.lower()} podras encontrar {category_notes.get(category, 'propuestas colombianas con identidad y mucho cuidado en los detalles')}\n\n"
+            "Aun no tengo la lista oficial completa de marcas confirmadas para esta edicion, "
+            "pero si quieres puedo orientarte por categorias o mostrarte imagenes de ferias anteriores."
         )
 
     return (
@@ -3574,16 +3599,16 @@ def products_reply(text):
 
 def confirmed_exhibitors_reply():
     return (
-        f"{FAIR_INFO['confirmed_exhibitors_note']} "
-        f"Si vienes como visitante, puedo contarte que encontraras categorias como {FAIR_INFO['products']} "
-        "Cuando el equipo cargue la lista oficial, podre recomendarte marcas por categoria."
+        "Aun no tengo la lista oficial completa de marcas confirmadas para esta edicion.\n\n"
+        f"Lo que si puedo contarte es que la feria reune propuestas de {FAIR_INFO['products']}\n\n"
+        "Quieres que te hable de alguna categoria en especial, como moda, joyeria, gastronomia o artesanias?"
     )
 
 
 def activities_reply():
     return (
         f"La feria tendra {FAIR_INFO['activities']} "
-        "La programacion fina todavia debe confirmarse, asi que por ahora no tengo horas exactas cargadas."
+        "La programacion detallada todavia debe confirmarse, asi que por ahora no tengo horas exactas."
     )
 
 
@@ -3594,8 +3619,8 @@ def prices_reply(memory, text=""):
         price = STAND_PRICES.get(stand_number)
         if not stand or not price:
             return (
-                f"Aun no tengo precio cargado para el stand {stand_number}. "
-                "Si quieres, puedo mostrarte los stands disponibles con precio cargado."
+                f"Aun no tengo precio confirmado para el stand {stand_number}. "
+                "Si quieres, puedo mostrarte los stands disponibles con precio."
             )
 
         status = STATUS_LABELS[stand["status"]]
@@ -3614,12 +3639,12 @@ def prices_reply(memory, text=""):
 
     if memory.get("role") == "expositor" or memory.get("last_intent") in {"booths", "exhibitor"}:
         return (
-            "Si, ya tengo precios cargados por stand. Dime el numero que te interesa, por ejemplo "
+            "Si, ya tengo precios por stand. Dime el numero que te interesa, por ejemplo "
             "'precio del stand 56', y te confirmo valor, medida, zona y disponibilidad."
         )
 
     return (
-        "Si, tengo precios cargados para los stands. Dime el numero del stand que quieres revisar "
+        "Si, tengo precios para los stands. Dime el numero del stand que quieres revisar "
         "y te confirmo valor, medida, zona y disponibilidad."
     )
 
@@ -3629,14 +3654,14 @@ def stand_includes_reply(number=None):
         stand = find_booth(number)
         if not stand:
             return (
-                f"No encuentro el stand {number} en el plano cargado. "
+                f"No encuentro el stand {number} en el plano actual. "
                 f"En general, {lower_first(FAIR_INFO['stand_includes'])}"
             )
 
         zone = ZONE_LABELS[stand["zone"]]
         status = STATUS_LABELS.get(stand["status"], stand["status"])
         price = STAND_PRICES.get(number)
-        booth_type = price["type"] if price else "tipo no cargado"
+        booth_type = price["type"] if price else "tipo por confirmar"
         price_line = f"\nPrecio: {price['price']}." if price else ""
         walls = "2 muros blancos" if is_corner_stand(number) else "3 muros blancos"
         return (
@@ -3693,7 +3718,7 @@ def smart_fallback_reply(message, memory):
     if memory.get("last_intent") == "booths":
         return (
             "Sigo contigo en el tema de stands. Puedes escribirme un numero, por ejemplo 'stand 21', "
-            "o escribir 'stands disponibles' para ver las opciones cargadas."
+            "o escribir 'stands disponibles' para ver las opciones."
         )
 
     if memory.get("role") == "expositor":
@@ -3704,7 +3729,7 @@ def smart_fallback_reply(message, memory):
         )
 
     return (
-        "Te entiendo. Con la informacion cargada puedo orientarte sobre evento, fecha, ubicacion, productos, actividades y stands. "
+        "Te entiendo. Puedo orientarte sobre evento, fecha, ubicacion, productos, actividades y stands. "
         "Preguntame como lo dirias normalmente, por ejemplo: 'donde es', 'que productos encontrare' o 'quiero participar con mi marca'."
     )
 
@@ -3714,8 +3739,8 @@ def describe_stand(number, memory=None):
     stand = find_booth(number)
     if not stand:
         return (
-            f"No encuentro el stand {number} en el plano cargado. "
-            "Puedo mostrarte stands disponibles; para validar el plano actualizado falta cargar el contacto oficial del equipo."
+            f"No encuentro el stand {number} en el plano actual. "
+            "Puedo mostrarte los stands disponibles para revisar una alternativa."
         )
 
     zone = ZONE_LABELS[stand["zone"]]
@@ -3768,7 +3793,7 @@ def available_stands_reply():
     )
 
     return (
-        "Claro, te comparto el plano actual y estos son los stands disponibles cargados:\n"
+        "Claro, te comparto el plano actual y estos son los stands disponibles por ahora:\n"
         f"Patio de las Artes: {', '.join(str(item) for item in patio)}.\n"
         f"Salon Pierre Daguet: {', '.join(str(item) for item in salon)}.\n"
         "Si quieres detalle de uno, escribeme por ejemplo: stand 21."
@@ -3795,7 +3820,7 @@ def matching_stands_reply(stand_type, zone, memory=None):
     zone_name = ZONE_LABELS.get(zone, zone)
     if not matches:
         return (
-            f"En {zone_name} no veo stands {stand_type} disponibles en la informacion cargada. "
+            f"En {zone_name} no veo stands {stand_type} disponibles por ahora. "
             "Puedo sugerirte otra zona o revisar stands especiales/generales disponibles."
         )
 
@@ -3823,7 +3848,7 @@ def stand_recommendation_reply(memory):
     zone_name = ZONE_LABELS.get(zone, zone)
     if not options:
         return (
-            f"En {zone_name} no veo opciones disponibles con ese filtro en la informacion cargada. "
+            f"En {zone_name} no veo opciones disponibles con ese filtro por ahora. "
             "Puedo revisar otra zona o mostrarte todos los stands disponibles."
         )
 
@@ -3838,8 +3863,8 @@ def stand_recommendation_reply(memory):
     ]
     for option in options[:3]:
         price = STAND_PRICES.get(option["number"], {})
-        type_text = price.get("type", "tipo no cargado")
-        price_text = price.get("price", "precio no cargado")
+        type_text = price.get("type", "tipo por confirmar")
+        price_text = price.get("price", "precio por confirmar")
         lines.append(f"- Stand {option['number']}: {type_text}, {option['size']}, {price_text}.")
 
     lines.append("")
@@ -3914,6 +3939,9 @@ def remember_stand_interest(memory, number):
 
 
 def detect_intent(text, memory):
+    if asks_confirmed_exhibitors(text):
+        return "confirmed_exhibitors"
+
     if wants_to_participate(text):
         return "exhibitor"
 
@@ -4097,6 +4125,9 @@ def handle_affirmative_followup(memory):
 
 
 def wants_to_participate(text):
+    if asks_confirmed_exhibitors(text):
+        return False
+
     return has_any(
         text,
         [
@@ -4124,6 +4155,42 @@ def wants_to_participate(text):
             "inscribirme como expositor",
         ],
     )
+
+
+def asks_confirmed_exhibitors(text):
+    return has_any(
+        text,
+        [
+            "quienes participan",
+            "quienes participaran",
+            "quien participa",
+            "quien participara",
+            "que marcas participan",
+            "que marcas participaran",
+            "que marcas hay",
+            "marcas confirmadas",
+            "expositores confirmados",
+            "que expositores hay",
+            "quienes estaran",
+            "quienes vienen",
+            "quienes van a estar",
+            "quienes van a participar",
+        ],
+    )
+
+
+def should_treat_category_as_visitor_product(text, memory):
+    if memory.get("pending_field"):
+        return False
+    if memory.get("role") == "expositor":
+        return False
+    if wants_to_participate(text):
+        return False
+    if has_any(text, ["marca", "emprendimiento", "stand", "stands", "inscribir", "inscripcion", "preinscripcion", "vender", "exponer"]):
+        return False
+    if memory.get("last_intent") in {"products", "event", "visitor", "confirmed_exhibitors", "previous_fairs"}:
+        return True
+    return len(text.split()) <= 5
 
 
 def wants_registration_link(text):
@@ -4608,7 +4675,7 @@ def keep_required_details(base_reply, polished_reply):
     final_reply = soften_repeated_plan_phrase(base_reply, final_reply)
     final_text = normalize(final_reply)
 
-    if "tengo precios cargados" in base_text and "no tengo precios" in final_text:
+    if "tengo precios" in base_text and "no tengo precios" in final_text:
         return base_reply
 
     if (
@@ -4617,7 +4684,7 @@ def keep_required_details(base_reply, polished_reply):
     ):
         return base_reply
 
-    if "no tiene un numero de asesor cargado" in base_text and (
+    if ("no tengo un asesor disponible" in base_text or "no hay asesor disponible" in base_text) and (
         "google maps" in final_text or "maps google" in final_text or "preinscripcion para el stand" in final_text
     ):
         return base_reply
