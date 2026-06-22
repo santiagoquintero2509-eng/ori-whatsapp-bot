@@ -69,6 +69,10 @@ def last_form_error():
     return _CACHE.get("error")
 
 
+def clear_form_cache():
+    _CACHE.update({"loaded_at": 0, "records": [], "error": None})
+
+
 def fetch_apps_script_records(force=False):
     base_url = (
         os.getenv("FORM_RESPONSES_APPS_SCRIPT_URL", "").strip()
