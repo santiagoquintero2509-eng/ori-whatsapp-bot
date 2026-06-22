@@ -17,7 +17,9 @@ from groq_client import GroqClientError, classify_admin_intent_with_groq, is_gro
 from openai_client import OpenAIClientError, ask_chatgpt, is_openai_enabled
 from preinscription import (
     DEFAULT_DRIVE_FOLDER_ID,
+    delete_preinscription_by_chat_phone,
     pending_queue_items,
+    remove_pending_preinscriptions_for_phone,
     retry_pending_queue,
     submit_preinscription,
     update_confirmed_stand,
@@ -997,9 +999,9 @@ def admin_action_confirmation_prompt(action):
 
     if action["type"] == "forget_chat_memory":
         return (
-            f"Voy a borrar la memoria del chat {action['phone']}.\n\n"
-            "Esto reinicia la conversacion de ese numero como si escribiera por primera vez. "
-            "No borra formularios, archivos, stands confirmados ni datos de Google Sheet.\n\n"
+            f"Voy a borrar toda la memoria de Ori asociada al chat {action['phone']}.\n\n"
+            "Esto reinicia la conversacion de ese numero, elimina su estado de preinscripcion, "
+            "quita formularios pendientes en cola y borra del Google Sheet la fila que coincida en la columna Telefono chat.\n\n"
             "Para aplicar el cambio, responde: si confirma.\n"
             "Para dejarlo igual, responde: cancelar."
         )
@@ -1681,17 +1683,86 @@ def reset_preinscription_for_phone(phone):
 
 
 def forget_chat_memory_for_phone(phone):
+    target_phone = normalize_phone(phone)
     user_id, memory = find_user_by_phone(phone)
-    if not memory:
-        return f"No encontre memoria de WhatsApp para el numero {phone}."
+    display_phone = (memory.get("phone") if memory else None) or target_phone or phone
+    removed_memory = bool(memory)
+    removed_stands = remove_stand_assignments_for_phone(target_phone, user_id)
+    removed_admin_state = remove_admin_state_for_phone(target_phone)
+    removed_queue = remove_pending_preinscriptions_for_phone(target_phone)
+    sheet_result = delete_sheet_preinscription_for_phone(target_phone)
 
-    display_phone = memory.get("phone") or user_id
-    CONVERSATIONS.pop(user_id, None)
+    if memory:
+        CONVERSATIONS.pop(user_id, None)
     save_persistent_state()
-    return (
-        f"Listo. Olvide la memoria del chat {display_phone}.\n\n"
-        "Ese contacto iniciara una conversacion nueva la proxima vez que escriba."
-    )
+
+    lines = [f"Listo. Reinicie todo lo asociado al chat {display_phone}."]
+    lines.append("")
+    lines.append(f"- Memoria de WhatsApp: {'borrada' if removed_memory else 'no habia memoria local guardada'}")
+    lines.append(f"- Stands internos asociados: {removed_stands}")
+    lines.append(f"- Estados internos de administrador asociados: {removed_admin_state}")
+    lines.append(f"- Formularios pendientes en cola: {removed_queue}")
+    lines.append(f"- Google Sheet: {sheet_result}")
+    lines.append("")
+    lines.append("La proxima vez que ese numero escriba, Ori lo tratara como una conversacion nueva.")
+    return "\n".join(lines)
+
+
+def remove_stand_assignments_for_phone(phone, user_id=None):
+    removed = 0
+    stands = PERSISTENT_STATE.setdefault("stands", {})
+    for stand, assignment in list(stands.items()):
+        assignment_phone = normalize_phone(assignment.get("phone"))
+        assignment_user_id = normalize_phone(assignment.get("user_id"))
+        if (
+            phones_are_equivalent(assignment_phone, phone)
+            or phones_are_equivalent(assignment_user_id, phone)
+            or (user_id and str(assignment.get("user_id") or "") == str(user_id))
+        ):
+            stands.pop(stand, None)
+            removed += 1
+    return removed
+
+
+def remove_admin_state_for_phone(phone):
+    removed = 0
+    for state_key in ["admin_sessions", "admin_pending_actions", "admin_last_form_lookup", "admin_last_context"]:
+        bucket = PERSISTENT_STATE.setdefault(state_key, {})
+        for key in list(bucket.keys()):
+            if phones_are_equivalent(normalize_phone(key), phone):
+                bucket.pop(key, None)
+                removed += 1
+    return removed
+
+
+def delete_sheet_preinscription_for_phone(phone):
+    if not phone:
+        return "no se recibio un numero valido"
+    try:
+        result = delete_preinscription_by_chat_phone(phone)
+    except Exception as error:
+        print(f"No se pudo borrar preinscripcion en Sheet: {error}", flush=True)
+        return "no pude borrarla en este momento"
+
+    if result.get("ok"):
+        deleted = int(result.get("deleted", 0) or 0)
+        if deleted:
+            refresh_form_cache_after_delete()
+            return f"fila eliminada ({deleted})"
+        refresh_form_cache_after_delete()
+        return "no habia fila con ese Telefono chat"
+    if result.get("queued"):
+        return "borrado pendiente en cola"
+    return f"no pude borrarla ({result.get('error') or 'sin detalle'})"
+
+
+def refresh_form_cache_after_delete():
+    try:
+        from form_responses import clear_form_cache
+
+        clear_form_cache()
+    except Exception:
+        pass
 
 
 def clear_admin_own_active_preinscription(admin_key):
