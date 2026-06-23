@@ -318,12 +318,20 @@ def clean_filename(value):
 
 
 def default_media_filename(media, mime_type):
+    clean_mime_type = str(mime_type or "").split(";", 1)[0].strip().lower()
     extension = {
         "image/jpeg": ".jpg",
         "image/png": ".png",
         "image/webp": ".webp",
         "application/pdf": ".pdf",
-    }.get(mime_type, "")
+        "audio/ogg": ".ogg",
+        "audio/mpeg": ".mp3",
+        "audio/mp4": ".m4a",
+        "audio/aac": ".aac",
+        "audio/webm": ".webm",
+        "audio/wav": ".wav",
+        "audio/x-wav": ".wav",
+    }.get(clean_mime_type, "")
     media_type = media.get("type") or "archivo"
     return f"{media_type}_{int(time.time())}{extension}"
 
