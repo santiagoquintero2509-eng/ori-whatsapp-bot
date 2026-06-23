@@ -964,7 +964,7 @@ def admin_action_confirmation_prompt(action):
             current_note = f"\n\nAtencion: actualmente aparece confirmado para {current.get('brand', 'otra marca')}."
         return (
             f"Voy a marcar el stand {stand} como confirmado para {brand}.{current_note}\n\n"
-            "Para aplicar el cambio, responde: si confirma.\n"
+            "Para aplicar el cambio, responde: si confirmo.\n"
             "Para dejarlo igual, responde: cancelar."
         )
 
@@ -978,14 +978,14 @@ def admin_action_confirmation_prompt(action):
         brand_note = f" para {brand}" if brand else " por administracion"
         return (
             f"Voy a bloquear el stand {stand}{brand_note}. Ori dejara de ofrecerlo como disponible.{current_note}\n\n"
-            "Para aplicar el cambio, responde: si confirma.\n"
+            "Para aplicar el cambio, responde: si confirmo.\n"
             "Para dejarlo igual, responde: cancelar."
         )
 
     if action["type"] == "release_stand":
         return (
             f"Voy a liberar la confirmacion administrativa del stand {action['stand']}.\n\n"
-            "Para aplicar el cambio, responde: si confirma.\n"
+            "Para aplicar el cambio, responde: si confirmo.\n"
             "Para dejarlo igual, responde: cancelar."
         )
 
@@ -993,7 +993,7 @@ def admin_action_confirmation_prompt(action):
         return (
             f"Voy a reiniciar el estado de preinscripcion del numero {action['phone']}.\n\n"
             "Esto permite que ese contacto pueda iniciar una nueva preinscripcion por WhatsApp.\n\n"
-            "Para aplicar el cambio, responde: si confirma.\n"
+            "Para aplicar el cambio, responde: si confirmo.\n"
             "Para dejarlo igual, responde: cancelar."
         )
 
@@ -1002,7 +1002,7 @@ def admin_action_confirmation_prompt(action):
             f"Voy a borrar toda la memoria de Ori asociada al chat {action['phone']}.\n\n"
             "Esto reinicia la conversacion de ese numero, elimina su estado de preinscripcion, "
             "quita formularios pendientes en cola y borra del Google Sheet la fila que coincida en la columna Telefono chat.\n\n"
-            "Para aplicar el cambio, responde: si confirma.\n"
+            "Para aplicar el cambio, responde: si confirmo.\n"
             "Para dejarlo igual, responde: cancelar."
         )
 
@@ -2288,7 +2288,24 @@ def extract_form_lookup_query(text):
 
 
 def confirms_admin_action(text):
-    return has_any(text, ["si confirma", "si confirmo", "confirmo", "confirmar", "aplica", "hazlo"])
+    simple_confirmations = {"si", "sí", "ok", "okay", "listo", "dale"}
+    if text.strip() in simple_confirmations:
+        return True
+    confirmation_phrases = [
+        "si confirma",
+        "si confirmo",
+        "sí confirmo",
+        "confirmo",
+        "confirma",
+        "confirmar",
+        "cofirmo",
+        "si cofirmo",
+        "aplica",
+        "aplicar",
+        "hazlo",
+        "hacerlo",
+    ]
+    return any(has_whole_phrase(text, phrase) for phrase in confirmation_phrases)
 
 
 def cancels_admin_action(text):
