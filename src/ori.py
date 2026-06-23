@@ -2391,7 +2391,7 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
 
     if not text:
         return welcome_reply(memory)
-    if not memory.get("history") and not incoming_media:
+    if not memory.get("history") and not incoming_media and is_greeting_text(text):
         return welcome_reply(memory)
 
     category = detect_product_category(text)
@@ -2421,6 +2421,8 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
         memory["role"] = "expositor"
         remember_stand_interest(memory, stand_number)
         memory["last_intent"] = "booths"
+        if asks_stand_price(text):
+            return prices_reply(memory, text)
         return describe_stand(stand_number, memory)
 
     if wants_human_help(text):
@@ -2451,6 +2453,12 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
         memory["last_offer"] = None
         return preinscription_status_reply()
 
+    if wants_plan_after_prices_offer(text, memory):
+        memory["last_offer"] = None
+        memory["last_intent"] = "plan"
+        memory["pending_field"] = None
+        return plan_reply()
+
     if is_affirmative_followup(text, memory):
         return handle_affirmative_followup(memory)
 
@@ -2475,6 +2483,11 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
         memory["last_intent"] = "arrival"
         memory["pending_field"] = None
         return arrival_origin_reply(origin)
+
+    if wants_to_start_preinscription_after_offer(text, memory):
+        clear_arrival_context(memory)
+        memory["role"] = "expositor"
+        return start_preinscription_flow(memory)
 
     if wants_registration_link(text):
         clear_arrival_context(memory)
@@ -2571,7 +2584,7 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
             return form_submitted_reply()
         if category:
             memory["category"] = category
-        return start_preinscription_flow(memory)
+        return participation_overview_reply(memory)
 
     if memory.get("role") == "expositor" and (memory.get("pending_field") == "category" or category):
         if category:
@@ -2644,7 +2657,7 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
             return form_submitted_reply()
         if category:
             memory["category"] = category
-        return start_preinscription_flow(memory)
+        return participation_overview_reply(memory)
     if intent == "products":
         return products_reply(text)
     if intent == "activities":
@@ -3488,9 +3501,23 @@ def previous_fairs_reply():
 
 
 def exhibitor_guide_reply():
+    return participation_overview_reply()
+
+
+def participation_overview_reply(memory=None):
+    if memory is not None:
+        memory["last_intent"] = "exhibitor"
+        memory["last_offer"] = "participation_next_step"
+        memory["pending_field"] = None
+        memory["process_stage"] = "interesado_en_participar"
+        memory["lead_stage"] = memory.get("lead_stage") or "interesado"
+        memory["updated_at"] = datetime.now(timezone.utc).isoformat()
+        save_persistent_state()
+
     return (
-        "Que bueno que quieras ser parte de la feria! Esta es una oportunidad muy bonita para mostrar tu marca y conectar con nuevos clientes.\n\n"
-        "Puedo tomar tu preinscripcion directamente por este chat. Para empezar, dime la razon social de tu marca."
+        "Que buena noticia! Puedes participar como expositor realizando la preinscripcion directamente por aqui.\n\n"
+        "Los stands tienen valores entre $3.300.000 y $6.000.000 COP, segun zona, medida y tipo de stand.\n\n"
+        "Empezamos el proceso de preinscripcion o quieres ver el plano de ubicacion?"
     )
 
 
@@ -3703,20 +3730,33 @@ def prices_reply(memory, text=""):
             status_note = " Ojo: aparece no disponible, asi que no debo ofrecerlo como opcion."
 
         return (
-            f"El stand {stand_number} es {price['type']} de {price['size']} en {zone}. "
-            f"Precio: {price['price']}. Estado: {status}.{status_note} "
-            f"{FAIR_INFO['stand_includes']}"
+            f"Stand {stand_number}: {status}.\n\n"
+            f"Zona: {zone}\n"
+            f"Medidas: {price['size']}\n"
+            f"Tipo: {price['type']}\n"
+            f"Precio: {price['price']}{status_note}\n\n"
+            "La asignacion final queda sujeta a confirmacion del equipo organizador."
         )
 
     if memory.get("role") == "expositor" or memory.get("last_intent") in {"booths", "exhibitor"}:
+        memory["last_offer"] = "plan_after_prices"
+        memory["updated_at"] = datetime.now(timezone.utc).isoformat()
+        save_persistent_state()
         return (
-            "Si, ya tengo precios por stand. Dime el numero que te interesa, por ejemplo "
-            "'precio del stand 56', y te confirmo valor, medida, zona y disponibilidad."
+            "Claro. Los stands van desde $3.300.000 hasta $6.000.000 COP, segun ubicacion, medida y tipo.\n\n"
+            "Patio de las Artes: desde $3.300.000 COP.\n"
+            "Salon Pierre Daguet: desde $5.000.000 COP.\n\n"
+            "Quieres que te comparta el plano de ubicaciones?"
         )
 
+    memory["last_offer"] = "plan_after_prices"
+    memory["updated_at"] = datetime.now(timezone.utc).isoformat()
+    save_persistent_state()
     return (
-        "Si, tengo precios para los stands. Dime el numero del stand que quieres revisar "
-        "y te confirmo valor, medida, zona y disponibilidad."
+        "Claro. Los stands van desde $3.300.000 hasta $6.000.000 COP, segun ubicacion, medida y tipo.\n\n"
+        "Patio de las Artes: desde $3.300.000 COP.\n"
+        "Salon Pierre Daguet: desde $5.000.000 COP.\n\n"
+        "Quieres que te comparta el plano de ubicaciones?"
     )
 
 
@@ -4195,6 +4235,72 @@ def handle_affirmative_followup(memory):
     return "Claro! Con gusto."
 
 
+def wants_plan_after_prices_offer(text, memory):
+    if memory.get("last_offer") != "plan_after_prices":
+        return False
+    return has_any(
+        text,
+        [
+            "si",
+            "claro",
+            "por favor",
+            "dale",
+            "enviamelo",
+            "enviame",
+            "mandamelo",
+            "mandame",
+            "plano",
+            "ubicacion",
+            "ubicaciones",
+            "quiero verlo",
+            "verlo",
+        ],
+    )
+
+
+def wants_to_start_preinscription_after_offer(text, memory):
+    if memory.get("last_offer") != "participation_next_step":
+        return False
+    if asks_for_plan(text):
+        return False
+    return has_any(
+        text,
+        [
+            "empecemos",
+            "empezamos",
+            "iniciemos",
+            "iniciar",
+            "inicia",
+            "arranquemos",
+            "comencemos",
+            "preinscripcion",
+            "pre inscripcion",
+            "hacer preinscripcion",
+            "quiero preinscribirme",
+            "quiero inscribirme",
+            "si",
+            "dale",
+        ],
+    )
+
+
+def is_greeting_text(text):
+    return has_any(
+        text,
+        [
+            "hola",
+            "buenas",
+            "buen dia",
+            "buenos dias",
+            "buenas tardes",
+            "buenas noches",
+            "menu",
+            "ayuda",
+            "inicio",
+        ],
+    )
+
+
 def wants_to_participate(text):
     if asks_confirmed_exhibitors(text):
         return False
@@ -4284,9 +4390,6 @@ def wants_registration_link(text):
             "formulario de inscripcion",
             "formulario de preinscripcion",
             "quiero llenar el formulario",
-            "quiero participar",
-            "como puedo participar",
-            "estoy interesado en participar",
         ],
     )
 
@@ -4642,6 +4745,22 @@ def asks_entry_cost(text):
             "entrada libre",
             "es gratis",
             "gratis",
+        ],
+    )
+
+
+def asks_stand_price(text):
+    return has_any(
+        text,
+        [
+            "precio",
+            "precios",
+            "valor",
+            "cuanto cuesta",
+            "cuanto vale",
+            "costo",
+            "tarifa",
+            "vale",
         ],
     )
 
