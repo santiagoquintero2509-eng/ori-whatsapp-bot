@@ -37,3 +37,9 @@ services:
         sync: false
       - key: GROQ_TIMEOUT
         sync: false
+      - key: GROQ_TRANSCRIPTION_MODEL
+        sync: false
+      - key: GROQ_TRANSCRIPTION_LANGUAGE
+        sync: false
+      - key: GROQ_TRANSCRIPTION_TIMEOUT
+        sync: false
