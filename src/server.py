@@ -9,7 +9,9 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+from groq_client import GroqClientError, transcribe_audio_with_groq
 from ori import get_ori_reply
+from preinscription import download_whatsapp_media
 
 try:
     from plano_image import PLANO_STANDS_JPG_BASE64
@@ -183,6 +185,19 @@ def handle_whatsapp_payload(payload):
     messages = extract_incoming_messages(payload)
     print(f"Mensajes extraidos: {len(messages)}", flush=True)
     for message in messages:
+        if message.get("type") == "audio":
+            transcription = transcribe_incoming_audio(message)
+            if not transcription:
+                send_whatsapp_text(
+                    message["from"],
+                    "Recibi tu audio, pero no pude escucharlo bien en este momento. "
+                    "¿Me lo puedes escribir en texto para ayudarte mejor?",
+                )
+                continue
+            message["text"] = transcription
+            message["media"] = None
+            print(f"Audio transcrito de {message['from']}: {transcription}", flush=True)
+
         reply = get_ori_reply(message["text"], user_id=message["from"], incoming_media=message.get("media"))
         print(f"Mensaje de {message['from']}: {message['text'] or message.get('type')}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
@@ -223,11 +238,11 @@ def extract_incoming_messages(payload):
             value = change.get("value", {})
             for message in value.get("messages", []):
                 message_type = message.get("type")
-                if message_type not in {"text", "image", "document"}:
+                if message_type not in {"text", "image", "document", "audio"}:
                     continue
                 text = message.get("text", {}).get("body", "")
                 media = None
-                if message_type in {"image", "document"}:
+                if message_type in {"image", "document", "audio"}:
                     media_payload = message.get(message_type, {})
                     text = media_payload.get("caption", "")
                     media = {
@@ -246,6 +261,22 @@ def extract_incoming_messages(payload):
                     }
                 )
     return output
+
+
+def transcribe_incoming_audio(message):
+    media = message.get("media") or {}
+    if not WHATSAPP_TOKEN:
+        print("No se puede transcribir audio: falta WHATSAPP_TOKEN.", flush=True)
+        return ""
+
+    try:
+        content, mime_type, filename = download_whatsapp_media(media, WHATSAPP_TOKEN, GRAPH_API_VERSION)
+        return transcribe_audio_with_groq(content, filename, mime_type)
+    except GroqClientError as error:
+        print(f"No se pudo transcribir audio con Groq: {error}", flush=True)
+    except Exception as error:
+        print(f"No se pudo descargar/transcribir audio de WhatsApp: {error}", flush=True)
+    return ""
 
 
 def send_whatsapp_text(to, body):
