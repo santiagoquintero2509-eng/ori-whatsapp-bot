@@ -1,10 +1,12 @@
 import json
 import os
+import uuid
 import urllib.error
 import urllib.request
 
 
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_TRANSCRIPTION_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 
 
 class GroqClientError(RuntimeError):
@@ -120,6 +122,94 @@ def classify_admin_intent_with_groq(user_message, admin_context=None):
     if not isinstance(parsed, dict):
         raise GroqClientError("Groq no devolvio JSON valido")
     return parsed
+
+
+def transcribe_audio_with_groq(audio_bytes, filename, mime_type):
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key or api_key.startswith("pega_aqui"):
+        raise GroqClientError("GROQ_API_KEY no esta configurada")
+    if not audio_bytes:
+        raise GroqClientError("El audio llego vacio")
+
+    model = os.getenv("GROQ_TRANSCRIPTION_MODEL", "whisper-large-v3-turbo").strip()
+    timeout = int(os.getenv("GROQ_TRANSCRIPTION_TIMEOUT", os.getenv("GROQ_TIMEOUT", "30")))
+    language = os.getenv("GROQ_TRANSCRIPTION_LANGUAGE", "es").strip()
+    prompt = os.getenv(
+        "GROQ_TRANSCRIPTION_PROMPT",
+        "Audio de WhatsApp para Ori, asistente de Feria Origen Colombia 2027. Transcribe fielmente en espanol.",
+    ).strip()
+
+    fields = {
+        "model": model,
+        "response_format": "json",
+        "temperature": "0",
+    }
+    if language:
+        fields["language"] = language
+    if prompt:
+        fields["prompt"] = prompt[:900]
+
+    body, boundary = build_multipart_form_data(
+        fields,
+        "file",
+        filename or "audio.ogg",
+        mime_type or "audio/ogg",
+        audio_bytes,
+    )
+
+    request = urllib.request.Request(
+        GROQ_TRANSCRIPTION_URL,
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "Accept": "application/json",
+            "User-Agent": "OriWhatsAppBot/1.0",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw_body = response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise GroqClientError(f"Groq transcripcion respondio {error.code}: {detail}") from error
+    except urllib.error.URLError as error:
+        raise GroqClientError(f"No se pudo conectar con Groq para transcribir: {error}") from error
+
+    try:
+        data = json.loads(raw_body or "{}")
+    except json.JSONDecodeError as error:
+        raise GroqClientError("Groq no devolvio JSON valido en la transcripcion") from error
+
+    text = str(data.get("text") or "").strip()
+    if not text:
+        raise GroqClientError("Groq no devolvio texto transcrito")
+    return text
+
+
+def build_multipart_form_data(fields, file_field, filename, mime_type, file_bytes):
+    boundary = f"----OriGroqBoundary{uuid.uuid4().hex}"
+    chunks = []
+    for name, value in fields.items():
+        chunks.append(f"--{boundary}\r\n".encode("utf-8"))
+        chunks.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"))
+        chunks.append(str(value).encode("utf-8"))
+        chunks.append(b"\r\n")
+
+    safe_filename = str(filename or "audio.ogg").replace('"', "")
+    chunks.append(f"--{boundary}\r\n".encode("utf-8"))
+    chunks.append(
+        (
+            f'Content-Disposition: form-data; name="{file_field}"; filename="{safe_filename}"\r\n'
+            f"Content-Type: {mime_type or 'application/octet-stream'}\r\n\r\n"
+        ).encode("utf-8")
+    )
+    chunks.append(file_bytes)
+    chunks.append(b"\r\n")
+    chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(chunks), boundary
 
 
 def build_admin_classifier_prompt():
