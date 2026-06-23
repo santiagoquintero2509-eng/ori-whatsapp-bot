@@ -94,6 +94,9 @@ En `.env` o Render agrega:
 USE_GROQ=true
 GROQ_API_KEY=gsk_...
 GROQ_MODEL=llama-3.1-8b-instant
+GROQ_TRANSCRIPTION_MODEL=whisper-large-v3-turbo
+GROQ_TRANSCRIPTION_LANGUAGE=es
+GROQ_TRANSCRIPTION_TIMEOUT=30
 ```
 
 Si Groq falla, se queda sin limite o no hay llave, Ori responde con su cerebro local.
