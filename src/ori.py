@@ -2470,6 +2470,12 @@ def get_local_ai_reply(raw_message, memory, incoming_media=None):
         memory["last_offer"] = None
         return preinscription_status_reply()
 
+    if asks_ambiguous_value_question(text) and has_no_value_context(memory):
+        memory["last_intent"] = "ambiguous_value"
+        memory["last_offer"] = "visitor_or_exhibitor_value"
+        memory["pending_field"] = None
+        return ambiguous_value_reply()
+
     if wants_plan_after_prices_offer(text, memory):
         memory["last_offer"] = None
         memory["last_intent"] = "plan"
@@ -3777,6 +3783,14 @@ def prices_reply(memory, text=""):
     )
 
 
+def ambiguous_value_reply():
+    return (
+        "Hola! Si te refieres a la entrada para visitar la feria, es 100% gratuita.\n\n"
+        "Si quieres participar como expositor, los stands tienen valores entre $3.300.000 y $6.000.000 COP, segun zona, medida y tipo.\n\n"
+        "Quieres venir como visitante o estas pensando en participar con tu marca?"
+    )
+
+
 def stand_includes_reply(number=None):
     if number:
         stand = find_booth(number)
@@ -4780,6 +4794,52 @@ def asks_stand_price(text):
             "vale",
         ],
     )
+
+
+def asks_ambiguous_value_question(text):
+    if not has_any(text, ["valor", "cuanto vale", "cuanto cuesta", "costo", "precio"]):
+        return False
+    if has_any(
+        text,
+        [
+            "entrada",
+            "entrar",
+            "ingreso",
+            "visitante",
+            "visitar",
+            "asistir",
+            "stand",
+            "stands",
+            "puesto",
+            "puestos",
+            "participar",
+            "expositor",
+            "exponer",
+            "marca",
+            "emprendimiento",
+            "reservar",
+            "reserva",
+            "inscribir",
+            "preinscripcion",
+        ],
+    ):
+        return False
+    return True
+
+
+def has_no_value_context(memory):
+    if memory.get("role"):
+        return False
+    if memory.get("selected_stand") or memory.get("desired_stand_type") or memory.get("desired_zone"):
+        return False
+    if memory.get("last_intent") not in {None, "greeting"}:
+        return False
+    relevant_history = [
+        item
+        for item in memory.get("history", [])
+        if normalize((item or {}).get("user")) not in {"", "hola", "buenas", "buenos dias", "buenas tardes"}
+    ]
+    return not relevant_history
 
 
 def asks_for_history(text):
