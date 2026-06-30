@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from groq_client import GroqClientError, transcribe_audio_with_groq
-from ori import get_ori_reply
+from ori import get_memory, get_ori_reply, is_admin_entry_message, remember_turn, save_persistent_state
 from preinscription import download_whatsapp_media
 
 try:
@@ -55,6 +55,16 @@ LAST_PREVIOUS_FAIR_IMAGES_SENT = {}
 PLAN_IMAGE_COOLDOWN_SECONDS = 600
 PREVIOUS_FAIR_IMAGES_COOLDOWN_SECONDS = 900
 MAX_PREVIOUS_FAIR_IMAGES = 3
+WELCOME_BUTTON_TEXT = (
+    "Hola, soy Ori, tu asistente virtual de Feria Origen Colombia 2027.\n\n"
+    "Me alegra saludarte. Esta feria es un espacio para descubrir y conectar con el talento colombiano: "
+    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura y emprendimientos con identidad.\n\n"
+    "Para ayudarte mejor, elige una opción:"
+)
+WELCOME_BUTTONS = [
+    {"id": "ORI_EXPOSITOR", "title": "Quiero exponer"},
+    {"id": "ORI_VISITANTE", "title": "Quiero visitar"},
+]
 
 
 class OriHandler(BaseHTTPRequestHandler):
@@ -185,6 +195,11 @@ def handle_whatsapp_payload(payload):
     messages = extract_incoming_messages(payload)
     print(f"Mensajes extraidos: {len(messages)}", flush=True)
     for message in messages:
+        if should_send_initial_welcome_buttons(message):
+            mark_welcome_buttons_sent(message["from"], message["text"])
+            send_whatsapp_buttons(message["from"], WELCOME_BUTTON_TEXT, WELCOME_BUTTONS)
+            continue
+
         if message.get("type") == "audio":
             transcription = transcribe_incoming_audio(message)
             if not transcription:
@@ -238,7 +253,7 @@ def extract_incoming_messages(payload):
             value = change.get("value", {})
             for message in value.get("messages", []):
                 message_type = message.get("type")
-                if message_type not in {"text", "image", "document", "audio"}:
+                if message_type not in {"text", "image", "document", "audio", "interactive"}:
                     continue
                 text = message.get("text", {}).get("body", "")
                 media = None
@@ -252,6 +267,8 @@ def extract_incoming_messages(payload):
                         "filename": media_payload.get("filename", ""),
                         "sha256": media_payload.get("sha256", ""),
                     }
+                elif message_type == "interactive":
+                    text = interactive_message_text(message.get("interactive", {}))
                 output.append(
                     {
                         "from": message.get("from", ""),
@@ -261,6 +278,41 @@ def extract_incoming_messages(payload):
                     }
                 )
     return output
+
+
+def interactive_message_text(interactive):
+    interactive_type = (interactive or {}).get("type", "")
+    if interactive_type == "button_reply":
+        reply = interactive.get("button_reply") or {}
+        return button_reply_text(reply.get("id", ""), reply.get("title", ""))
+    if interactive_type == "list_reply":
+        reply = interactive.get("list_reply") or {}
+        return reply.get("title", "") or reply.get("description", "") or reply.get("id", "")
+    return ""
+
+
+def button_reply_text(button_id, title):
+    button_map = {
+        "ORI_EXPOSITOR": "Quiero exponer",
+        "ORI_VISITANTE": "Quiero visitar",
+    }
+    return button_map.get(str(button_id or "").strip(), str(title or "").strip())
+
+
+def should_send_initial_welcome_buttons(message):
+    if message.get("type") != "text":
+        return False
+    if is_admin_entry_message(message.get("text", "")):
+        return False
+    memory = get_memory(message.get("from"))
+    return not memory.get("history") and not memory.get("welcome_buttons_sent")
+
+
+def mark_welcome_buttons_sent(user_id, user_message):
+    memory = get_memory(user_id)
+    memory["welcome_buttons_sent"] = True
+    remember_turn(memory, user_message or "[inicio]", WELCOME_BUTTON_TEXT)
+    save_persistent_state()
 
 
 def transcribe_incoming_audio(message):
@@ -309,6 +361,53 @@ def send_whatsapp_text(to, body):
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"WhatsApp API respondio {error.code}: {detail}") from error
+
+
+def send_whatsapp_buttons(to, body, buttons):
+    if DRY_RUN or not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
+        print(f"Envio de botones omitido para {to}: {body}", flush=True)
+        return
+
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": body[:1024]},
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": str(button["id"])[:256],
+                            "title": str(button["title"])[:20],
+                        },
+                    }
+                    for button in buttons[:3]
+                ]
+            },
+        },
+    }
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            response.read()
+            print(f"Botones enviados a WhatsApp para {to}", flush=True)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar botones: {detail}") from error
 
 
 def subscribe_app_to_whatsapp():
