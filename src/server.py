@@ -103,12 +103,27 @@ VISITOR_MENU_BUTTONS = [
 EXHIBITOR_AFTER_REPLY_BUTTONS = [
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+EXHIBITOR_AFTER_PLAN_BUTTONS = [
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
     {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+EXHIBITOR_AFTER_IMAGES_BUTTONS = [
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS = [
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
 ]
 VISITOR_AFTER_REPLY_BUTTONS = [
     {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
-    {"id": "ORI_MENU", "title": "Menu"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
 ]
 
 
@@ -370,7 +385,7 @@ def button_reply_text(button_id, title):
         "ORI_VIS_INFO": "Informacion de la feria",
         "ORI_VIS_LLEGAR": "Como llegar",
         "ORI_VIS_PRODUCTOS": "Productos",
-        "ORI_MENU": "Menu",
+        "ORI_MENU": "Volver al menu",
     }
     return button_map.get(str(button_id or "").strip(), str(title or "").strip())
 
@@ -414,12 +429,14 @@ def handle_guided_button_message(message):
         remember_turn(memory, "Preinscripcion", reply)
         save_persistent_state()
         send_whatsapp_text(user_id, reply)
+        if not is_questionnaire_active(user_id):
+            send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS)
         return True
 
     guided_actions = {
         "ORI_EXP_PRECIOS": ("precios de stands", EXHIBITOR_AFTER_REPLY_BUTTONS),
-        "ORI_EXP_PLANO": ("quiero ver el plano de la feria", EXHIBITOR_AFTER_REPLY_BUTTONS),
-        "ORI_EXP_IMAGENES": ("imagenes de la feria", EXHIBITOR_AFTER_REPLY_BUTTONS),
+        "ORI_EXP_PLANO": ("quiero ver el plano de la feria", EXHIBITOR_AFTER_PLAN_BUTTONS),
+        "ORI_EXP_IMAGENES": ("imagenes de la feria", EXHIBITOR_AFTER_IMAGES_BUTTONS),
         "ORI_VIS_INFO": ("informacion de la feria", VISITOR_AFTER_REPLY_BUTTONS),
         "ORI_VIS_LLEGAR": ("como llegar", VISITOR_AFTER_REPLY_BUTTONS),
         "ORI_VIS_PRODUCTOS": ("productos", VISITOR_AFTER_REPLY_BUTTONS),
