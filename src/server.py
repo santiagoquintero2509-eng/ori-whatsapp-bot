@@ -76,12 +76,21 @@ WELCOME_BUTTONS = [
 MAIN_MENU_TEXT = "Elige una opcion para que pueda ayudarte mejor:"
 MAIN_MENU_BUTTONS = WELCOME_BUTTONS
 EXHIBITOR_MENU_TEXT = (
-    "Perfecto. Si quieres participar como expositor, puedo orientarte por estas opciones:"
+    "Que buena noticia que estes pensando en participar como expositor!\n\n"
+    "Los stands tienen valores entre $3.300.000 y $6.000.000 COP, segun zona, medida y tipo de stand.\n\n"
+    "Todos los stands incluyen:\n"
+    "- 3 muros blancos en stands generales.\n"
+    "- 2 muros blancos en stands esquineros.\n"
+    "- 1 mesa de 120 x 60 cm.\n"
+    "- 1 estante con 2 puestos de 180 cm.\n\n"
+    "Tambien puedes hablar con un asesor aqui:\n"
+    "https://wa.me/573160282537\n\n"
+    "Que te gustaria hacer primero?"
 )
 EXHIBITOR_MENU_BUTTONS = [
-    {"id": "ORI_EXP_PRECIOS", "title": "Precios"},
-    {"id": "ORI_EXP_PLANO", "title": "Ver plano"},
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
 ]
 VISITOR_MENU_TEXT = (
     "Que bueno que quieras visitar la feria. Elige que te gustaria revisar:"
@@ -92,9 +101,9 @@ VISITOR_MENU_BUTTONS = [
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
 ]
 EXHIBITOR_AFTER_REPLY_BUTTONS = [
-    {"id": "ORI_EXP_PLANO", "title": "Ver plano"},
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
-    {"id": "ORI_MENU", "title": "Menu"},
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
 ]
 VISITOR_AFTER_REPLY_BUTTONS = [
     {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
@@ -355,8 +364,9 @@ def button_reply_text(button_id, title):
         "ORI_EXPOSITOR": "Quiero exponer",
         "ORI_VISITANTE": "Quiero visitar",
         "ORI_EXP_PRECIOS": "Precios",
-        "ORI_EXP_PLANO": "Ver plano",
+        "ORI_EXP_PLANO": "Plano de venta",
         "ORI_EXP_PREINSCRIPCION": "Preinscripcion",
+        "ORI_EXP_IMAGENES": "Imagenes",
         "ORI_VIS_INFO": "Informacion de la feria",
         "ORI_VIS_LLEGAR": "Como llegar",
         "ORI_VIS_PRODUCTOS": "Productos",
@@ -409,6 +419,7 @@ def handle_guided_button_message(message):
     guided_actions = {
         "ORI_EXP_PRECIOS": ("precios de stands", EXHIBITOR_AFTER_REPLY_BUTTONS),
         "ORI_EXP_PLANO": ("quiero ver el plano de la feria", EXHIBITOR_AFTER_REPLY_BUTTONS),
+        "ORI_EXP_IMAGENES": ("imagenes de la feria", EXHIBITOR_AFTER_REPLY_BUTTONS),
         "ORI_VIS_INFO": ("informacion de la feria", VISITOR_AFTER_REPLY_BUTTONS),
         "ORI_VIS_LLEGAR": ("como llegar", VISITOR_AFTER_REPLY_BUTTONS),
         "ORI_VIS_PRODUCTOS": ("productos", VISITOR_AFTER_REPLY_BUTTONS),
