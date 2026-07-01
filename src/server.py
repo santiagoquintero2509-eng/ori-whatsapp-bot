@@ -430,7 +430,9 @@ def handle_guided_button_message(message):
     guided_text, next_buttons = guided_actions[button_id]
     reply = get_ori_reply(guided_text, user_id=user_id)
     send_whatsapp_text(user_id, reply)
-    send_context_media_if_needed(user_id, guided_text, reply)
+    media_sent = send_context_media_if_needed(user_id, guided_text, reply)
+    if media_sent:
+        time.sleep(2)
     if not is_questionnaire_active(user_id):
         send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", next_buttons)
     return True
@@ -505,15 +507,19 @@ def is_questionnaire_active(user_id):
 
 
 def send_context_media_if_needed(user_id, message_text, reply):
+    media_sent = False
     if should_send_plan_image(message_text, reply) and should_send_plan_image_now(user_id):
         send_whatsapp_image(
             user_id,
             PLANO_STANDS_URL,
             "Plano de stands Feria Origen Colombia 2027.",
         )
+        media_sent = True
     if should_send_previous_fair_images(message_text) and should_send_previous_fair_images_now(user_id):
         for image_url, caption in fair_gallery_image_urls()[:MAX_PREVIOUS_FAIR_IMAGES]:
             send_whatsapp_image(user_id, image_url, caption)
+            media_sent = True
+    return media_sent
 
 
 def transcribe_incoming_audio(message):
