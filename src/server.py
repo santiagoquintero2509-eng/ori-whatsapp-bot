@@ -20,6 +20,7 @@ from ori import (
     start_preinscription_flow,
 )
 from preinscription import download_whatsapp_media
+from form_responses import filter_form_records, last_form_error, record_brand
 
 try:
     from plano_image import PLANO_STANDS_JPG_BASE64
@@ -93,13 +94,44 @@ EXHIBITOR_MENU_BUTTONS = [
     {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
 ]
 VISITOR_MENU_TEXT = (
-    "Que bueno que quieras visitar la feria. Elige que te gustaria revisar:"
+    "Que alegria que quieras visitar la feria!\n\n"
+    "La entrada para visitantes es 100% gratuita. Puedo ayudarte con informacion del evento, "
+    "como llegar o los productos que encontraras."
 )
 VISITOR_MENU_BUTTONS = [
     {"id": "ORI_VIS_INFO", "title": "Info feria"},
     {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
 ]
+VISITOR_INFO_LIST_ROWS = [
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Categorias y productos que encontraras."},
+    {"id": "ORI_VIS_PROMOCIONES", "title": "Promociones", "description": "Ofertas o novedades disponibles."},
+    {"id": "ORI_VIS_IMAGENES", "title": "Imagenes", "description": "Fotos de la feria y espacios."},
+    {"id": "ORI_MENU", "title": "Volver al menu", "description": "Regresar al inicio."},
+]
+VISITOR_PRODUCT_CATEGORY_ROWS = [
+    {"id": "ORI_VIS_CAT_ARTE", "title": "Arte", "description": "Ver participantes de esta categoria."},
+    {"id": "ORI_VIS_CAT_ARTESANIA", "title": "Artesania", "description": "Ver participantes de esta categoria."},
+    {"id": "ORI_VIS_CAT_JOYERIA", "title": "Joyeria", "description": "Ver participantes de esta categoria."},
+    {"id": "ORI_VIS_CAT_CALZADO", "title": "Calzado y vestuario", "description": "Ver participantes de esta categoria."},
+    {"id": "ORI_VIS_CAT_DECORACION", "title": "Decoracion", "description": "Ver participantes de esta categoria."},
+    {"id": "ORI_VIS_CAT_ANTICUARIOS", "title": "Anticuarios", "description": "Ver participantes de esta categoria."},
+    {"id": "ORI_VIS_CAT_SALUD", "title": "Salud y belleza", "description": "Ver participantes de esta categoria."},
+    {"id": "ORI_VIS_CAT_GASTRONOMIA", "title": "Gastronomia", "description": "Ver participantes de esta categoria."},
+    {"id": "ORI_VIS_CAT_OTRO", "title": "Otro", "description": "Ver otras propuestas participantes."},
+    {"id": "ORI_MENU", "title": "Volver al menu", "description": "Regresar al inicio."},
+]
+VISITOR_CATEGORY_BY_BUTTON = {
+    "ORI_VIS_CAT_ARTE": "Arte",
+    "ORI_VIS_CAT_ARTESANIA": "Artesania tipica",
+    "ORI_VIS_CAT_JOYERIA": "Joyeria",
+    "ORI_VIS_CAT_CALZADO": "Calzado y vestuario",
+    "ORI_VIS_CAT_DECORACION": "Decoracion",
+    "ORI_VIS_CAT_ANTICUARIOS": "Anticuarios",
+    "ORI_VIS_CAT_SALUD": "Salud y belleza",
+    "ORI_VIS_CAT_GASTRONOMIA": "Gastronomia",
+    "ORI_VIS_CAT_OTRO": "",
+}
 EXHIBITOR_AFTER_REPLY_BUTTONS = [
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
@@ -123,6 +155,21 @@ EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS = [
 VISITOR_AFTER_REPLY_BUTTONS = [
     {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+VISITOR_AFTER_ARRIVAL_BUTTONS = [
+    {"id": "ORI_VIS_CERCA", "title": "Lugares cerca"},
+    {"id": "ORI_VIS_INFO", "title": "Info feria"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+VISITOR_AFTER_NEARBY_BUTTONS = [
+    {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+VISITOR_AFTER_IMAGES_BUTTONS = [
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
+    {"id": "ORI_VIS_INFO", "title": "Info feria"},
     {"id": "ORI_MENU", "title": "Volver al menu"},
 ]
 
@@ -385,6 +432,18 @@ def button_reply_text(button_id, title):
         "ORI_VIS_INFO": "Informacion de la feria",
         "ORI_VIS_LLEGAR": "Como llegar",
         "ORI_VIS_PRODUCTOS": "Productos",
+        "ORI_VIS_PROMOCIONES": "Promociones",
+        "ORI_VIS_IMAGENES": "Imagenes de la feria",
+        "ORI_VIS_CERCA": "Lugares cerca",
+        "ORI_VIS_CAT_ARTE": "Arte",
+        "ORI_VIS_CAT_ARTESANIA": "Artesania",
+        "ORI_VIS_CAT_JOYERIA": "Joyeria",
+        "ORI_VIS_CAT_CALZADO": "Calzado y vestuario",
+        "ORI_VIS_CAT_DECORACION": "Decoracion",
+        "ORI_VIS_CAT_ANTICUARIOS": "Anticuarios",
+        "ORI_VIS_CAT_SALUD": "Salud y belleza",
+        "ORI_VIS_CAT_GASTRONOMIA": "Gastronomia",
+        "ORI_VIS_CAT_OTRO": "Otro",
         "ORI_MENU": "Volver al menu",
     }
     return button_map.get(str(button_id or "").strip(), str(title or "").strip())
@@ -423,6 +482,67 @@ def handle_guided_button_message(message):
         remember_menu_turn(user_id, "Quiero visitar", VISITOR_MENU_TEXT)
         return True
 
+    if button_id == "ORI_VIS_INFO":
+        reply = get_ori_reply("informacion de la feria", user_id=user_id)
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_list(
+            user_id,
+            "Que te gustaria revisar ahora?",
+            "Opciones visitante",
+            "Elegir opcion",
+            VISITOR_INFO_LIST_ROWS,
+        )
+        remember_menu_turn(user_id, "Info feria", reply)
+        return True
+
+    if button_id == "ORI_VIS_PRODUCTOS":
+        reply = (
+            "En la feria encontraras propuestas colombianas de arte, artesania, joyeria, moda, "
+            "decoracion, anticuarios, salud y belleza, gastronomia y otras marcas con identidad.\n\n"
+            "Elige una categoria y te cuento que participantes tengo cargados."
+        )
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_list(
+            user_id,
+            "Que categoria quieres revisar?",
+            "Categorias",
+            "Ver categorias",
+            VISITOR_PRODUCT_CATEGORY_ROWS,
+        )
+        remember_menu_turn(user_id, "Productos", reply)
+        return True
+
+    if button_id in VISITOR_CATEGORY_BY_BUTTON:
+        category = VISITOR_CATEGORY_BY_BUTTON[button_id]
+        reply = visitor_category_participants_reply(category)
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_list(
+            user_id,
+            "Puedes revisar otra categoria o volver al menu.",
+            "Categorias",
+            "Ver categorias",
+            VISITOR_PRODUCT_CATEGORY_ROWS,
+        )
+        remember_menu_turn(user_id, button_reply_text(button_id, ""), reply)
+        return True
+
+    if button_id == "ORI_VIS_PROMOCIONES":
+        reply = (
+            "Por ahora no tengo promociones oficiales cargadas para visitantes.\n\n"
+            "Lo que si puedo confirmarte es que la entrada a la feria es 100% gratuita. "
+            "Si el equipo anuncia promociones, descuentos o novedades especiales, las podremos mostrar aqui."
+        )
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_list(
+            user_id,
+            "Quieres revisar otra cosa?",
+            "Opciones visitante",
+            "Elegir opcion",
+            VISITOR_INFO_LIST_ROWS,
+        )
+        remember_menu_turn(user_id, "Promociones", reply)
+        return True
+
     if button_id == "ORI_EXP_PREINSCRIPCION":
         memory = get_memory(user_id)
         reply = start_preinscription_flow(memory)
@@ -437,9 +557,9 @@ def handle_guided_button_message(message):
         "ORI_EXP_PRECIOS": ("precios de stands", EXHIBITOR_AFTER_REPLY_BUTTONS),
         "ORI_EXP_PLANO": ("quiero ver el plano de la feria", EXHIBITOR_AFTER_PLAN_BUTTONS),
         "ORI_EXP_IMAGENES": ("imagenes de la feria", EXHIBITOR_AFTER_IMAGES_BUTTONS),
-        "ORI_VIS_INFO": ("informacion de la feria", VISITOR_AFTER_REPLY_BUTTONS),
-        "ORI_VIS_LLEGAR": ("como llegar", VISITOR_AFTER_REPLY_BUTTONS),
-        "ORI_VIS_PRODUCTOS": ("productos", VISITOR_AFTER_REPLY_BUTTONS),
+        "ORI_VIS_LLEGAR": ("como llegar", VISITOR_AFTER_ARRIVAL_BUTTONS),
+        "ORI_VIS_CERCA": ("lugares cercanos a la feria", VISITOR_AFTER_NEARBY_BUTTONS),
+        "ORI_VIS_IMAGENES": ("imagenes de la feria", VISITOR_AFTER_IMAGES_BUTTONS),
     }
     if button_id not in guided_actions:
         return False
@@ -539,6 +659,61 @@ def send_context_media_if_needed(user_id, message_text, reply):
     return media_sent
 
 
+def visitor_category_participants_reply(category):
+    records = filter_form_records(force=True)
+    if last_form_error():
+        return (
+            "En este momento no puedo actualizar la lista de participantes desde la hoja conectada.\n\n"
+            "Puedo contarte sobre las categorias de productos o mostrarte imagenes de la feria."
+        )
+
+    confirmed_records = [record for record in records if str(record.get("confirmed_stand") or "").strip()]
+    if category:
+        normalized_category = normalize_for_match(category)
+        confirmed_records = [
+            record
+            for record in confirmed_records
+            if normalized_category in normalize_for_match(record.get("category") or record.get("products") or "")
+        ]
+        title = category.replace("Artesania tipica", "Artesania")
+    else:
+        known_categories = [
+            "arte",
+            "artesania",
+            "joyeria",
+            "calzado y vestuario",
+            "decoracion",
+            "anticuarios",
+            "salud y belleza",
+            "gastronomia",
+        ]
+        confirmed_records = [
+            record
+            for record in confirmed_records
+            if not any(item in normalize_for_match(record.get("category") or record.get("products") or "") for item in known_categories)
+        ]
+        title = "otras categorias"
+
+    if not confirmed_records:
+        return (
+            f"Por ahora no tengo participantes confirmados cargados en {title}.\n\n"
+            "La feria reunira propuestas colombianas en esa categoria, y cuando el equipo confirme marcas "
+            "las podre mostrar aqui."
+        )
+
+    lines = [f"Participantes confirmados en {title}:"]
+    for record in confirmed_records[:8]:
+        brand = record_brand(record)
+        products = record.get("products") or "productos por confirmar"
+        stand = record.get("confirmed_stand")
+        stand_text = f" - stand {stand}" if stand else ""
+        lines.append(f"- {brand}{stand_text}: {products}")
+
+    if len(confirmed_records) > 8:
+        lines.append(f"... y {len(confirmed_records) - 8} participantes mas.")
+    return "\n".join(lines)
+
+
 def transcribe_incoming_audio(message):
     media = message.get("media") or {}
     if not WHATSAPP_TOKEN:
@@ -632,6 +807,60 @@ def send_whatsapp_buttons(to, body, buttons):
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar botones: {detail}") from error
+
+
+def send_whatsapp_list(to, body, header, button_text, rows):
+    if DRY_RUN or not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
+        print(f"Envio de lista omitido para {to}: {body}", flush=True)
+        for row in rows[:10]:
+            print(f"- {row.get('title')} ({row.get('id')})", flush=True)
+        return
+
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "interactive",
+        "interactive": {
+            "type": "list",
+            "header": {"type": "text", "text": str(header or "Opciones")[:60]},
+            "body": {"text": str(body or "Elige una opcion:")[:1024]},
+            "action": {
+                "button": str(button_text or "Elegir")[:20],
+                "sections": [
+                    {
+                        "title": str(header or "Opciones")[:24],
+                        "rows": [
+                            {
+                                "id": str(row["id"])[:200],
+                                "title": str(row["title"])[:24],
+                                "description": str(row.get("description") or "")[:72],
+                            }
+                            for row in rows[:10]
+                        ],
+                    }
+                ],
+            },
+        },
+    }
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            response.read()
+            print(f"Lista enviada a WhatsApp para {to}", flush=True)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar lista: {detail}") from error
 
 
 def subscribe_app_to_whatsapp():
