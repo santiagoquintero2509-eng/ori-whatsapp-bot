@@ -305,7 +305,14 @@ def should_send_initial_welcome_buttons(message):
     if is_admin_entry_message(message.get("text", "")):
         return False
     memory = get_memory(message.get("from"))
-    return not memory.get("history") and not memory.get("welcome_buttons_sent")
+    if memory.get("welcome_buttons_sent"):
+        return False
+    return not memory.get("history") or is_welcome_greeting_message(message.get("text", ""))
+
+
+def is_welcome_greeting_message(text):
+    normalized = normalize_for_match(text)
+    return normalized in {"hola", "hola ori", "buenas", "buenos dias", "buenas tardes", "buenas noches", "inicio"}
 
 
 def mark_welcome_buttons_sent(user_id, user_message):
