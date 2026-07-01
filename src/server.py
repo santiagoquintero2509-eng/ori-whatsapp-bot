@@ -10,7 +10,15 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from groq_client import GroqClientError, transcribe_audio_with_groq
-from ori import get_memory, get_ori_reply, is_admin_entry_message, remember_turn, save_persistent_state
+from ori import (
+    get_memory,
+    get_ori_reply,
+    is_admin_entry_message,
+    is_admin_session_active,
+    remember_turn,
+    save_persistent_state,
+    start_preinscription_flow,
+)
 from preinscription import download_whatsapp_media
 
 try:
@@ -64,6 +72,34 @@ WELCOME_BUTTON_TEXT = (
 WELCOME_BUTTONS = [
     {"id": "ORI_EXPOSITOR", "title": "Quiero exponer"},
     {"id": "ORI_VISITANTE", "title": "Quiero visitar"},
+]
+MAIN_MENU_TEXT = "Elige una opcion para que pueda ayudarte mejor:"
+MAIN_MENU_BUTTONS = WELCOME_BUTTONS
+EXHIBITOR_MENU_TEXT = (
+    "Perfecto. Si quieres participar como expositor, puedo orientarte por estas opciones:"
+)
+EXHIBITOR_MENU_BUTTONS = [
+    {"id": "ORI_EXP_PRECIOS", "title": "Precios"},
+    {"id": "ORI_EXP_PLANO", "title": "Ver plano"},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+]
+VISITOR_MENU_TEXT = (
+    "Que bueno que quieras visitar la feria. Elige que te gustaria revisar:"
+)
+VISITOR_MENU_BUTTONS = [
+    {"id": "ORI_VIS_INFO", "title": "Info feria"},
+    {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
+]
+EXHIBITOR_AFTER_REPLY_BUTTONS = [
+    {"id": "ORI_EXP_PLANO", "title": "Ver plano"},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_MENU", "title": "Menu"},
+]
+VISITOR_AFTER_REPLY_BUTTONS = [
+    {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
+    {"id": "ORI_MENU", "title": "Menu"},
 ]
 
 
@@ -195,9 +231,17 @@ def handle_whatsapp_payload(payload):
     messages = extract_incoming_messages(payload)
     print(f"Mensajes extraidos: {len(messages)}", flush=True)
     for message in messages:
+        if is_guided_button_message(message):
+            if handle_guided_button_message(message):
+                continue
+
         if should_send_initial_welcome_buttons(message):
             mark_welcome_buttons_sent(message["from"], message["text"])
             send_whatsapp_buttons(message["from"], WELCOME_BUTTON_TEXT, WELCOME_BUTTONS)
+            continue
+
+        if should_block_free_text(message):
+            send_guided_menu_for_free_text(message)
             continue
 
         if message.get("type") == "audio":
@@ -257,6 +301,7 @@ def extract_incoming_messages(payload):
                     continue
                 text = message.get("text", {}).get("body", "")
                 media = None
+                button_id = ""
                 if message_type in {"image", "document", "audio"}:
                     media_payload = message.get(message_type, {})
                     text = media_payload.get("caption", "")
@@ -268,16 +313,30 @@ def extract_incoming_messages(payload):
                         "sha256": media_payload.get("sha256", ""),
                     }
                 elif message_type == "interactive":
-                    text = interactive_message_text(message.get("interactive", {}))
+                    interactive_payload = message.get("interactive", {})
+                    text = interactive_message_text(interactive_payload)
+                    button_id = interactive_button_id(interactive_payload)
                 output.append(
                     {
                         "from": message.get("from", ""),
                         "text": text,
                         "type": message_type,
                         "media": media,
+                        "button_id": button_id,
                     }
                 )
     return output
+
+
+def interactive_button_id(interactive):
+    interactive_type = (interactive or {}).get("type", "")
+    if interactive_type == "button_reply":
+        reply = interactive.get("button_reply") or {}
+        return str(reply.get("id", "")).strip()
+    if interactive_type == "list_reply":
+        reply = interactive.get("list_reply") or {}
+        return str(reply.get("id", "")).strip()
+    return ""
 
 
 def interactive_message_text(interactive):
@@ -295,14 +354,91 @@ def button_reply_text(button_id, title):
     button_map = {
         "ORI_EXPOSITOR": "Quiero exponer",
         "ORI_VISITANTE": "Quiero visitar",
+        "ORI_EXP_PRECIOS": "Precios",
+        "ORI_EXP_PLANO": "Ver plano",
+        "ORI_EXP_PREINSCRIPCION": "Preinscripcion",
+        "ORI_VIS_INFO": "Informacion de la feria",
+        "ORI_VIS_LLEGAR": "Como llegar",
+        "ORI_VIS_PRODUCTOS": "Productos",
+        "ORI_MENU": "Menu",
     }
     return button_map.get(str(button_id or "").strip(), str(title or "").strip())
+
+
+def is_guided_button_message(message):
+    return message.get("type") == "interactive" and str(message.get("button_id") or "").startswith("ORI_")
+
+
+def handle_guided_button_message(message):
+    button_id = str(message.get("button_id") or "").strip()
+    user_id = message["from"]
+
+    if button_id == "ORI_MENU":
+        send_whatsapp_buttons(user_id, MAIN_MENU_TEXT, MAIN_MENU_BUTTONS)
+        remember_menu_turn(user_id, "Menu", MAIN_MENU_TEXT)
+        return True
+
+    if button_id == "ORI_EXPOSITOR":
+        memory = get_memory(user_id)
+        memory["role"] = "expositor"
+        memory["last_intent"] = "exhibitor_menu"
+        memory["guided_mode"] = "expositor"
+        save_persistent_state()
+        send_whatsapp_buttons(user_id, EXHIBITOR_MENU_TEXT, EXHIBITOR_MENU_BUTTONS)
+        remember_menu_turn(user_id, "Quiero exponer", EXHIBITOR_MENU_TEXT)
+        return True
+
+    if button_id == "ORI_VISITANTE":
+        memory = get_memory(user_id)
+        memory["role"] = "visitante"
+        memory["last_intent"] = "visitor_menu"
+        memory["guided_mode"] = "visitante"
+        save_persistent_state()
+        send_whatsapp_buttons(user_id, VISITOR_MENU_TEXT, VISITOR_MENU_BUTTONS)
+        remember_menu_turn(user_id, "Quiero visitar", VISITOR_MENU_TEXT)
+        return True
+
+    if button_id == "ORI_EXP_PREINSCRIPCION":
+        memory = get_memory(user_id)
+        reply = start_preinscription_flow(memory)
+        remember_turn(memory, "Preinscripcion", reply)
+        save_persistent_state()
+        send_whatsapp_text(user_id, reply)
+        return True
+
+    guided_actions = {
+        "ORI_EXP_PRECIOS": ("precios de stands", EXHIBITOR_AFTER_REPLY_BUTTONS),
+        "ORI_EXP_PLANO": ("quiero ver el plano de la feria", EXHIBITOR_AFTER_REPLY_BUTTONS),
+        "ORI_VIS_INFO": ("informacion de la feria", VISITOR_AFTER_REPLY_BUTTONS),
+        "ORI_VIS_LLEGAR": ("como llegar", VISITOR_AFTER_REPLY_BUTTONS),
+        "ORI_VIS_PRODUCTOS": ("productos", VISITOR_AFTER_REPLY_BUTTONS),
+    }
+    if button_id not in guided_actions:
+        return False
+
+    guided_text, next_buttons = guided_actions[button_id]
+    reply = get_ori_reply(guided_text, user_id=user_id)
+    send_whatsapp_text(user_id, reply)
+    send_context_media_if_needed(user_id, guided_text, reply)
+    if not is_questionnaire_active(user_id):
+        send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", next_buttons)
+    return True
+
+
+def remember_menu_turn(user_id, user_message, reply):
+    memory = get_memory(user_id)
+    remember_turn(memory, user_message, reply)
+    save_persistent_state()
 
 
 def should_send_initial_welcome_buttons(message):
     if message.get("type") != "text":
         return False
     if is_admin_entry_message(message.get("text", "")):
+        return False
+    if is_admin_session_active(message.get("from")):
+        return False
+    if is_questionnaire_active(message.get("from")):
         return False
     memory = get_memory(message.get("from"))
     if memory.get("welcome_buttons_sent"):
@@ -318,8 +454,55 @@ def is_welcome_greeting_message(text):
 def mark_welcome_buttons_sent(user_id, user_message):
     memory = get_memory(user_id)
     memory["welcome_buttons_sent"] = True
+    memory["guided_mode"] = "main"
     remember_turn(memory, user_message or "[inicio]", WELCOME_BUTTON_TEXT)
     save_persistent_state()
+
+
+def should_block_free_text(message):
+    if message.get("type") not in {"text", "audio"}:
+        return False
+    user_id = message.get("from")
+    if is_admin_entry_message(message.get("text", "")) or is_admin_session_active(user_id):
+        return False
+    return not is_questionnaire_active(user_id)
+
+
+def send_guided_menu_for_free_text(message):
+    user_id = message["from"]
+    memory = get_memory(user_id)
+    mode = memory.get("guided_mode") or memory.get("role") or "main"
+    text = (
+        "Para mantener la conversacion ordenada, por ahora respondeme usando los botones.\n\n"
+        "Cuando inicies la preinscripcion, ahi si podras escribir tus datos."
+    )
+    if mode == "expositor":
+        send_whatsapp_buttons(user_id, text, EXHIBITOR_MENU_BUTTONS)
+    elif mode == "visitante":
+        send_whatsapp_buttons(user_id, text, VISITOR_MENU_BUTTONS)
+    else:
+        send_whatsapp_buttons(user_id, text, MAIN_MENU_BUTTONS)
+    remember_menu_turn(user_id, message.get("text") or "[mensaje libre]", text)
+
+
+def is_questionnaire_active(user_id):
+    memory = get_memory(user_id)
+    pre = memory.get("preinscription") or {}
+    if pre.get("active"):
+        return True
+    return memory.get("pending_field") in {"post_submission_correction", "preinscription"}
+
+
+def send_context_media_if_needed(user_id, message_text, reply):
+    if should_send_plan_image(message_text, reply) and should_send_plan_image_now(user_id):
+        send_whatsapp_image(
+            user_id,
+            PLANO_STANDS_URL,
+            "Plano de stands Feria Origen Colombia 2027.",
+        )
+    if should_send_previous_fair_images(message_text) and should_send_previous_fair_images_now(user_id):
+        for image_url, caption in fair_gallery_image_urls()[:MAX_PREVIOUS_FAIR_IMAGES]:
+            send_whatsapp_image(user_id, image_url, caption)
 
 
 def transcribe_incoming_audio(message):
