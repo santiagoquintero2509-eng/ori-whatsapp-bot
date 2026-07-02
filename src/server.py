@@ -24,6 +24,7 @@ from ori import (
     is_admin_session_active,
     remember_turn,
     save_persistent_state,
+    select_preinscription_category,
     start_preinscription_flow,
 )
 from preinscription import download_whatsapp_media, log_conversation_event
@@ -83,6 +84,18 @@ WELCOME_BUTTONS = [
 ]
 MAIN_MENU_TEXT = "Elige una opcion para que pueda ayudarte mejor:"
 MAIN_MENU_BUTTONS = WELCOME_BUTTONS
+WELCOME_BUTTON_TEXT = (
+    "Hola, soy Ori Colombia, tu asistente virtual de Feria Origen Colombia.\n\n"
+    "¡Me alegra saludarte! Origen Colombia es una feria para descubrir y conectar con el talento colombiano: "
+    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura y emprendimientos con identidad.\n\n"
+    "Puedo ayudarte con información del evento y el proceso para participar como expositor.\n\n"
+    "¿Qué te gustaría hacer primero?"
+)
+WELCOME_BUTTONS = [
+    {"id": "ORI_EXPOSITOR", "title": "Expositor"},
+    {"id": "ORI_VISITANTE", "title": "Visitante"},
+]
+MAIN_MENU_BUTTONS = WELCOME_BUTTONS
 EXHIBITOR_MENU_TEXT = (
     "Que buena noticia que estes pensando en participar como expositor!\n\n"
     "Los stands tienen valores entre $3.300.000 y $6.000.000 COP, segun zona, medida y tipo de stand.\n\n"
@@ -99,6 +112,29 @@ EXHIBITOR_MENU_BUTTONS = [
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
     {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
+]
+EXHIBITOR_MENU_TEXT = (
+    "¡Qué bueno que estés pensando en participar como expositor!\n\n"
+    "La próxima Feria Origen Colombia será del 02 al 14 de enero de 2027 en el convento San Diego sede UNIBAC, "
+    "centro histórico Cartagena de Indias.\n\n"
+    "Las categorías participantes son: Arte, Artesanía típica, Joyería, Calzado y vestuario, Decoración, "
+    "Anticuarios, Salud, belleza y Gastronomía.\n\n"
+    "Hay dos espacios de exposición durante los 10 días de feria:\n\n"
+    "Patio de las Artes: stands ubicados en los pasillos, alrededor del claustro colonial. "
+    "La zona cuenta con ventiladores de gran formato.\n\n"
+    "Salón Pierre Daguet: antigua capilla del convento San Diego, salón climatizado con aire acondicionado.\n\n"
+    "¿Qué te gustaría revisar ahora?"
+)
+EXHIBITOR_MENU_BUTTONS = [
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
+]
+EXHIBITOR_MENU_ROWS = [
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta", "description": "Ver ubicaciones y valores."},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion", "description": "Iniciar el formulario por WhatsApp."},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes", "description": "Ver fotos de los espacios."},
+    {"id": "ORI_MENU", "title": "Volver al menu", "description": "Regresar al inicio."},
 ]
 VISITOR_MENU_TEXT = (
     "Que alegria que quieras visitar la feria!\n\n"
@@ -160,6 +196,31 @@ EXHIBITOR_AFTER_PLAN_BUTTONS = [
     {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
     {"id": "ORI_MENU", "title": "Volver al menu"},
 ]
+EXHIBITOR_AFTER_PLAN_BUTTONS = [
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_MENU", "title": "Menu principal"},
+    {"id": "ORI_ADVISOR", "title": "Hablar con un asesor"},
+]
+EXHIBITOR_CATEGORY_ROWS = [
+    {"id": "ORI_PRE_CAT_ARTE", "title": "Arte", "description": "Obras, piezas y propuestas creativas."},
+    {"id": "ORI_PRE_CAT_ARTESANIA", "title": "Artesania tipica", "description": "Tecnicas tradicionales y hechas a mano."},
+    {"id": "ORI_PRE_CAT_JOYERIA", "title": "Joyeria", "description": "Piezas de autor y accesorios."},
+    {"id": "ORI_PRE_CAT_CALZADO", "title": "Calzado y vestuario", "description": "Moda, prendas, cuero y complementos."},
+    {"id": "ORI_PRE_CAT_DECORACION", "title": "Decoracion", "description": "Objetos para hogar y espacios."},
+    {"id": "ORI_PRE_CAT_ANTICUARIOS", "title": "Anticuarios", "description": "Piezas con historia y coleccion."},
+    {"id": "ORI_PRE_CAT_SALUD", "title": "Salud y belleza", "description": "Bienestar, cuidado personal y belleza."},
+    {"id": "ORI_PRE_CAT_GASTRONOMIA", "title": "Gastronomia", "description": "Sabores, productos y experiencias."},
+]
+EXHIBITOR_CATEGORY_BY_BUTTON = {
+    "ORI_PRE_CAT_ARTE": "Arte",
+    "ORI_PRE_CAT_ARTESANIA": "Artesania tipica",
+    "ORI_PRE_CAT_JOYERIA": "Joyeria",
+    "ORI_PRE_CAT_CALZADO": "Calzado y vestuario",
+    "ORI_PRE_CAT_DECORACION": "Decoracion",
+    "ORI_PRE_CAT_ANTICUARIOS": "Anticuarios",
+    "ORI_PRE_CAT_SALUD": "Salud y belleza",
+    "ORI_PRE_CAT_GASTRONOMIA": "Gastronomia",
+}
 EXHIBITOR_AFTER_IMAGES_BUTTONS = [
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
@@ -169,6 +230,11 @@ EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS = [
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
     {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
     {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+PREINSCRIPTION_CONFIRM_BUTTONS = [
+    {"id": "ORI_PRE_CONFIRM", "title": "Sí, confirmar"},
+    {"id": "ORI_PRE_EDIT", "title": "Cambiar un dato"},
+    {"id": "ORI_PRE_CANCEL", "title": "Cancelar"},
 ]
 VISITOR_AFTER_REPLY_BUTTONS = [
     {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
@@ -387,6 +453,8 @@ def handle_whatsapp_payload(payload):
         print(f"Mensaje de {message['from']}: {message['text'] or message.get('type')}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
         send_whatsapp_text(message["from"], reply)
+        send_preinscription_category_list_if_needed(message["from"])
+        send_preinscription_confirmation_buttons_if_needed(message["from"])
         if is_admin_entry_message(message.get("text", "")):
             send_whatsapp_buttons(message["from"], admin_guided_menu_text(), ADMIN_MENU_BUTTONS)
             continue
@@ -579,6 +647,18 @@ def button_reply_text(button_id, title):
         "ORI_EXP_PLANO": "Plano de venta",
         "ORI_EXP_PREINSCRIPCION": "Preinscripcion",
         "ORI_EXP_IMAGENES": "Imagenes",
+        "ORI_ADVISOR": "Hablar con un asesor",
+        "ORI_PRE_CAT_ARTE": "Arte",
+        "ORI_PRE_CAT_ARTESANIA": "Artesania tipica",
+        "ORI_PRE_CAT_JOYERIA": "Joyeria",
+        "ORI_PRE_CAT_CALZADO": "Calzado y vestuario",
+        "ORI_PRE_CAT_DECORACION": "Decoracion",
+        "ORI_PRE_CAT_ANTICUARIOS": "Anticuarios",
+        "ORI_PRE_CAT_SALUD": "Salud y belleza",
+        "ORI_PRE_CAT_GASTRONOMIA": "Gastronomia",
+        "ORI_PRE_CONFIRM": "Si, confirmar",
+        "ORI_PRE_EDIT": "Cambiar un dato",
+        "ORI_PRE_CANCEL": "Cancelar",
         "ORI_VIS_INFO": "Informacion de la feria",
         "ORI_VIS_LLEGAR": "Como llegar",
         "ORI_VIS_PRODUCTOS": "Productos",
@@ -629,7 +709,7 @@ def handle_guided_button_message(message):
         memory["last_intent"] = "exhibitor_menu"
         memory["guided_mode"] = "expositor"
         save_persistent_state()
-        send_whatsapp_buttons(user_id, EXHIBITOR_MENU_TEXT, EXHIBITOR_MENU_BUTTONS)
+        send_exhibitor_menu(user_id, EXHIBITOR_MENU_TEXT)
         remember_menu_turn(user_id, "Quiero exponer", EXHIBITOR_MENU_TEXT)
         return True
 
@@ -641,6 +721,38 @@ def handle_guided_button_message(message):
         save_persistent_state()
         send_whatsapp_buttons(user_id, VISITOR_MENU_TEXT, VISITOR_MENU_BUTTONS)
         remember_menu_turn(user_id, "Quiero visitar", VISITOR_MENU_TEXT)
+        return True
+
+    if button_id == "ORI_ADVISOR":
+        reply = (
+            "Claro, puedes hablar con un asesor aquí:\n"
+            "https://wa.me/573160282537"
+        )
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_buttons(user_id, "También puedes volver al menú:", MAIN_MENU_BUTTONS)
+        remember_menu_turn(user_id, "Hablar con un asesor", reply)
+        return True
+
+    if button_id in EXHIBITOR_CATEGORY_BY_BUTTON:
+        memory = get_memory(user_id)
+        reply = select_preinscription_category(memory, EXHIBITOR_CATEGORY_BY_BUTTON[button_id])
+        save_persistent_state()
+        send_whatsapp_text(user_id, reply)
+        send_preinscription_confirmation_buttons_if_needed(user_id)
+        return True
+
+    if button_id in {"ORI_PRE_CONFIRM", "ORI_PRE_EDIT", "ORI_PRE_CANCEL"}:
+        text_by_button = {
+            "ORI_PRE_CONFIRM": "si confirmo",
+            "ORI_PRE_EDIT": "cambiar un dato",
+            "ORI_PRE_CANCEL": "cancelar",
+        }
+        reply = get_ori_reply(text_by_button[button_id], user_id=user_id)
+        send_whatsapp_text(user_id, reply)
+        send_preinscription_category_list_if_needed(user_id)
+        send_preinscription_confirmation_buttons_if_needed(user_id)
+        if not is_questionnaire_active(user_id):
+            send_whatsapp_buttons(user_id, "Puedes volver al menu cuando quieras:", [{"id": "ORI_MENU", "title": "Menu principal"}])
         return True
 
     if button_id == "ORI_VIS_INFO":
@@ -710,13 +822,31 @@ def handle_guided_button_message(message):
         remember_turn(memory, "Preinscripcion", reply)
         save_persistent_state()
         send_whatsapp_text(user_id, reply)
+        send_preinscription_category_list_if_needed(user_id)
         if not is_questionnaire_active(user_id):
             send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS)
         return True
 
+    if button_id == "ORI_EXP_PLANO":
+        first_reply = "Claro, te comparto el plano de venta de Feria Origen Colombia."
+        send_whatsapp_text(user_id, first_reply)
+        send_whatsapp_image(
+            user_id,
+            PLANO_STANDS_URL,
+            "Plano de venta Feria Origen Colombia.",
+        )
+        time.sleep(2)
+        second_reply = (
+            "Después de revisar el plano, elige 1 o 2 stands de interés y tenlos presentes "
+            "para indicarlos durante el proceso de preinscripción.\n\n"
+            "¿Qué quieres hacer ahora?"
+        )
+        send_whatsapp_buttons(user_id, second_reply, EXHIBITOR_AFTER_PLAN_BUTTONS)
+        remember_menu_turn(user_id, "Plano de venta", first_reply + "\n\n" + second_reply)
+        return True
+
     guided_actions = {
         "ORI_EXP_PRECIOS": ("precios de stands", EXHIBITOR_AFTER_REPLY_BUTTONS),
-        "ORI_EXP_PLANO": ("quiero ver el plano de la feria", EXHIBITOR_AFTER_PLAN_BUTTONS),
         "ORI_EXP_IMAGENES": ("imagenes de la feria", EXHIBITOR_AFTER_IMAGES_BUTTONS),
         "ORI_VIS_LLEGAR": ("como llegar", VISITOR_AFTER_ARRIVAL_BUTTONS),
         "ORI_VIS_CERCA": ("lugares cercanos a la feria", VISITOR_AFTER_NEARBY_BUTTONS),
@@ -869,12 +999,22 @@ def send_guided_menu_for_free_text(message):
         "Cuando inicies la preinscripcion, ahi si podras escribir tus datos."
     )
     if mode == "expositor":
-        send_whatsapp_buttons(user_id, text, EXHIBITOR_MENU_BUTTONS)
+        send_exhibitor_menu(user_id, text)
     elif mode == "visitante":
         send_whatsapp_buttons(user_id, text, VISITOR_MENU_BUTTONS)
     else:
         send_whatsapp_buttons(user_id, text, MAIN_MENU_BUTTONS)
     remember_menu_turn(user_id, message.get("text") or "[mensaje libre]", text)
+
+
+def send_exhibitor_menu(user_id, body):
+    send_whatsapp_list(
+        user_id,
+        body,
+        "Opciones expositor",
+        "Elegir opcion",
+        EXHIBITOR_MENU_ROWS,
+    )
 
 
 def is_questionnaire_active(user_id):
@@ -883,6 +1023,34 @@ def is_questionnaire_active(user_id):
     if pre.get("active"):
         return True
     return memory.get("pending_field") in {"post_submission_correction", "preinscription"}
+
+
+def send_preinscription_category_list_if_needed(user_id):
+    memory = get_memory(user_id)
+    pre = memory.get("preinscription") or {}
+    if not pre.get("active") or pre.get("step") != "category":
+        return False
+    send_whatsapp_list(
+        user_id,
+        "Elige la categoría de tu marca:",
+        "Categoría",
+        "Ver categorías",
+        EXHIBITOR_CATEGORY_ROWS,
+    )
+    return True
+
+
+def send_preinscription_confirmation_buttons_if_needed(user_id):
+    memory = get_memory(user_id)
+    pre = memory.get("preinscription") or {}
+    if not pre.get("active") or pre.get("step") != "confirmation":
+        return False
+    send_whatsapp_buttons(
+        user_id,
+        "Elige una opcion:",
+        PREINSCRIPTION_CONFIRM_BUTTONS,
+    )
+    return True
 
 
 def send_context_media_if_needed(user_id, message_text, reply):
