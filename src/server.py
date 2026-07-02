@@ -475,7 +475,7 @@ def handle_whatsapp_payload(payload):
         if is_admin_session_active(message["from"]) and "Para aplicar el cambio" in reply:
             send_whatsapp_buttons(message["from"], "Confirma esta accion:", ADMIN_CONFIRM_ACTION_BUTTONS)
             continue
-        if should_send_plan_image(message["text"], reply) and should_send_plan_image_now(message["from"]):
+        if should_send_plan_image(message["text"], reply):
             send_whatsapp_image(
                 message["from"],
                 PLANO_STANDS_URL,
@@ -887,7 +887,7 @@ def handle_guided_button_message(message):
         return True
 
     if button_id == "ORI_EXP_PLANO":
-        first_reply = "Claro, te comparto el plano de venta de Feria Origen Colombia."
+        first_reply = "Claro, en unos segundos te comparto el plano de venta de Feria Origen Colombia."
         send_whatsapp_text(user_id, first_reply)
         send_whatsapp_image(
             user_id,
@@ -1140,7 +1140,7 @@ def send_fair_gallery_images(user_id):
 
 def send_context_media_if_needed(user_id, message_text, reply):
     media_sent = False
-    if should_send_plan_image(message_text, reply) and should_send_plan_image_now(user_id):
+    if should_send_plan_image(message_text, reply):
         send_whatsapp_image(
             user_id,
             PLANO_STANDS_URL,
