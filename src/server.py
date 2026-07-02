@@ -72,6 +72,7 @@ LAST_PREVIOUS_FAIR_IMAGES_SENT = {}
 PLAN_IMAGE_COOLDOWN_SECONDS = 600
 PREVIOUS_FAIR_IMAGES_COOLDOWN_SECONDS = 900
 MAX_PREVIOUS_FAIR_IMAGES = 3
+MEDIA_DELIVERY_DELAY_SECONDS = 8
 WELCOME_BUTTON_TEXT = (
     "Hola, soy Ori Colombia, tu asistente virtual de Feria Origen Colombia.\n\n"
     "¡Me alegra saludarte! Origen Colombia es una feria para descubrir y conectar con el talento colombiano: "
@@ -120,8 +121,8 @@ EXHIBITOR_MENU_TEXT = (
     "¡Qué bueno que estés pensando en participar como expositor!\n\n"
     "La próxima Feria Origen Colombia será del 02 al 14 de enero de 2027 en el convento San Diego sede UNIBAC, "
     "centro histórico Cartagena de Indias.\n\n"
-    "Las categorías participantes son: Arte, Artesanía típica, Joyería, Calzado y vestuario, Decoración, "
-    "Anticuarios, Salud, belleza y Gastronomía.\n\n"
+    "Las categorías participantes son: arte, artesanía típica, joyería, calzado y vestuario, decoración, "
+    "anticuarios, salud, belleza y gastronomía.\n\n"
     "Hay dos espacios de exposición durante los 10 días de feria:\n\n"
     "Patio de las Artes: stands ubicados en los pasillos, alrededor del claustro colonial. "
     "La zona cuenta con ventiladores de gran formato.\n\n"
@@ -225,9 +226,9 @@ EXHIBITOR_CATEGORY_BY_BUTTON = {
     "ORI_PRE_CAT_GASTRONOMIA": "Gastronomia",
 }
 EXHIBITOR_AFTER_IMAGES_BUTTONS = [
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
-    {"id": "ORI_MENU", "title": "Volver al menu"},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_MENU", "title": "Inicio"},
 ]
 EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS = [
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
@@ -838,7 +839,7 @@ def handle_guided_button_message(message):
             PLANO_STANDS_URL,
             "Plano de venta Feria Origen Colombia.",
         )
-        time.sleep(2)
+        time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
         second_reply = (
             "Después de revisar el plano, elige 1 o 2 stands de interés y tenlos presentes "
             "para indicarlos durante el proceso de preinscripción.\n\n"
@@ -848,9 +849,25 @@ def handle_guided_button_message(message):
         remember_menu_turn(user_id, "Plano de venta", first_reply + "\n\n" + second_reply)
         return True
 
+    if button_id == "ORI_EXP_IMAGENES":
+        first_reply = (
+            "¡Claro! Te comparto algunas imágenes de Feria Origen Colombia 2026 "
+            "para que puedas conocer mejor el ambiente, los espacios y la experiencia de la feria."
+        )
+        send_whatsapp_text(user_id, first_reply)
+        send_fair_gallery_images(user_id)
+        time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
+        second_reply = (
+            "Estas imágenes son de la edición 2026 y te dan una idea del tipo de experiencia "
+            "que se vive en Feria Origen Colombia.\n\n"
+            "¿Qué te gustaría hacer ahora?"
+        )
+        send_whatsapp_buttons(user_id, second_reply, EXHIBITOR_AFTER_IMAGES_BUTTONS)
+        remember_menu_turn(user_id, "Imagenes", first_reply + "\n\n" + second_reply)
+        return True
+
     guided_actions = {
         "ORI_EXP_PRECIOS": ("precios de stands", EXHIBITOR_AFTER_REPLY_BUTTONS),
-        "ORI_EXP_IMAGENES": ("imagenes de la feria", EXHIBITOR_AFTER_IMAGES_BUTTONS),
         "ORI_VIS_LLEGAR": ("como llegar", VISITOR_AFTER_ARRIVAL_BUTTONS),
         "ORI_VIS_CERCA": ("lugares cercanos a la feria", VISITOR_AFTER_NEARBY_BUTTONS),
         "ORI_VIS_IMAGENES": ("imagenes de la feria", VISITOR_AFTER_IMAGES_BUTTONS),
@@ -863,7 +880,7 @@ def handle_guided_button_message(message):
     send_whatsapp_text(user_id, reply)
     media_sent = send_context_media_if_needed(user_id, guided_text, reply)
     if media_sent:
-        time.sleep(2)
+        time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
     if not is_questionnaire_active(user_id):
         send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", next_buttons)
     return True
@@ -1056,6 +1073,14 @@ def send_preinscription_confirmation_buttons_if_needed(user_id):
     return True
 
 
+def send_fair_gallery_images(user_id):
+    sent = False
+    for image_url, caption in fair_gallery_image_urls()[:MAX_PREVIOUS_FAIR_IMAGES]:
+        send_whatsapp_image(user_id, image_url, caption)
+        sent = True
+    return sent
+
+
 def send_context_media_if_needed(user_id, message_text, reply):
     media_sent = False
     if should_send_plan_image(message_text, reply) and should_send_plan_image_now(user_id):
@@ -1066,9 +1091,7 @@ def send_context_media_if_needed(user_id, message_text, reply):
         )
         media_sent = True
     if should_send_previous_fair_images(message_text) and should_send_previous_fair_images_now(user_id):
-        for image_url, caption in fair_gallery_image_urls()[:MAX_PREVIOUS_FAIR_IMAGES]:
-            send_whatsapp_image(user_id, image_url, caption)
-            media_sent = True
+        media_sent = send_fair_gallery_images(user_id) or media_sent
     return media_sent
 
 
@@ -1470,7 +1493,7 @@ def previous_fair_image_urls():
 
 def fair_gallery_image_urls():
     previous_urls = [
-        (url, "Asi se ha vivido Feria Origen Colombia en ediciones anteriores.")
+        (url, "Feria Origen Colombia 2026.")
         for url in previous_fair_image_urls()
     ]
     if previous_urls:
@@ -1482,15 +1505,15 @@ def welcome_image_urls():
     return [
         (
             f"{PUBLIC_BASE_URL}/bienvenida/patio_de_las_artes.jpg",
-            "Patio de las Artes - Feria Origen Colombia 2027.",
+            "Patio de las Artes - Feria Origen Colombia 2026.",
         ),
         (
             f"{PUBLIC_BASE_URL}/bienvenida/patio_de_las_artes_pasillos.jpg",
-            "Patio de las Artes, pasillos cubiertos - Feria Origen Colombia 2027.",
+            "Patio de las Artes, pasillos cubiertos - Feria Origen Colombia 2026.",
         ),
         (
             f"{PUBLIC_BASE_URL}/bienvenida/salon_pierre_daguet.jpg",
-            "Salon Pierre Daguet - Feria Origen Colombia 2027.",
+            "Salon Pierre Daguet - Feria Origen Colombia 2026.",
         ),
     ]
 

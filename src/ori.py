@@ -91,6 +91,19 @@ PREINSCRIPTION_FIELD_ALIASES = {
     "preferred_stands": ["stands", "stand de interes", "stands de interes", "puestos", "ubicacion"],
 }
 
+PREINSCRIPTION_CORRECTION_NUMBER_MAP = {
+    "1": "legal_name",
+    "2": "representative",
+    "3": "stand_name",
+    "4": "city",
+    "5": "email",
+    "6": "socials",
+    "7": "products",
+    "8": "files",
+    "9": "category",
+    "10": "preferred_stands",
+}
+
 
 def load_persistent_state():
     if not MEMORY_PATH.exists():
@@ -3267,7 +3280,7 @@ def start_preinscription_flow(memory):
     save_persistent_state()
     return (
         "¡Perfecto! Empecemos tu preinscripción.\n\n"
-        "Stand de interés\n"
+        "*Stand de interés*\n"
         "Dime 1 o 2 stands que te interesen según el plano de venta. Sujeto a disponibilidad."
     )
 
@@ -3275,28 +3288,28 @@ def start_preinscription_flow(memory):
 def preinscription_prompt(step, memory):
     prompts = {
         "preferred_stands": (
-            "Stand de interés\n"
+            "*Stand de interés*\n"
             "Dime 1 o 2 stands que te interesen según el plano de venta. Sujeto a disponibilidad."
         ),
-        "legal_name": "Razón social\n¿Cuál es la razón social de tu marca o empresa?",
-        "representative": "Nombre del representante\nO persona que diligencia el formulario.",
-        "stand_name": "Nombre para el stand\n¿Con qué nombre quieres que aparezca tu marca en el stand?",
-        "city": "Ciudad de origen\n¿De qué ciudad viene tu marca?",
-        "email": "Correo electrónico\n¿Cuál es el correo de contacto?",
-        "socials": "Redes sociales o página web\nCompárteme tus redes sociales o página web. Si no tienes, puedes responder: No tengo.",
+        "legal_name": "*Razón social*\n¿Cuál es la razón social de tu marca o empresa?",
+        "representative": "*Nombre del representante*\nO persona que diligencia el formulario.",
+        "stand_name": "*Nombre para el stand*\n¿Con cuál nombre quieres que aparezca identificado el stand?",
+        "city": "*Ciudad de origen*\n¿De qué ciudad viene tu marca?",
+        "email": "*Correo electrónico*\n¿Cuál es el correo de contacto?",
+        "socials": "*Redes sociales o página web*\nCompárteme tus redes sociales o página web. Si no tienes, puedes responder: No tengo.",
         "products": (
-            "Productos a participar\n"
+            "*Productos a participar*\n"
             "Detalle sus productos a participar, los cuales están sujetos a aprobación. "
             "Solo pueden participar los productos aprobados por la organización."
         ),
         "files": (
-            "Archivos de productos\n"
+            "*Archivos de productos*\n"
             "Puedes enviarme imágenes, catálogo o PDF de tus productos.\n\n"
             "Si no tienes archivos, responde: No tengo.\n"
             "Si ya terminaste de enviarlos, responde: Listo."
         ),
         "category": (
-            "Categoría\n"
+            "*Categoría*\n"
             "¿En qué categoría participa tu marca?\n\n"
             "Elige una opción del listado."
         ),
@@ -3333,17 +3346,17 @@ def preferred_stands_prompt():
 def preinscription_correction_options_reply():
     return (
         "Claro, lo ajustamos sin empezar de cero.\n\n"
-        "Dime exactamente que dato quieres cambiar:\n"
-        "- Razon social\n"
-        "- Representante\n"
-        "- Nombre para el stand\n"
-        "- Ciudad\n"
-        "- Correo\n"
-        "- Redes\n"
-        "- Productos\n"
-        "- Archivos de productos\n"
-        "- Categoria\n"
-        "- Stands de interes"
+        "Dime exactamente que dato quieres cambiar. Puedes responder solo con el numero:\n\n"
+        "1. Razon social\n"
+        "2. Representante\n"
+        "3. Nombre para el stand\n"
+        "4. Ciudad\n"
+        "5. Correo\n"
+        "6. Redes\n"
+        "7. Productos\n"
+        "8. Archivos de productos\n"
+        "9. Categoria\n"
+        "10. Stands de interes"
     )
 
 
@@ -3351,6 +3364,10 @@ def detect_preinscription_correction_field(text):
     normalized = normalize(text)
     if not normalized:
         return None
+
+    number_match = re.fullmatch(r"\s*(10|[1-9])\s*[\.\)]?\s*", str(text or ""))
+    if number_match:
+        return PREINSCRIPTION_CORRECTION_NUMBER_MAP.get(number_match.group(1))
 
     for field, aliases in PREINSCRIPTION_FIELD_ALIASES.items():
         for alias in aliases:
@@ -3531,16 +3548,16 @@ def preinscription_summary_reply(memory):
     data = build_preinscription_data(memory)
     return (
         "Excelente, antes de enviar tu preinscripcion revisa que todo este correcto:\n\n"
-        f"Stands de interes: {data['stands_interes'] or 'pendiente'}\n"
-        f"Razon social: {data['razon_social'] or 'pendiente'}\n"
-        f"Representante: {data['nombre_representante'] or 'pendiente'}\n"
-        f"Nombre para el stand: {data['nombre_para_stand'] or 'pendiente'}\n"
-        f"Ciudad: {data['ciudad_origen'] or 'pendiente'}\n"
-        f"Correo: {data['correo'] or 'pendiente'}\n"
-        f"Redes: {data['redes'] or 'pendiente'}\n"
-        f"Productos: {data['productos'] or 'pendiente'}\n"
-        f"Categoria: {data['categoria'] or 'pendiente'}\n"
-        f"Archivos de productos: {data['archivos_productos'] or 'No enviados'}\n"
+        f"*Stands de interes:* {data['stands_interes'] or 'pendiente'}\n"
+        f"*Razon social:* {data['razon_social'] or 'pendiente'}\n"
+        f"*Representante:* {data['nombre_representante'] or 'pendiente'}\n"
+        f"*Nombre para el stand:* {data['nombre_para_stand'] or 'pendiente'}\n"
+        f"*Ciudad:* {data['ciudad_origen'] or 'pendiente'}\n"
+        f"*Correo:* {data['correo'] or 'pendiente'}\n"
+        f"*Redes:* {data['redes'] or 'pendiente'}\n"
+        f"*Productos:* {data['productos'] or 'pendiente'}\n"
+        f"*Categoria:* {data['categoria'] or 'pendiente'}\n"
+        f"*Archivos de productos:* {data['archivos_productos'] or 'No enviados'}\n"
         "\n"
         "Confirmas que puedo enviar tu preinscripcion?"
     )
