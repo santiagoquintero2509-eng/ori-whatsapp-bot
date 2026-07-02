@@ -110,14 +110,14 @@ VISITOR_INFO_LIST_ROWS = [
     {"id": "ORI_MENU", "title": "Volver al menu", "description": "Regresar al inicio."},
 ]
 VISITOR_PRODUCT_CATEGORY_ROWS = [
-    {"id": "ORI_VIS_CAT_ARTE", "title": "Arte", "description": "Ver participantes de esta categoria."},
-    {"id": "ORI_VIS_CAT_ARTESANIA", "title": "Artesania", "description": "Ver participantes de esta categoria."},
-    {"id": "ORI_VIS_CAT_JOYERIA", "title": "Joyeria", "description": "Ver participantes de esta categoria."},
-    {"id": "ORI_VIS_CAT_CALZADO", "title": "Calzado y vestuario", "description": "Ver participantes de esta categoria."},
-    {"id": "ORI_VIS_CAT_DECORACION", "title": "Decoracion", "description": "Ver participantes de esta categoria."},
-    {"id": "ORI_VIS_CAT_ANTICUARIOS", "title": "Anticuarios", "description": "Ver participantes de esta categoria."},
-    {"id": "ORI_VIS_CAT_SALUD", "title": "Salud y belleza", "description": "Ver participantes de esta categoria."},
-    {"id": "ORI_VIS_CAT_GASTRONOMIA", "title": "Gastronomia", "description": "Ver participantes de esta categoria."},
+    {"id": "ORI_VIS_CAT_ARTE", "title": "Arte", "description": "Obras, piezas y propuestas creativas."},
+    {"id": "ORI_VIS_CAT_ARTESANIA", "title": "Artesania", "description": "Tecnicas tradicionales y hechas a mano."},
+    {"id": "ORI_VIS_CAT_JOYERIA", "title": "Joyeria", "description": "Piezas de autor y accesorios especiales."},
+    {"id": "ORI_VIS_CAT_CALZADO", "title": "Calzado y vestuario", "description": "Moda, prendas, cuero y complementos."},
+    {"id": "ORI_VIS_CAT_DECORACION", "title": "Decoracion", "description": "Objetos para hogar y espacios con identidad."},
+    {"id": "ORI_VIS_CAT_ANTICUARIOS", "title": "Anticuarios", "description": "Piezas con historia, coleccion y memoria."},
+    {"id": "ORI_VIS_CAT_SALUD", "title": "Salud y belleza", "description": "Bienestar, cuidado personal y belleza."},
+    {"id": "ORI_VIS_CAT_GASTRONOMIA", "title": "Gastronomia", "description": "Sabores, productos y experiencias locales."},
     {"id": "ORI_VIS_CAT_OTRO", "title": "Otro", "description": "Ver otras propuestas participantes."},
     {"id": "ORI_MENU", "title": "Volver al menu", "description": "Regresar al inicio."},
 ]
@@ -131,6 +131,17 @@ VISITOR_CATEGORY_BY_BUTTON = {
     "ORI_VIS_CAT_SALUD": "Salud y belleza",
     "ORI_VIS_CAT_GASTRONOMIA": "Gastronomia",
     "ORI_VIS_CAT_OTRO": "",
+}
+VISITOR_CATEGORY_DESCRIPTIONS = {
+    "Arte": "Arte reune obras, piezas visuales y propuestas creativas con sello colombiano.",
+    "Artesania tipica": "Artesania es ideal para descubrir tecnicas tradicionales, trabajo hecho a mano y objetos con identidad cultural.",
+    "Joyeria": "Joyeria incluye piezas de autor, accesorios y detalles creados por marcas y talleres colombianos.",
+    "Calzado y vestuario": "Calzado y vestuario presenta moda, prendas, cuero, complementos y propuestas de diseno colombiano.",
+    "Decoracion": "Decoracion trae objetos para el hogar, detalles para espacios y piezas con caracter artesanal o de diseno.",
+    "Anticuarios": "Anticuarios es para quienes disfrutan piezas con historia, coleccion, memoria y encanto clasico.",
+    "Salud y belleza": "Salud y belleza conecta con bienestar, cuidado personal, cosmetica, aromas y productos para sentirse bien.",
+    "Gastronomia": "Gastronomia reune sabores, productos locales, alimentos especiales y experiencias para probar en la feria.",
+    "": "Aqui reunimos otras propuestas especiales que tambien hacen parte de la feria.",
 }
 EXHIBITOR_AFTER_REPLY_BUTTONS = [
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
@@ -499,7 +510,7 @@ def handle_guided_button_message(message):
         reply = (
             "En la feria encontraras propuestas colombianas de arte, artesania, joyeria, moda, "
             "decoracion, anticuarios, salud y belleza, gastronomia y otras marcas con identidad.\n\n"
-            "Elige una categoria y te cuento que participantes tengo cargados."
+            "Elige una categoria y te cuento un poco mas sobre lo que podras encontrar."
         )
         send_whatsapp_text(user_id, reply)
         send_whatsapp_list(
@@ -528,7 +539,7 @@ def handle_guided_button_message(message):
 
     if button_id == "ORI_VIS_PROMOCIONES":
         reply = (
-            "Por ahora no tengo promociones oficiales cargadas para visitantes.\n\n"
+            "Por ahora no hay promociones oficiales anunciadas para visitantes.\n\n"
             "Lo que si puedo confirmarte es que la entrada a la feria es 100% gratuita. "
             "Si el equipo anuncia promociones, descuentos o novedades especiales, las podremos mostrar aqui."
         )
@@ -660,11 +671,14 @@ def send_context_media_if_needed(user_id, message_text, reply):
 
 
 def visitor_category_participants_reply(category):
+    title = (category or "otras categorias").replace("Artesania tipica", "Artesania")
+    description = VISITOR_CATEGORY_DESCRIPTIONS.get(category, VISITOR_CATEGORY_DESCRIPTIONS[""])
     records = filter_form_records(force=True)
     if last_form_error():
         return (
-            "En este momento no puedo actualizar la lista de participantes desde la hoja conectada.\n\n"
-            "Puedo contarte sobre las categorias de productos o mostrarte imagenes de la feria."
+            f"{description}\n\n"
+            "Aun estoy esperando la lista oficial actualizada de participantes para esta categoria.\n\n"
+            "Mientras tanto, puedo mostrarte imagenes de la feria o ayudarte a revisar otra categoria."
         )
 
     confirmed_records = [record for record in records if str(record.get("confirmed_stand") or "").strip()]
@@ -675,7 +689,6 @@ def visitor_category_participants_reply(category):
             for record in confirmed_records
             if normalized_category in normalize_for_match(record.get("category") or record.get("products") or "")
         ]
-        title = category.replace("Artesania tipica", "Artesania")
     else:
         known_categories = [
             "arte",
@@ -692,16 +705,15 @@ def visitor_category_participants_reply(category):
             for record in confirmed_records
             if not any(item in normalize_for_match(record.get("category") or record.get("products") or "") for item in known_categories)
         ]
-        title = "otras categorias"
 
     if not confirmed_records:
         return (
-            f"Por ahora no tengo participantes confirmados cargados en {title}.\n\n"
-            "La feria reunira propuestas colombianas en esa categoria, y cuando el equipo confirme marcas "
-            "las podre mostrar aqui."
+            f"{description}\n\n"
+            f"Por ahora no aparecen marcas confirmadas en {title}.\n\n"
+            "Cuando el equipo confirme nuevos participantes, podras verlos aqui."
         )
 
-    lines = [f"Participantes confirmados en {title}:"]
+    lines = [description, "", f"Participantes confirmados en {title}:"]
     for record in confirmed_records[:8]:
         brand = record_brand(record)
         products = record.get("products") or "productos por confirmar"
