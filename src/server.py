@@ -26,7 +26,7 @@ from ori import (
     save_persistent_state,
     start_preinscription_flow,
 )
-from preinscription import download_whatsapp_media
+from preinscription import download_whatsapp_media, log_conversation_event
 from form_responses import filter_form_records, last_form_error, record_brand
 
 try:
@@ -355,6 +355,8 @@ def handle_whatsapp_payload(payload):
             )
             continue
 
+        log_incoming_message(message)
+
         if is_guided_button_message(message):
             if handle_guided_button_message(message):
                 continue
@@ -485,6 +487,77 @@ def interactive_button_id(interactive):
         reply = interactive.get("list_reply") or {}
         return str(reply.get("id", "")).strip()
     return ""
+
+
+def log_incoming_message(message):
+    body = message.get("text") or message.get("type") or ""
+    event = build_conversation_event(
+        message.get("from", ""),
+        "entrada",
+        message.get("type", "text"),
+        body,
+        button_id=message.get("button_id", ""),
+        media=message.get("media"),
+        phone_number_id=message.get("phone_number_id", ""),
+        display_phone_number=message.get("display_phone_number", ""),
+    )
+    result = log_conversation_event(event)
+    if result.get("queued"):
+        print(f"Historial de entrada en cola para {message.get('from', '')}: {result.get('error')}", flush=True)
+
+
+def log_outgoing_message(to, message_type, body, extra=None):
+    event = build_conversation_event(to, "salida", message_type, body, extra=extra)
+    result = log_conversation_event(event)
+    if result.get("queued"):
+        print(f"Historial de salida en cola para {to}: {result.get('error')}", flush=True)
+
+
+def build_conversation_event(
+    phone,
+    direction,
+    message_type,
+    body,
+    button_id="",
+    media=None,
+    phone_number_id="",
+    display_phone_number="",
+    extra=None,
+):
+    memory = get_memory(phone) if phone else {}
+    return {
+        "phone": normalize_phone(phone),
+        "direction": direction,
+        "message_type": message_type,
+        "body": shorten_log_text(body),
+        "button_id": button_id,
+        "media_type": (media or {}).get("type", "") if isinstance(media, dict) else "",
+        "media_id": (media or {}).get("id", "") if isinstance(media, dict) else "",
+        "phone_number_id": phone_number_id or PHONE_NUMBER_ID,
+        "display_phone_number": display_phone_number,
+        "role": memory.get("role", ""),
+        "brand": memory.get("brand", ""),
+        "category": memory.get("category", ""),
+        "product": memory.get("product", ""),
+        "city": memory.get("city", ""),
+        "lead_stage": memory.get("lead_stage", ""),
+        "selected_stand": memory.get("selected_stand", ""),
+        "confirmed_stand": memory.get("confirmed_stand", ""),
+        "form_submitted": bool(memory.get("form_submitted")),
+        "internal": bool(is_admin_session_active(phone)),
+        "extra": json.dumps(extra or {}, ensure_ascii=False)[:1000],
+    }
+
+
+def normalize_phone(value):
+    return "".join(character for character in str(value or "") if character.isdigit())
+
+
+def shorten_log_text(value, limit=1800):
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
 
 
 def interactive_message_text(interactive):
@@ -927,6 +1000,7 @@ def send_whatsapp_text(to, body):
         with urllib.request.urlopen(request, timeout=15) as response:
             response.read()
             print(f"Respuesta enviada a WhatsApp para {to}", flush=True)
+            log_outgoing_message(to, "text", body)
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"WhatsApp API respondio {error.code}: {detail}") from error
@@ -974,6 +1048,12 @@ def send_whatsapp_buttons(to, body, buttons):
         with urllib.request.urlopen(request, timeout=15) as response:
             response.read()
             print(f"Botones enviados a WhatsApp para {to}", flush=True)
+            log_outgoing_message(
+                to,
+                "buttons",
+                body,
+                extra={"buttons": [{"id": button.get("id"), "title": button.get("title")} for button in buttons[:3]]},
+            )
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar botones: {detail}") from error
@@ -1028,6 +1108,16 @@ def send_whatsapp_list(to, body, header, button_text, rows):
         with urllib.request.urlopen(request, timeout=15) as response:
             response.read()
             print(f"Lista enviada a WhatsApp para {to}", flush=True)
+            log_outgoing_message(
+                to,
+                "list",
+                body,
+                extra={
+                    "header": header,
+                    "button_text": button_text,
+                    "rows": [{"id": row.get("id"), "title": row.get("title")} for row in rows[:10]],
+                },
+            )
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar lista: {detail}") from error
@@ -1097,6 +1187,7 @@ def send_whatsapp_image(to, image_url, caption=""):
         with urllib.request.urlopen(request, timeout=15) as response:
             response.read()
             print(f"Plano enviado a WhatsApp para {to}", flush=True)
+            log_outgoing_message(to, "image", caption or image_url, extra={"image_url": image_url})
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar imagen: {detail}") from error
