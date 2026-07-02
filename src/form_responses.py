@@ -28,7 +28,7 @@ FIELD_ALIASES = {
     "socials": ["redes sociales", "redes sociales y/o pagina web", "pagina web", "web"],
     "category": ["categoria", "categoria a participar", "rubro"],
     "products": ["productos a participar", "productos", "producto"],
-    "sample": ["muestra de productos", "catalogo", "catalogo o imagenes"],
+    "sample": ["muestra de productos", "archivos de productos", "catalogo", "catalogo o imagenes"],
     "comments": ["preguntas y/o comentarios", "comentarios", "preguntas"],
     "postdata": ["postdata", "posdata"],
     "status": ["estado"],
