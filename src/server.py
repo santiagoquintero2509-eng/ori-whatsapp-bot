@@ -11,6 +11,1281 @@ from pathlib import Path
 
 from groq_client import GroqClientError, transcribe_audio_with_groq
 from ori import (
+    admin_guided_confirmed_rows,
+    admin_guided_menu_text,
+    admin_guided_preinscribed_rows,
+    admin_guided_record_detail,
+    admin_prepare_guided_assignment,
+    admin_prepare_guided_release,
+    get_memory,
+    get_ori_reply,
+    is_admin_entry_message,
+    is_admin_exit_message,
+    is_admin_session_active,
+    remember_turn,
+    save_persistent_state,
+    start_preinscription_flow,
+)
+from preinscription import download_whatsapp_media
+from form_responses import filter_form_records, last_form_error, record_brand
+
+try:
+    from plano_image import PLANO_STANDS_JPG_BASE64
+except ImportError:
+    PLANO_STANDS_JPG_BASE64 = ""
+
+try:
+    from welcome_images import WELCOME_IMAGES_BASE64
+except ImportError:
+    WELCOME_IMAGES_BASE64 = {}
+
+
+def load_env():
+    env_path = Path.cwd() / ".env"
+    if not env_path.exists():
+        return
+
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip())
+
+
+load_env()
+
+PORT = int(os.getenv("PORT", "3000"))
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "ori-feria-origen-2027")
+GRAPH_API_VERSION = os.getenv("GRAPH_API_VERSION", "v20.0")
+WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "")
+PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "")
+DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrender.com").rstrip("/")
+PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg?v=20260619")
+PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
+PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
+WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
+LAST_PLAN_IMAGE_SENT = {}
+LAST_PREVIOUS_FAIR_IMAGES_SENT = {}
+PLAN_IMAGE_COOLDOWN_SECONDS = 600
+PREVIOUS_FAIR_IMAGES_COOLDOWN_SECONDS = 900
+MAX_PREVIOUS_FAIR_IMAGES = 3
+WELCOME_BUTTON_TEXT = (
+    "Hola, soy Ori, tu asistente virtual de Feria Origen Colombia 2027.\n\n"
+    "Me alegra saludarte. Esta feria es un espacio para descubrir y conectar con el talento colombiano: "
+    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura y emprendimientos con identidad.\n\n"
+    "Para ayudarte mejor, elige una opción:"
+)
+WELCOME_BUTTONS = [
+    {"id": "ORI_EXPOSITOR", "title": "Quiero exponer"},
+    {"id": "ORI_VISITANTE", "title": "Quiero visitar"},
+]
+MAIN_MENU_TEXT = "Elige una opcion para que pueda ayudarte mejor:"
+MAIN_MENU_BUTTONS = WELCOME_BUTTONS
+EXHIBITOR_MENU_TEXT = (
+    "Que buena noticia que estes pensando en participar como expositor!\n\n"
+    "Los stands tienen valores entre $3.300.000 y $6.000.000 COP, segun zona, medida y tipo de stand.\n\n"
+    "Todos los stands incluyen:\n"
+    "- 3 muros blancos en stands generales.\n"
+    "- 2 muros blancos en stands esquineros.\n"
+    "- 1 mesa de 120 x 60 cm.\n"
+    "- 1 estante con 2 puestos de 180 cm.\n\n"
+    "Tambien puedes hablar con un asesor aqui:\n"
+    "https://wa.me/573160282537\n\n"
+    "Que te gustaria hacer primero?"
+)
+EXHIBITOR_MENU_BUTTONS = [
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
+]
+VISITOR_MENU_TEXT = (
+    "Que alegria que quieras visitar la feria!\n\n"
+    "La entrada para visitantes es 100% gratuita. Puedo ayudarte con informacion del evento, "
+    "como llegar o los productos que encontraras."
+)
+VISITOR_MENU_BUTTONS = [
+    {"id": "ORI_VIS_INFO", "title": "Info feria"},
+    {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
+]
+VISITOR_INFO_LIST_ROWS = [
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Categorias y productos que encontraras."},
+    {"id": "ORI_VIS_PROMOCIONES", "title": "Promociones", "description": "Ofertas o novedades disponibles."},
+    {"id": "ORI_VIS_IMAGENES", "title": "Imagenes", "description": "Fotos de la feria y espacios."},
+    {"id": "ORI_MENU", "title": "Volver al menu", "description": "Regresar al inicio."},
+]
+VISITOR_PRODUCT_CATEGORY_ROWS = [
+    {"id": "ORI_VIS_CAT_ARTE", "title": "Arte", "description": "Obras, piezas y propuestas creativas."},
+    {"id": "ORI_VIS_CAT_ARTESANIA", "title": "Artesania", "description": "Tecnicas tradicionales y hechas a mano."},
+    {"id": "ORI_VIS_CAT_JOYERIA", "title": "Joyeria", "description": "Piezas de autor y accesorios especiales."},
+    {"id": "ORI_VIS_CAT_CALZADO", "title": "Calzado y vestuario", "description": "Moda, prendas, cuero y complementos."},
+    {"id": "ORI_VIS_CAT_DECORACION", "title": "Decoracion", "description": "Objetos para hogar y espacios con identidad."},
+    {"id": "ORI_VIS_CAT_ANTICUARIOS", "title": "Anticuarios", "description": "Piezas con historia, coleccion y memoria."},
+    {"id": "ORI_VIS_CAT_SALUD", "title": "Salud y belleza", "description": "Bienestar, cuidado personal y belleza."},
+    {"id": "ORI_VIS_CAT_GASTRONOMIA", "title": "Gastronomia", "description": "Sabores, productos y experiencias locales."},
+    {"id": "ORI_VIS_CAT_OTRO", "title": "Otro", "description": "Ver otras propuestas participantes."},
+    {"id": "ORI_MENU", "title": "Volver al menu", "description": "Regresar al inicio."},
+]
+VISITOR_CATEGORY_BY_BUTTON = {
+    "ORI_VIS_CAT_ARTE": "Arte",
+    "ORI_VIS_CAT_ARTESANIA": "Artesania tipica",
+    "ORI_VIS_CAT_JOYERIA": "Joyeria",
+    "ORI_VIS_CAT_CALZADO": "Calzado y vestuario",
+    "ORI_VIS_CAT_DECORACION": "Decoracion",
+    "ORI_VIS_CAT_ANTICUARIOS": "Anticuarios",
+    "ORI_VIS_CAT_SALUD": "Salud y belleza",
+    "ORI_VIS_CAT_GASTRONOMIA": "Gastronomia",
+    "ORI_VIS_CAT_OTRO": "",
+}
+VISITOR_CATEGORY_DESCRIPTIONS = {
+    "Arte": "Arte reune obras, piezas visuales y propuestas creativas con sello colombiano.",
+    "Artesania tipica": "Artesania es ideal para descubrir tecnicas tradicionales, trabajo hecho a mano y objetos con identidad cultural.",
+    "Joyeria": "Joyeria incluye piezas de autor, accesorios y detalles creados por marcas y talleres colombianos.",
+    "Calzado y vestuario": "Calzado y vestuario presenta moda, prendas, cuero, complementos y propuestas de diseno colombiano.",
+    "Decoracion": "Decoracion trae objetos para el hogar, detalles para espacios y piezas con caracter artesanal o de diseno.",
+    "Anticuarios": "Anticuarios es para quienes disfrutan piezas con historia, coleccion, memoria y encanto clasico.",
+    "Salud y belleza": "Salud y belleza conecta con bienestar, cuidado personal, cosmetica, aromas y productos para sentirse bien.",
+    "Gastronomia": "Gastronomia reune sabores, productos locales, alimentos especiales y experiencias para probar en la feria.",
+    "": "Aqui reunimos otras propuestas especiales que tambien hacen parte de la feria.",
+}
+EXHIBITOR_AFTER_REPLY_BUTTONS = [
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+EXHIBITOR_AFTER_PLAN_BUTTONS = [
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+EXHIBITOR_AFTER_IMAGES_BUTTONS = [
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS = [
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+VISITOR_AFTER_REPLY_BUTTONS = [
+    {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+VISITOR_AFTER_ARRIVAL_BUTTONS = [
+    {"id": "ORI_VIS_CERCA", "title": "Lugares cerca"},
+    {"id": "ORI_VIS_INFO", "title": "Info feria"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+VISITOR_AFTER_NEARBY_BUTTONS = [
+    {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+VISITOR_AFTER_IMAGES_BUTTONS = [
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
+    {"id": "ORI_VIS_INFO", "title": "Info feria"},
+    {"id": "ORI_MENU", "title": "Volver al menu"},
+]
+ADMIN_MENU_BUTTONS = [
+    {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
+    {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados"},
+    {"id": "ORI_ADM_EXIT", "title": "Cerrar interno"},
+]
+ADMIN_RECORD_PRE_BUTTONS = [
+    {"id": "ORI_ADM_ASSIGN", "title": "Asignar stand"},
+    {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
+    {"id": "ORI_ADM_MENU", "title": "Menu interno"},
+]
+ADMIN_RECORD_CONF_BUTTONS = [
+    {"id": "ORI_ADM_ASSIGN", "title": "Cambiar stand"},
+    {"id": "ORI_ADM_RELEASE", "title": "Liberar stand"},
+    {"id": "ORI_ADM_MENU", "title": "Menu interno"},
+]
+ADMIN_AFTER_ACTION_BUTTONS = [
+    {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
+    {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados"},
+    {"id": "ORI_ADM_MENU", "title": "Menu interno"},
+]
+ADMIN_CONFIRM_ACTION_BUTTONS = [
+    {"id": "ORI_ADM_APPLY", "title": "Confirmar"},
+    {"id": "ORI_ADM_CANCEL", "title": "Cancelar"},
+    {"id": "ORI_ADM_MENU", "title": "Menu interno"},
+]
+
+
+class OriHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+
+        if parsed_url.path == "/":
+            self.send_html(home_page())
+            return
+
+        if parsed_url.path == "/test":
+            params = urllib.parse.parse_qs(parsed_url.query)
+            message = params.get("message", ["hola"])[0]
+            self.send_json({"message": message, "reply": get_ori_reply(message)})
+            return
+
+        if parsed_url.path == "/health":
+            self.send_json({"ok": True, "service": "Ori WhatsApp Bot"})
+            return
+
+        if parsed_url.path == "/plano_stands.jpg":
+            self.send_static_file(PUBLIC_DIR / "plano_stands.jpg", "image/jpeg")
+            return
+
+        if parsed_url.path.startswith("/ferias_anteriores/"):
+            filename = Path(urllib.parse.unquote(parsed_url.path)).name
+            file_path = PREVIOUS_FAIRS_DIR / filename
+            content_type = image_content_type(file_path)
+            if content_type:
+                self.send_static_file(file_path, content_type)
+                return
+            self.send_json({"error": "Archivo no encontrado"}, status=404)
+            return
+
+        if parsed_url.path.startswith("/bienvenida/"):
+            filename = Path(urllib.parse.unquote(parsed_url.path)).name
+            file_path = WELCOME_IMAGES_DIR / filename
+            content_type = image_content_type(file_path)
+            if content_type:
+                self.send_static_file(file_path, content_type, fallback_base64=WELCOME_IMAGES_BASE64.get(filename, ""))
+                return
+            self.send_json({"error": "Archivo no encontrado"}, status=404)
+            return
+
+        if parsed_url.path == "/webhook":
+            self.verify_webhook(parsed_url)
+            return
+
+        self.send_json({"error": "Ruta no encontrada"}, status=404)
+
+    def do_POST(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+
+        if parsed_url.path != "/webhook":
+            self.send_json({"error": "Ruta no encontrada"}, status=404)
+            return
+
+        payload = self.read_json_body()
+        try:
+            print("Webhook recibido desde Meta", flush=True)
+            handle_whatsapp_payload(payload)
+        except Exception as error:
+            print(f"Error procesando webhook: {error}", flush=True)
+        self.send_json({"ok": True})
+
+    def verify_webhook(self, parsed_url):
+        params = urllib.parse.parse_qs(parsed_url.query)
+        mode = params.get("hub.mode", [""])[0]
+        token = params.get("hub.verify_token", [""])[0]
+        challenge = params.get("hub.challenge", [""])[0]
+
+        if mode == "subscribe" and token == VERIFY_TOKEN:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(challenge.encode("utf-8"))
+            return
+
+        self.send_response(403)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write("Token de verificacion invalido".encode("utf-8"))
+
+    def read_json_body(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(length).decode("utf-8")
+        return json.loads(raw_body or "{}")
+
+    def send_json(self, data, status=200):
+        body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_html(self, html, status=200):
+        body = html.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_static_file(self, path, content_type, fallback_base64=""):
+        if path.name == "plano_stands.jpg" and PLANO_STANDS_JPG_BASE64:
+            body = base64.b64decode(PLANO_STANDS_JPG_BASE64)
+        elif path.exists() and path.is_file():
+            body = path.read_bytes()
+        elif fallback_base64:
+            body = base64.b64decode(fallback_base64)
+        else:
+            self.send_json({"error": "Archivo no encontrado"}, status=404)
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format_message, *args):
+        print(format_message % args)
+
+
+def handle_whatsapp_payload(payload):
+    messages = extract_incoming_messages(payload)
+    print(f"Mensajes extraidos: {len(messages)}", flush=True)
+    for message in messages:
+        if is_guided_button_message(message):
+            if handle_guided_button_message(message):
+                continue
+
+        if should_send_initial_welcome_buttons(message):
+            mark_welcome_buttons_sent(message["from"], message["text"])
+            send_whatsapp_buttons(message["from"], WELCOME_BUTTON_TEXT, WELCOME_BUTTONS)
+            continue
+
+        if should_block_free_text(message):
+            send_guided_menu_for_free_text(message)
+            continue
+
+        if message.get("type") == "audio":
+            transcription = transcribe_incoming_audio(message)
+            if not transcription:
+                send_whatsapp_text(
+                    message["from"],
+                    "Recibi tu audio, pero no pude escucharlo bien en este momento. "
+                    "¿Me lo puedes escribir en texto para ayudarte mejor?",
+                )
+                continue
+            message["text"] = transcription
+            message["media"] = None
+            print(f"Audio transcrito de {message['from']}: {transcription}", flush=True)
+
+        reply = get_ori_reply(message["text"], user_id=message["from"], incoming_media=message.get("media"))
+        print(f"Mensaje de {message['from']}: {message['text'] or message.get('type')}", flush=True)
+        print(f"Respuesta de Ori: {reply}", flush=True)
+        send_whatsapp_text(message["from"], reply)
+        if is_admin_entry_message(message.get("text", "")):
+            send_whatsapp_buttons(message["from"], admin_guided_menu_text(), ADMIN_MENU_BUTTONS)
+            continue
+        if is_admin_exit_message(message.get("text", "")):
+            continue
+        if is_admin_session_active(message["from"]) and "Para aplicar el cambio" in reply:
+            send_whatsapp_buttons(message["from"], "Confirma esta accion:", ADMIN_CONFIRM_ACTION_BUTTONS)
+            continue
+        if should_send_plan_image(message["text"], reply) and should_send_plan_image_now(message["from"]):
+            send_whatsapp_image(
+                message["from"],
+                PLANO_STANDS_URL,
+                "Plano de stands Feria Origen Colombia 2027.",
+            )
+        if should_send_previous_fair_images(message["text"]) and should_send_previous_fair_images_now(message["from"]):
+            for image_url, caption in fair_gallery_image_urls()[:MAX_PREVIOUS_FAIR_IMAGES]:
+                send_whatsapp_image(
+                    message["from"],
+                    image_url,
+                    caption,
+                )
+
+
+def extract_incoming_messages(payload):
+    output = []
+
+    if payload.get("field") == "messages" and isinstance(payload.get("value"), dict):
+        payload = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": payload["value"],
+                        }
+                    ]
+                }
+            ]
+        }
+
+    for entry in payload.get("entry", []):
+        for change in entry.get("changes", []):
+            value = change.get("value", {})
+            for message in value.get("messages", []):
+                message_type = message.get("type")
+                if message_type not in {"text", "image", "document", "audio", "interactive"}:
+                    continue
+                text = message.get("text", {}).get("body", "")
+                media = None
+                button_id = ""
+                if message_type in {"image", "document", "audio"}:
+                    media_payload = message.get(message_type, {})
+                    text = media_payload.get("caption", "")
+                    media = {
+                        "type": message_type,
+                        "id": media_payload.get("id", ""),
+                        "mime_type": media_payload.get("mime_type", ""),
+                        "filename": media_payload.get("filename", ""),
+                        "sha256": media_payload.get("sha256", ""),
+                    }
+                elif message_type == "interactive":
+                    interactive_payload = message.get("interactive", {})
+                    text = interactive_message_text(interactive_payload)
+                    button_id = interactive_button_id(interactive_payload)
+                output.append(
+                    {
+                        "from": message.get("from", ""),
+                        "text": text,
+                        "type": message_type,
+                        "media": media,
+                        "button_id": button_id,
+                    }
+                )
+    return output
+
+
+def interactive_button_id(interactive):
+    interactive_type = (interactive or {}).get("type", "")
+    if interactive_type == "button_reply":
+        reply = interactive.get("button_reply") or {}
+        return str(reply.get("id", "")).strip()
+    if interactive_type == "list_reply":
+        reply = interactive.get("list_reply") or {}
+        return str(reply.get("id", "")).strip()
+    return ""
+
+
+def interactive_message_text(interactive):
+    interactive_type = (interactive or {}).get("type", "")
+    if interactive_type == "button_reply":
+        reply = interactive.get("button_reply") or {}
+        return button_reply_text(reply.get("id", ""), reply.get("title", ""))
+    if interactive_type == "list_reply":
+        reply = interactive.get("list_reply") or {}
+        return reply.get("title", "") or reply.get("description", "") or reply.get("id", "")
+    return ""
+
+
+def button_reply_text(button_id, title):
+    button_map = {
+        "ORI_EXPOSITOR": "Quiero exponer",
+        "ORI_VISITANTE": "Quiero visitar",
+        "ORI_EXP_PRECIOS": "Precios",
+        "ORI_EXP_PLANO": "Plano de venta",
+        "ORI_EXP_PREINSCRIPCION": "Preinscripcion",
+        "ORI_EXP_IMAGENES": "Imagenes",
+        "ORI_VIS_INFO": "Informacion de la feria",
+        "ORI_VIS_LLEGAR": "Como llegar",
+        "ORI_VIS_PRODUCTOS": "Productos",
+        "ORI_VIS_PROMOCIONES": "Promociones",
+        "ORI_VIS_IMAGENES": "Imagenes de la feria",
+        "ORI_VIS_CERCA": "Lugares cerca",
+        "ORI_VIS_CAT_ARTE": "Arte",
+        "ORI_VIS_CAT_ARTESANIA": "Artesania",
+        "ORI_VIS_CAT_JOYERIA": "Joyeria",
+        "ORI_VIS_CAT_CALZADO": "Calzado y vestuario",
+        "ORI_VIS_CAT_DECORACION": "Decoracion",
+        "ORI_VIS_CAT_ANTICUARIOS": "Anticuarios",
+        "ORI_VIS_CAT_SALUD": "Salud y belleza",
+        "ORI_VIS_CAT_GASTRONOMIA": "Gastronomia",
+        "ORI_VIS_CAT_OTRO": "Otro",
+        "ORI_MENU": "Volver al menu",
+        "ORI_ADM_MENU": "Menu interno",
+        "ORI_ADM_PREINSCRITOS": "Preinscritos",
+        "ORI_ADM_CONFIRMADOS": "Confirmados",
+        "ORI_ADM_ASSIGN": "Asignar stand",
+        "ORI_ADM_RELEASE": "Liberar stand",
+        "ORI_ADM_EXIT": "Cerrar interno",
+        "ORI_ADM_APPLY": "Confirmar",
+        "ORI_ADM_CANCEL": "Cancelar",
+    }
+    return button_map.get(str(button_id or "").strip(), str(title or "").strip())
+
+
+def is_guided_button_message(message):
+    return message.get("type") == "interactive" and str(message.get("button_id") or "").startswith("ORI_")
+
+
+def handle_guided_button_message(message):
+    button_id = str(message.get("button_id") or "").strip()
+    user_id = message["from"]
+
+    if button_id.startswith("ORI_ADM_"):
+        return handle_admin_guided_button_message(user_id, button_id)
+
+    if button_id == "ORI_MENU":
+        send_whatsapp_buttons(user_id, MAIN_MENU_TEXT, MAIN_MENU_BUTTONS)
+        remember_menu_turn(user_id, "Menu", MAIN_MENU_TEXT)
+        return True
+
+    if button_id == "ORI_EXPOSITOR":
+        memory = get_memory(user_id)
+        memory["role"] = "expositor"
+        memory["last_intent"] = "exhibitor_menu"
+        memory["guided_mode"] = "expositor"
+        save_persistent_state()
+        send_whatsapp_buttons(user_id, EXHIBITOR_MENU_TEXT, EXHIBITOR_MENU_BUTTONS)
+        remember_menu_turn(user_id, "Quiero exponer", EXHIBITOR_MENU_TEXT)
+        return True
+
+    if button_id == "ORI_VISITANTE":
+        memory = get_memory(user_id)
+        memory["role"] = "visitante"
+        memory["last_intent"] = "visitor_menu"
+        memory["guided_mode"] = "visitante"
+        save_persistent_state()
+        send_whatsapp_buttons(user_id, VISITOR_MENU_TEXT, VISITOR_MENU_BUTTONS)
+        remember_menu_turn(user_id, "Quiero visitar", VISITOR_MENU_TEXT)
+        return True
+
+    if button_id == "ORI_VIS_INFO":
+        reply = get_ori_reply("informacion de la feria", user_id=user_id)
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_list(
+            user_id,
+            "Que te gustaria revisar ahora?",
+            "Opciones visitante",
+            "Elegir opcion",
+            VISITOR_INFO_LIST_ROWS,
+        )
+        remember_menu_turn(user_id, "Info feria", reply)
+        return True
+
+    if button_id == "ORI_VIS_PRODUCTOS":
+        reply = (
+            "En la feria encontraras propuestas colombianas de arte, artesania, joyeria, moda, "
+            "decoracion, anticuarios, salud y belleza, gastronomia y otras marcas con identidad.\n\n"
+            "Elige una categoria y te cuento un poco mas sobre lo que podras encontrar."
+        )
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_list(
+            user_id,
+            "Que categoria quieres revisar?",
+            "Categorias",
+            "Ver categorias",
+            VISITOR_PRODUCT_CATEGORY_ROWS,
+        )
+        remember_menu_turn(user_id, "Productos", reply)
+        return True
+
+    if button_id in VISITOR_CATEGORY_BY_BUTTON:
+        category = VISITOR_CATEGORY_BY_BUTTON[button_id]
+        reply = visitor_category_participants_reply(category)
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_list(
+            user_id,
+            "Puedes revisar otra categoria o volver al menu.",
+            "Categorias",
+            "Ver categorias",
+            VISITOR_PRODUCT_CATEGORY_ROWS,
+        )
+        remember_menu_turn(user_id, button_reply_text(button_id, ""), reply)
+        return True
+
+    if button_id == "ORI_VIS_PROMOCIONES":
+        reply = (
+            "Por ahora no hay promociones oficiales anunciadas para visitantes.\n\n"
+            "Lo que si puedo confirmarte es que la entrada a la feria es 100% gratuita. "
+            "Si el equipo anuncia promociones, descuentos o novedades especiales, las podremos mostrar aqui."
+        )
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_list(
+            user_id,
+            "Quieres revisar otra cosa?",
+            "Opciones visitante",
+            "Elegir opcion",
+            VISITOR_INFO_LIST_ROWS,
+        )
+        remember_menu_turn(user_id, "Promociones", reply)
+        return True
+
+    if button_id == "ORI_EXP_PREINSCRIPCION":
+        memory = get_memory(user_id)
+        reply = start_preinscription_flow(memory)
+        remember_turn(memory, "Preinscripcion", reply)
+        save_persistent_state()
+        send_whatsapp_text(user_id, reply)
+        if not is_questionnaire_active(user_id):
+            send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS)
+        return True
+
+    guided_actions = {
+        "ORI_EXP_PRECIOS": ("precios de stands", EXHIBITOR_AFTER_REPLY_BUTTONS),
+        "ORI_EXP_PLANO": ("quiero ver el plano de la feria", EXHIBITOR_AFTER_PLAN_BUTTONS),
+        "ORI_EXP_IMAGENES": ("imagenes de la feria", EXHIBITOR_AFTER_IMAGES_BUTTONS),
+        "ORI_VIS_LLEGAR": ("como llegar", VISITOR_AFTER_ARRIVAL_BUTTONS),
+        "ORI_VIS_CERCA": ("lugares cercanos a la feria", VISITOR_AFTER_NEARBY_BUTTONS),
+        "ORI_VIS_IMAGENES": ("imagenes de la feria", VISITOR_AFTER_IMAGES_BUTTONS),
+    }
+    if button_id not in guided_actions:
+        return False
+
+    guided_text, next_buttons = guided_actions[button_id]
+    reply = get_ori_reply(guided_text, user_id=user_id)
+    send_whatsapp_text(user_id, reply)
+    media_sent = send_context_media_if_needed(user_id, guided_text, reply)
+    if media_sent:
+        time.sleep(2)
+    if not is_questionnaire_active(user_id):
+        send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", next_buttons)
+    return True
+
+
+def handle_admin_guided_button_message(user_id, button_id):
+    if not is_admin_session_active(user_id):
+        send_whatsapp_text(user_id, "Puedo ayudarte con informacion de la feria, ubicacion, stands, productos y participacion.")
+        return True
+
+    if button_id == "ORI_ADM_MENU":
+        send_whatsapp_buttons(user_id, admin_guided_menu_text(), ADMIN_MENU_BUTTONS)
+        remember_menu_turn(user_id, "Menu interno", admin_guided_menu_text())
+        return True
+
+    if button_id == "ORI_ADM_EXIT":
+        reply = get_ori_reply("Out_adm1n", user_id=user_id)
+        send_whatsapp_text(user_id, reply)
+        return True
+
+    if button_id == "ORI_ADM_APPLY":
+        reply = get_ori_reply("si confirmo", user_id=user_id)
+        send_whatsapp_text(user_id, reply)
+        if is_admin_session_active(user_id):
+            send_whatsapp_buttons(user_id, "Puedes seguir revisando:", ADMIN_AFTER_ACTION_BUTTONS)
+        return True
+
+    if button_id == "ORI_ADM_CANCEL":
+        reply = get_ori_reply("cancelar", user_id=user_id)
+        send_whatsapp_text(user_id, reply)
+        if is_admin_session_active(user_id):
+            send_whatsapp_buttons(user_id, "Puedes seguir revisando:", ADMIN_AFTER_ACTION_BUTTONS)
+        return True
+
+    if button_id == "ORI_ADM_PREINSCRITOS":
+        body, rows = admin_guided_preinscribed_rows(user_id)
+        if rows:
+            send_whatsapp_list(user_id, body, "Preinscritos", "Ver lista", rows)
+        else:
+            send_whatsapp_text(user_id, body)
+            send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", ADMIN_MENU_BUTTONS)
+        remember_menu_turn(user_id, "Preinscritos", body)
+        return True
+
+    if button_id == "ORI_ADM_CONFIRMADOS":
+        body, rows = admin_guided_confirmed_rows(user_id)
+        if rows:
+            send_whatsapp_list(user_id, body, "Confirmados", "Ver lista", rows)
+        else:
+            send_whatsapp_text(user_id, body)
+            send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", ADMIN_MENU_BUTTONS)
+        remember_menu_turn(user_id, "Confirmados", body)
+        return True
+
+    if button_id.startswith("ORI_ADM_PRE_") or button_id.startswith("ORI_ADM_CON_"):
+        reply, kind = admin_guided_record_detail(user_id, button_id)
+        send_whatsapp_text(user_id, reply)
+        if kind == "preinscrito":
+            send_whatsapp_buttons(user_id, "Que quieres hacer con esta marca?", ADMIN_RECORD_PRE_BUTTONS)
+        elif kind == "confirmado":
+            send_whatsapp_buttons(user_id, "Que quieres hacer con este expositor?", ADMIN_RECORD_CONF_BUTTONS)
+        else:
+            send_whatsapp_buttons(user_id, "Volvemos al menu interno?", ADMIN_MENU_BUTTONS)
+        remember_menu_turn(user_id, button_reply_text(button_id, ""), reply)
+        return True
+
+    if button_id == "ORI_ADM_ASSIGN":
+        reply = admin_prepare_guided_assignment(user_id)
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_buttons(user_id, "Tambien puedes volver:", ADMIN_AFTER_ACTION_BUTTONS)
+        remember_menu_turn(user_id, "Asignar stand", reply)
+        return True
+
+    if button_id == "ORI_ADM_RELEASE":
+        reply = admin_prepare_guided_release(user_id)
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_buttons(user_id, "Tambien puedes volver:", ADMIN_AFTER_ACTION_BUTTONS)
+        remember_menu_turn(user_id, "Liberar stand", reply)
+        return True
+
+    return False
+
+
+def remember_menu_turn(user_id, user_message, reply):
+    memory = get_memory(user_id)
+    remember_turn(memory, user_message, reply)
+    save_persistent_state()
+
+
+def should_send_initial_welcome_buttons(message):
+    if message.get("type") != "text":
+        return False
+    if is_admin_entry_message(message.get("text", "")):
+        return False
+    if is_admin_session_active(message.get("from")):
+        return False
+    if is_questionnaire_active(message.get("from")):
+        return False
+    memory = get_memory(message.get("from"))
+    if memory.get("welcome_buttons_sent"):
+        return False
+    return not memory.get("history") or is_welcome_greeting_message(message.get("text", ""))
+
+
+def is_welcome_greeting_message(text):
+    normalized = normalize_for_match(text)
+    return normalized in {"hola", "hola ori", "buenas", "buenos dias", "buenas tardes", "buenas noches", "inicio"}
+
+
+def mark_welcome_buttons_sent(user_id, user_message):
+    memory = get_memory(user_id)
+    memory["welcome_buttons_sent"] = True
+    memory["guided_mode"] = "main"
+    remember_turn(memory, user_message or "[inicio]", WELCOME_BUTTON_TEXT)
+    save_persistent_state()
+
+
+def should_block_free_text(message):
+    if message.get("type") not in {"text", "audio"}:
+        return False
+    user_id = message.get("from")
+    if is_admin_entry_message(message.get("text", "")) or is_admin_session_active(user_id):
+        return False
+    return not is_questionnaire_active(user_id)
+
+
+def send_guided_menu_for_free_text(message):
+    user_id = message["from"]
+    memory = get_memory(user_id)
+    mode = memory.get("guided_mode") or memory.get("role") or "main"
+    text = (
+        "Para mantener la conversacion ordenada, por ahora respondeme usando los botones.\n\n"
+        "Cuando inicies la preinscripcion, ahi si podras escribir tus datos."
+    )
+    if mode == "expositor":
+        send_whatsapp_buttons(user_id, text, EXHIBITOR_MENU_BUTTONS)
+    elif mode == "visitante":
+        send_whatsapp_buttons(user_id, text, VISITOR_MENU_BUTTONS)
+    else:
+        send_whatsapp_buttons(user_id, text, MAIN_MENU_BUTTONS)
+    remember_menu_turn(user_id, message.get("text") or "[mensaje libre]", text)
+
+
+def is_questionnaire_active(user_id):
+    memory = get_memory(user_id)
+    pre = memory.get("preinscription") or {}
+    if pre.get("active"):
+        return True
+    return memory.get("pending_field") in {"post_submission_correction", "preinscription"}
+
+
+def send_context_media_if_needed(user_id, message_text, reply):
+    media_sent = False
+    if should_send_plan_image(message_text, reply) and should_send_plan_image_now(user_id):
+        send_whatsapp_image(
+            user_id,
+            PLANO_STANDS_URL,
+            "Plano de stands Feria Origen Colombia 2027.",
+        )
+        media_sent = True
+    if should_send_previous_fair_images(message_text) and should_send_previous_fair_images_now(user_id):
+        for image_url, caption in fair_gallery_image_urls()[:MAX_PREVIOUS_FAIR_IMAGES]:
+            send_whatsapp_image(user_id, image_url, caption)
+            media_sent = True
+    return media_sent
+
+
+def visitor_category_participants_reply(category):
+    title = (category or "otras categorias").replace("Artesania tipica", "Artesania")
+    description = VISITOR_CATEGORY_DESCRIPTIONS.get(category, VISITOR_CATEGORY_DESCRIPTIONS[""])
+    records = filter_form_records(force=True)
+    if last_form_error():
+        return (
+            f"{description}\n\n"
+            "Aun estoy esperando la lista oficial actualizada de participantes para esta categoria.\n\n"
+            "Mientras tanto, puedo mostrarte imagenes de la feria o ayudarte a revisar otra categoria."
+        )
+
+    confirmed_records = [record for record in records if str(record.get("confirmed_stand") or "").strip()]
+    if category:
+        normalized_category = normalize_for_match(category)
+        confirmed_records = [
+            record
+            for record in confirmed_records
+            if normalized_category in normalize_for_match(record.get("category") or record.get("products") or "")
+        ]
+    else:
+        known_categories = [
+            "arte",
+            "artesania",
+            "joyeria",
+            "calzado y vestuario",
+            "decoracion",
+            "anticuarios",
+            "salud y belleza",
+            "gastronomia",
+        ]
+        confirmed_records = [
+            record
+            for record in confirmed_records
+            if not any(item in normalize_for_match(record.get("category") or record.get("products") or "") for item in known_categories)
+        ]
+
+    if not confirmed_records:
+        return (
+            f"{description}\n\n"
+            f"Por ahora no aparecen marcas confirmadas en {title}.\n\n"
+            "Cuando el equipo confirme nuevos participantes, podras verlos aqui."
+        )
+
+    lines = [description, "", f"Participantes confirmados en {title}:"]
+    for record in confirmed_records[:8]:
+        brand = record_brand(record)
+        products = record.get("products") or "productos por confirmar"
+        stand = record.get("confirmed_stand")
+        stand_text = f" - stand {stand}" if stand else ""
+        lines.append(f"- {brand}{stand_text}: {products}")
+
+    if len(confirmed_records) > 8:
+        lines.append(f"... y {len(confirmed_records) - 8} participantes mas.")
+    return "\n".join(lines)
+
+
+def transcribe_incoming_audio(message):
+    media = message.get("media") or {}
+    if not WHATSAPP_TOKEN:
+        print("No se puede transcribir audio: falta WHATSAPP_TOKEN.", flush=True)
+        return ""
+
+    try:
+        content, mime_type, filename = download_whatsapp_media(media, WHATSAPP_TOKEN, GRAPH_API_VERSION)
+        return transcribe_audio_with_groq(content, filename, mime_type)
+    except GroqClientError as error:
+        print(f"No se pudo transcribir audio con Groq: {error}", flush=True)
+    except Exception as error:
+        print(f"No se pudo descargar/transcribir audio de WhatsApp: {error}", flush=True)
+    return ""
+
+
+def send_whatsapp_text(to, body):
+    if DRY_RUN or not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
+        print("Envio omitido: DRY_RUN activo o faltan credenciales.", flush=True)
+        return
+
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "text",
+        "text": {"preview_url": False, "body": body},
+    }
+    data = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            response.read()
+            print(f"Respuesta enviada a WhatsApp para {to}", flush=True)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"WhatsApp API respondio {error.code}: {detail}") from error
+
+
+def send_whatsapp_buttons(to, body, buttons):
+    if DRY_RUN or not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
+        print(f"Envio de botones omitido para {to}: {body}", flush=True)
+        return
+
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": body[:1024]},
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": str(button["id"])[:256],
+                            "title": str(button["title"])[:20],
+                        },
+                    }
+                    for button in buttons[:3]
+                ]
+            },
+        },
+    }
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            response.read()
+            print(f"Botones enviados a WhatsApp para {to}", flush=True)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar botones: {detail}") from error
+
+
+def send_whatsapp_list(to, body, header, button_text, rows):
+    if DRY_RUN or not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
+        print(f"Envio de lista omitido para {to}: {body}", flush=True)
+        for row in rows[:10]:
+            print(f"- {row.get('title')} ({row.get('id')})", flush=True)
+        return
+
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "interactive",
+        "interactive": {
+            "type": "list",
+            "header": {"type": "text", "text": str(header or "Opciones")[:60]},
+            "body": {"text": str(body or "Elige una opcion:")[:1024]},
+            "action": {
+                "button": str(button_text or "Elegir")[:20],
+                "sections": [
+                    {
+                        "title": str(header or "Opciones")[:24],
+                        "rows": [
+                            {
+                                "id": str(row["id"])[:200],
+                                "title": str(row["title"])[:24],
+                                "description": str(row.get("description") or "")[:72],
+                            }
+                            for row in rows[:10]
+                        ],
+                    }
+                ],
+            },
+        },
+    }
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            response.read()
+            print(f"Lista enviada a WhatsApp para {to}", flush=True)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar lista: {detail}") from error
+
+
+def subscribe_app_to_whatsapp():
+    if not WHATSAPP_TOKEN:
+        print("Suscripcion omitida: falta WHATSAPP_TOKEN.", flush=True)
+        return
+
+    waba_id = os.getenv("WHATSAPP_BUSINESS_ACCOUNT_ID", "").strip()
+    if not waba_id:
+        print("Suscripcion omitida: falta WHATSAPP_BUSINESS_ACCOUNT_ID.", flush=True)
+        return
+
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{waba_id}/subscribed_apps"
+    data = urllib.parse.urlencode({"subscribed_fields": "messages"}).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            print(f"App suscrita a mensajes de WhatsApp: {body}", flush=True)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        print(f"No se pudo suscribir la app a WhatsApp ({error.code}): {detail}", flush=True)
+    except urllib.error.URLError as error:
+        print(f"No se pudo conectar para suscribir la app a WhatsApp: {error}", flush=True)
+
+
+def send_whatsapp_image(to, image_url, caption=""):
+    if DRY_RUN or not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
+        print(f"Envio de imagen omitido. URL del plano: {image_url}", flush=True)
+        return
+
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
+    image_payload = {"link": image_url}
+    if caption:
+        image_payload["caption"] = caption
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "image",
+        "image": image_payload,
+    }
+    data = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            response.read()
+            print(f"Plano enviado a WhatsApp para {to}", flush=True)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar imagen: {detail}") from error
+
+
+def should_send_plan_image(message, reply=""):
+    text = normalize_for_match(message)
+    reply_text = normalize_for_match(reply)
+    triggers = [
+        "compartir el plano",
+        "comparteme el plano",
+        "compartirme el plano",
+        "enviar el plano",
+        "enviame el plano",
+        "enviarme el plano",
+        "mandame el plano",
+        "mandarme el plano",
+        "mostrar el plano",
+        "muestrame el plano",
+        "mostrarme el plano",
+        "ver el plano",
+        "plano de la feria",
+        "plano del evento",
+        "plano del envento",
+        "plano de stands",
+        "plano evento",
+        "plano envento",
+        "mapa de stands",
+        "ubicacion de stands",
+        "ver stands",
+        "que stands tienes",
+        "que stand tienes",
+        "que stands hay",
+        "que stand hay",
+        "cuales stands tienes",
+        "cuales stand tienes",
+        "cuales stands hay",
+        "opciones de stands",
+        "opciones disponibles",
+        "stands disponibles",
+        "stand disponibles",
+        "puestos disponibles",
+    ]
+    if any(trigger in text for trigger in triggers):
+        return True
+    return "estos son los stands disponibles cargados" in reply_text or "te comparto el plano actual" in reply_text
+
+
+def should_send_plan_image_now(user_id):
+    now = time.time()
+    last_sent = LAST_PLAN_IMAGE_SENT.get(user_id, 0)
+    if now - last_sent < PLAN_IMAGE_COOLDOWN_SECONDS:
+        return False
+    LAST_PLAN_IMAGE_SENT[user_id] = now
+    return True
+
+
+def should_send_previous_fair_images(message):
+    text = normalize_for_match(message)
+    if not fair_gallery_image_urls():
+        return False
+
+    explicit_photo_triggers = [
+        "fotos",
+        "imagenes",
+        "imagen",
+        "galeria",
+        "imagenes de la feria",
+        "fotos de la feria",
+        "ferias anteriores",
+        "ediciones anteriores",
+        "versiones anteriores",
+        "ver fotos",
+        "ver imagenes",
+        "mostrar fotos",
+        "mostrar imagenes",
+        "compartir fotos",
+        "compartir imagenes",
+        "mandame fotos",
+        "mandame imagenes",
+        "enviame fotos",
+        "enviame imagenes",
+        "como se ve la feria",
+        "como ha sido la feria",
+    ]
+
+    return any(trigger in text for trigger in explicit_photo_triggers)
+
+
+def should_send_previous_fair_images_now(user_id):
+    now = time.time()
+    last_sent = LAST_PREVIOUS_FAIR_IMAGES_SENT.get(user_id, 0)
+    if now - last_sent < PREVIOUS_FAIR_IMAGES_COOLDOWN_SECONDS:
+        return False
+    LAST_PREVIOUS_FAIR_IMAGES_SENT[user_id] = now
+    return True
+
+
+def previous_fair_image_urls():
+    if not PREVIOUS_FAIRS_DIR.exists():
+        return []
+
+    urls = []
+    for path in sorted(PREVIOUS_FAIRS_DIR.iterdir()):
+        if path.is_file() and image_content_type(path):
+            urls.append(f"{PUBLIC_BASE_URL}/ferias_anteriores/{urllib.parse.quote(path.name)}")
+    return urls
+
+
+def fair_gallery_image_urls():
+    previous_urls = [
+        (url, "Asi se ha vivido Feria Origen Colombia en ediciones anteriores.")
+        for url in previous_fair_image_urls()
+    ]
+    if previous_urls:
+        return previous_urls
+    return welcome_image_urls()
+
+
+def welcome_image_urls():
+    return [
+        (
+            f"{PUBLIC_BASE_URL}/bienvenida/patio_de_las_artes.jpg",
+            "Patio de las Artes - Feria Origen Colombia 2027.",
+        ),
+        (
+            f"{PUBLIC_BASE_URL}/bienvenida/patio_de_las_artes_pasillos.jpg",
+            "Patio de las Artes, pasillos cubiertos - Feria Origen Colombia 2027.",
+        ),
+        (
+            f"{PUBLIC_BASE_URL}/bienvenida/salon_pierre_daguet.jpg",
+            "Salon Pierre Daguet - Feria Origen Colombia 2027.",
+        ),
+    ]
+
+
+def image_content_type(path):
+    suffix = path.suffix.lower()
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if suffix == ".png":
+        return "image/png"
+    if suffix == ".webp":
+        return "image/webp"
+    return ""
+
+
+def normalize_for_match(value):
+    normalized = unicodedata.normalize("NFD", str(value or "").lower())
+    without_accents = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+    return " ".join(without_accents.split())
+
+
+def home_page():
+    return """<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ori WhatsApp Bot</title>
+  <style>
+    body{font-family:Arial,sans-serif;background:#faf7ef;color:#2c2b28;margin:0;padding:32px}
+    main{max-width:760px;margin:auto;background:#fffdf8;border:1px solid #ddd3bd;border-radius:8px;padding:24px}
+    h1{margin-top:0;font-family:Georgia,serif;font-size:42px}
+    form{display:grid;gap:10px;margin-top:18px}
+    input,button{font:inherit;border-radius:8px;min-height:44px}
+    input{border:1px solid #ddd3bd;padding:0 12px}
+    button{border:0;background:#34684d;color:white;font-weight:800;cursor:pointer}
+    pre{white-space:pre-wrap;background:#f4ecdc;border-radius:8px;padding:14px}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Ori esta lista</h1>
+    <p>Prueba preguntas antes de conectar WhatsApp.</p>
+    <form onsubmit="event.preventDefault(); testOri();">
+      <input id="message" placeholder="Ej: stands disponibles" />
+      <button>Preguntar</button>
+    </form>
+    <pre id="answer">Escribe una pregunta para Ori.</pre>
+  </main>
+  <script>
+    async function testOri(){
+      const message = document.getElementById('message').value || 'hola';
+      const response = await fetch('/test?message=' + encodeURIComponent(message));
+      const data = await response.json();
+      document.getElementById('answer').textContent = data.reply;
+    }
+  </script>
+</body>
+</html>"""
+
+
+def main():
+    subscribe_app_to_whatsapp()
+    server = HTTPServer(("0.0.0.0", PORT), OriHandler)
+    print(f"Ori WhatsApp bot escuchando en http://localhost:{PORT}", flush=True)
+    print(f"Prueba local: http://localhost:{PORT}/test?message=stands%20disponibles", flush=True)
+    if DRY_RUN:
+        print("DRY_RUN=true: las respuestas se muestran en consola y no se envian a WhatsApp.", flush=True)
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()
+import base64
+import json
+import os
+import time
+import unicodedata
+import urllib.error
+import urllib.parse
+import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+
+from groq_client import GroqClientError, transcribe_audio_with_groq
+from ori import (
     get_memory,
     get_ori_reply,
     is_admin_entry_message,
