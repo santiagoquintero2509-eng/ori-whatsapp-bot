@@ -1070,8 +1070,10 @@ def send_guided_menu_for_free_text(message):
     memory = get_memory(user_id)
     mode = memory.get("guided_mode") or memory.get("role") or "main"
     text = (
-        "Para mantener la conversacion ordenada, por ahora respondeme usando los botones.\n\n"
-        "Cuando inicies la preinscripcion, ahi si podras escribir tus datos."
+        "¡Hola de nuevo! Me alegra leerte.\n\n"
+        "Para ayudarte mejor, elige por dónde quieres seguir y continuamos desde ahí.\n\n"
+        "Si quieres participar como expositor, toca Expositor. Si vienes a visitar la feria, toca Visitante.\n\n"
+        "Cuando iniciemos la preinscripción, podrás escribirme tus datos tranquilamente."
     )
     if mode == "expositor":
         send_exhibitor_menu(user_id, text)
