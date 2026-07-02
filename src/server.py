@@ -1,6 +1,9 @@
+import atexit
 import base64
 import json
 import os
+import queue
+import threading
 import time
 import unicodedata
 import urllib.error
@@ -72,7 +75,12 @@ LAST_PREVIOUS_FAIR_IMAGES_SENT = {}
 PLAN_IMAGE_COOLDOWN_SECONDS = 600
 PREVIOUS_FAIR_IMAGES_COOLDOWN_SECONDS = 900
 MAX_PREVIOUS_FAIR_IMAGES = 3
-MEDIA_DELIVERY_DELAY_SECONDS = 8
+MEDIA_DELIVERY_DELAY_SECONDS = float(os.getenv("MEDIA_DELIVERY_DELAY_SECONDS", "8"))
+HISTORY_LOG_ASYNC = os.getenv("HISTORY_LOG_ASYNC", "true").lower() == "true"
+HISTORY_LOG_QUEUE_MAX = int(os.getenv("HISTORY_LOG_QUEUE_MAX", "500"))
+HISTORY_LOG_QUEUE = queue.Queue(maxsize=max(HISTORY_LOG_QUEUE_MAX, 0))
+HISTORY_LOG_WORKER_LOCK = threading.Lock()
+HISTORY_LOG_WORKER_STARTED = False
 WELCOME_BUTTON_TEXT = (
     "Hola, soy Ori Colombia, tu asistente virtual de Feria Origen Colombia.\n\n"
     "¡Me alegra saludarte! Origen Colombia es una feria para descubrir y conectar con el talento colombiano: "
@@ -561,6 +569,53 @@ def interactive_button_id(interactive):
     return ""
 
 
+def start_history_log_worker():
+    global HISTORY_LOG_WORKER_STARTED
+    if not HISTORY_LOG_ASYNC:
+        return
+    with HISTORY_LOG_WORKER_LOCK:
+        if HISTORY_LOG_WORKER_STARTED:
+            return
+        worker = threading.Thread(target=history_log_worker, name="ori-history-log", daemon=True)
+        worker.start()
+        HISTORY_LOG_WORKER_STARTED = True
+
+
+def history_log_worker():
+    while True:
+        event = HISTORY_LOG_QUEUE.get()
+        try:
+            result = log_conversation_event(event)
+            if result.get("queued"):
+                phone = (event or {}).get("telefono_chat") or (event or {}).get("phone") or ""
+                print(f"Historial en cola externa para {phone}: {result.get('error')}", flush=True)
+        except Exception as error:
+            print(f"No se pudo guardar historial en segundo plano: {error}", flush=True)
+        finally:
+            HISTORY_LOG_QUEUE.task_done()
+
+
+def enqueue_conversation_log(event):
+    if not HISTORY_LOG_ASYNC:
+        return log_conversation_event(event)
+    start_history_log_worker()
+    try:
+        HISTORY_LOG_QUEUE.put_nowait(event)
+        return {"ok": True, "queued": True, "async": True}
+    except queue.Full:
+        print("Cola local de historial llena; guardando este evento de forma directa.", flush=True)
+        return log_conversation_event(event)
+
+
+def flush_history_log_queue(timeout_seconds=2):
+    deadline = time.time() + timeout_seconds
+    while not HISTORY_LOG_QUEUE.empty() and time.time() < deadline:
+        time.sleep(0.05)
+
+
+atexit.register(flush_history_log_queue)
+
+
 def log_incoming_message(message):
     body = message.get("text") or message.get("type") or ""
     event = build_conversation_event(
@@ -573,15 +628,15 @@ def log_incoming_message(message):
         phone_number_id=message.get("phone_number_id", ""),
         display_phone_number=message.get("display_phone_number", ""),
     )
-    result = log_conversation_event(event)
-    if result.get("queued"):
+    result = enqueue_conversation_log(event)
+    if result.get("queued") and not result.get("async"):
         print(f"Historial de entrada en cola para {message.get('from', '')}: {result.get('error')}", flush=True)
 
 
 def log_outgoing_message(to, message_type, body, extra=None):
     event = build_conversation_event(to, "salida", message_type, body, extra=extra)
-    result = log_conversation_event(event)
-    if result.get("queued"):
+    result = enqueue_conversation_log(event)
+    if result.get("queued") and not result.get("async"):
         print(f"Historial de salida en cola para {to}: {result.get('error')}", flush=True)
 
 
