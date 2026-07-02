@@ -3732,7 +3732,7 @@ def welcome_reply(memory):
         return (
             "Hola, soy Ori Colombia, tu asistente virtual de Feria Origen Colombia.\n\n"
             "Que alegria saludarte! Estoy aqui para ayudarte a conocer la feria y acompanarte si quieres hacer parte de ella.\n\n"
-            "Puedo contarte sobre el evento, fechas, ubicacion, productos, actividades, stands y precios.\n\n"
+            "Puedo contarte sobre el evento, fechas, ubicacion, productos, actividades, stands, precios y visitantes internacionales.\n\n"
             "Tambien puedo guiarte si deseas participar como expositor.\n\n"
             "Que te gustaria saber primero: informacion de la feria, como llegar o como participar?"
         )
@@ -3740,7 +3740,7 @@ def welcome_reply(memory):
     return (
         "Hola, soy Ori Colombia!\n\n"
         "Que bueno tenerte de vuelta. Puedo ayudarte con informacion de la feria, ubicacion, productos, "
-        "actividades, stands, precios o participacion como expositor.\n\n"
+        "actividades, stands, precios, visitantes internacionales o participacion como expositor.\n\n"
         "Que te gustaria revisar primero: informacion de la feria, como llegar o como participar?"
         f"{role_hint}"
     )

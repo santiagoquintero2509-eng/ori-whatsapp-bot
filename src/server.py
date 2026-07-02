@@ -73,10 +73,12 @@ PLAN_IMAGE_COOLDOWN_SECONDS = 600
 PREVIOUS_FAIR_IMAGES_COOLDOWN_SECONDS = 900
 MAX_PREVIOUS_FAIR_IMAGES = 3
 WELCOME_BUTTON_TEXT = (
-    "Hola, soy Ori, tu asistente virtual de Feria Origen Colombia 2027.\n\n"
-    "Me alegra saludarte. Esta feria es un espacio para descubrir y conectar con el talento colombiano: "
-    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura y emprendimientos con identidad.\n\n"
-    "Para ayudarte mejor, elige una opción:"
+    "Hola, soy Ori Colombia, tu asistente virtual de Feria Origen Colombia.\n\n"
+    "¡Me alegra saludarte! Origen Colombia es una feria para descubrir y conectar con el talento colombiano: "
+    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura, visitantes internacionales "
+    "y emprendimientos con identidad.\n\n"
+    "Puedo ayudarte con información del evento y el proceso para participar como expositor.\n\n"
+    "¿Qué te gustaría hacer primero?"
 )
 WELCOME_BUTTONS = [
     {"id": "ORI_EXPOSITOR", "title": "Quiero exponer"},
@@ -87,7 +89,8 @@ MAIN_MENU_BUTTONS = WELCOME_BUTTONS
 WELCOME_BUTTON_TEXT = (
     "Hola, soy Ori Colombia, tu asistente virtual de Feria Origen Colombia.\n\n"
     "¡Me alegra saludarte! Origen Colombia es una feria para descubrir y conectar con el talento colombiano: "
-    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura y emprendimientos con identidad.\n\n"
+    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura, visitantes internacionales "
+    "y emprendimientos con identidad.\n\n"
     "Puedo ayudarte con información del evento y el proceso para participar como expositor.\n\n"
     "¿Qué te gustaría hacer primero?"
 )
