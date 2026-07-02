@@ -1,4 +1,5 @@
 const SHEET_NAME = 'Respuestas Ori';
+const CONVERSATION_LOG_SHEET_NAME = 'Historial Ori';
 const SPREADSHEET_ID = '1zfw1C4a0PxP1zZFJY4fD4C8x-5_ONDq1CPuwszVDXDo';
 
 function doPost(e) {
@@ -20,6 +21,9 @@ function doPost(e) {
     }
     if (body.action === 'delete_preinscription_by_chat_phone') {
       return jsonResponse(deletePreinscriptionByChatPhone(body));
+    }
+    if (body.action === 'append_conversation_log') {
+      return jsonResponse(appendConversationLog(body));
     }
 
     return jsonResponse({ ok: false, error: 'Accion no reconocida' });
@@ -145,6 +149,38 @@ function listPreinscriptions() {
   return { ok: true, records: records };
 }
 
+function appendConversationLog(body) {
+  const event = body.event || {};
+  const sheet = getConversationLogSheet();
+  ensureConversationLogHeaders(sheet);
+
+  sheet.appendRow([
+    body.created_at || new Date().toISOString(),
+    event.phone || '',
+    event.direction || '',
+    event.message_type || '',
+    event.body || '',
+    event.button_id || '',
+    event.media_type || '',
+    event.media_id || '',
+    event.role || '',
+    event.brand || '',
+    event.category || '',
+    event.product || '',
+    event.city || '',
+    event.lead_stage || '',
+    event.selected_stand || '',
+    event.confirmed_stand || '',
+    event.form_submitted === true ? 'Si' : '',
+    event.internal === true ? 'Si' : '',
+    event.phone_number_id || '',
+    event.display_phone_number || '',
+    event.extra || ''
+  ]);
+
+  return { ok: true };
+}
+
 function uploadFile(body) {
   const parentId = body.drive_folder_id;
   if (!parentId) {
@@ -178,6 +214,18 @@ function getSheet() {
   return sheet;
 }
 
+function getConversationLogSheet() {
+  const configuredId = PropertiesService.getScriptProperties().getProperty('FORM_RESPONSES_SHEET_ID') || SPREADSHEET_ID;
+  const spreadsheet = configuredId
+    ? SpreadsheetApp.openById(configuredId)
+    : SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = spreadsheet.getSheetByName(CONVERSATION_LOG_SHEET_NAME);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(CONVERSATION_LOG_SHEET_NAME);
+  }
+  return sheet;
+}
+
 function ensureHeaders(sheet) {
   const headers = [
     'Fecha',
@@ -198,6 +246,52 @@ function ensureHeaders(sheet) {
     'Estado administrativo',
     'Fecha confirmacion',
     'Confirmado por'
+  ];
+
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    return;
+  }
+
+  const current = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0];
+  const isEmpty = current.every(value => !value);
+  if (isEmpty) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    return;
+  }
+
+  const existing = current.map(value => String(value || '').trim());
+  headers.forEach(header => {
+    if (existing.indexOf(header) === -1) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
+      existing.push(header);
+    }
+  });
+}
+
+function ensureConversationLogHeaders(sheet) {
+  const headers = [
+    'Fecha',
+    'Telefono',
+    'Direccion',
+    'Tipo mensaje',
+    'Mensaje',
+    'Boton ID',
+    'Tipo archivo',
+    'Archivo ID',
+    'Rol',
+    'Marca',
+    'Categoria',
+    'Producto',
+    'Ciudad',
+    'Etapa',
+    'Stand seleccionado',
+    'Stand confirmado',
+    'Formulario enviado',
+    'Interno admin',
+    'Phone number ID',
+    'Numero receptor',
+    'Extra'
   ];
 
   if (sheet.getLastRow() === 0) {
