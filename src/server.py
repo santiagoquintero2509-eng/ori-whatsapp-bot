@@ -70,6 +70,7 @@ PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stand
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
+FIRST_FAIRS_DIR = PUBLIC_DIR / "primera_feria"
 LAST_PLAN_IMAGE_SENT = {}
 LAST_PREVIOUS_FAIR_IMAGES_SENT = {}
 PLAN_IMAGE_COOLDOWN_SECONDS = 600
@@ -138,15 +139,45 @@ EXHIBITOR_MENU_TEXT = (
     "¿Qué te gustaría revisar ahora?"
 )
 EXHIBITOR_MENU_BUTTONS = [
+    {"id": "ORI_EXP_TRAYECTORIA", "title": "Trayectoria"},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
     {"id": "ORI_EXP_IMAGENES", "title": "Imágenes"},
 ]
 EXHIBITOR_MENU_ROWS = [
+    {"id": "ORI_EXP_TRAYECTORIA", "title": "Trayectoria", "description": "Historia y recorrido de la feria."},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes", "description": "Ver fotos de los espacios."},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta", "description": "Ver ubicaciones y valores."},
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción", "description": "Iniciar el formulario por WhatsApp."},
-    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes", "description": "Ver fotos de los espacios."},
     {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
+]
+EXHIBITOR_TRAJECTORY_TEXT = (
+    "¡Claro! Te cuento un poco sobre la trayectoria de Feria Origen Colombia.\n\n"
+    "Feria Origen Colombia nace como un espacio comercial y cultural creado para visibilizar el talento colombiano.\n\n"
+    "Es una plataforma que conecta marcas con visitantes y genera experiencias alrededor del arte, el diseño, "
+    "la moda, la joyería, la gastronomía, la artesanía, el bienestar y los emprendimientos con identidad colombiana, "
+    "integrando saberes y oficios ancestrales con propuestas de vanguardia y una selección de participantes internacionales.\n\n"
+    "A lo largo de su trayectoria, la feria ha consolidado una comunidad de expositores, creadores y visitantes "
+    "que cada año se reúnen en Cartagena de Indias para celebrar y exponer lo hecho en Colombia.\n\n"
+    "La feria cuenta con el apoyo de la Institución Universitaria Bellas Artes y Ciencias de Bolívar, UNIBAC, "
+    "en cuyas instalaciones se realiza el evento. Este espacio está ubicado en un magnífico convento colonial, "
+    "declarado Monumento Nacional, actualmente restaurado y adecuado con todas las facilidades para funcionar "
+    "como centro académico y de exposiciones.\n\n"
+    "Su ubicación estratégica en la Plaza de San Diego lo convierte en un referente importante dentro del Centro "
+    "Histórico de Cartagena, rodeado de atractivos culturales y turísticos como el Hotel Sofitel Legend Santa Clara, "
+    "el mercado artesanal de Las Bóvedas, galerías, restaurantes y espacios históricos de talla internacional.\n\n"
+    "Gracias a este entorno, la experiencia de Feria Origen Colombia trasciende lo comercial y se convierte también "
+    "en una vivencia cultural, turística y patrimonial.\n\n"
+    "Con 22 años de experiencia, 28 ferias realizadas, más de 1.000 expositores participantes y una asistencia anual "
+    "superior a 8.000 visitantes, Feria Origen Colombia se ha consolidado como una plataforma de encuentro, promoción "
+    "y comercialización para el talento creativo colombiano, con entrada libre para el público visitante.\n\n"
+    "Te comparto algunas imágenes de las primeras ferias."
+)
+EXHIBITOR_AFTER_TRAJECTORY_ROWS = [
+    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes", "description": "Ver fotos de los espacios."},
+    {"id": "ORI_EXP_PLANO", "title": "Plano de venta", "description": "Ver ubicaciones y valores."},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción", "description": "Iniciar el formulario por WhatsApp."},
+    {"id": "ORI_MENU", "title": "Menú principal", "description": "Regresar al inicio."},
 ]
 VISITOR_MENU_TEXT = (
     "¡Qué alegría que quieras visitar la feria!\n\n"
@@ -320,6 +351,16 @@ class OriHandler(BaseHTTPRequestHandler):
         if parsed_url.path.startswith("/ferias_anteriores/"):
             filename = Path(urllib.parse.unquote(parsed_url.path)).name
             file_path = PREVIOUS_FAIRS_DIR / filename
+            content_type = image_content_type(file_path)
+            if content_type:
+                self.send_static_file(file_path, content_type)
+                return
+            self.send_json({"error": "Archivo no encontrado"}, status=404)
+            return
+
+        if parsed_url.path.startswith("/primera_feria/"):
+            filename = Path(urllib.parse.unquote(parsed_url.path)).name
+            file_path = FIRST_FAIRS_DIR / filename
             content_type = image_content_type(file_path)
             if content_type:
                 self.send_static_file(file_path, content_type)
@@ -703,6 +744,7 @@ def button_reply_text(button_id, title):
         "ORI_EXPOSITOR": "Quiero exponer",
         "ORI_VISITANTE": "Quiero visitar",
         "ORI_EXP_PRECIOS": "Precios",
+        "ORI_EXP_TRAYECTORIA": "Trayectoria",
         "ORI_EXP_PLANO": "Plano de venta",
         "ORI_EXP_PREINSCRIPCION": "Preinscripción",
         "ORI_EXP_IMAGENES": "Imágenes",
@@ -884,6 +926,20 @@ def handle_guided_button_message(message):
         send_preinscription_category_list_if_needed(user_id)
         if not is_questionnaire_active(user_id):
             send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS)
+        return True
+
+    if button_id == "ORI_EXP_TRAYECTORIA":
+        send_whatsapp_text(user_id, EXHIBITOR_TRAJECTORY_TEXT)
+        send_first_fair_images(user_id)
+        time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
+        send_whatsapp_list(
+            user_id,
+            "¿Qué te gustaría revisar ahora?",
+            "Opciones expositor",
+            "Elegir opción",
+            EXHIBITOR_AFTER_TRAJECTORY_ROWS,
+        )
+        remember_menu_turn(user_id, "Trayectoria", EXHIBITOR_TRAJECTORY_TEXT)
         return True
 
     if button_id == "ORI_EXP_PLANO":
@@ -1146,6 +1202,14 @@ def send_preinscription_confirmation_buttons_if_needed(user_id):
 def send_fair_gallery_images(user_id):
     sent = False
     for image_url, caption in fair_gallery_image_urls()[:MAX_PREVIOUS_FAIR_IMAGES]:
+        send_whatsapp_image(user_id, image_url, caption)
+        sent = True
+    return sent
+
+
+def send_first_fair_images(user_id):
+    sent = False
+    for image_url, caption in first_fair_image_urls():
         send_whatsapp_image(user_id, image_url, caption)
         sent = True
     return sent
@@ -1443,6 +1507,11 @@ def local_image_media_for_url(image_url):
         content_type = image_content_type(file_path)
         if file_path.exists() and file_path.is_file() and content_type:
             return {"filename": filename, "mime_type": content_type, "content": file_path.read_bytes()}
+    if path.startswith("/primera_feria/"):
+        file_path = FIRST_FAIRS_DIR / filename
+        content_type = image_content_type(file_path)
+        if file_path.exists() and file_path.is_file() and content_type:
+            return {"filename": filename, "mime_type": content_type, "content": file_path.read_bytes()}
     return None
 
 
@@ -1636,6 +1705,31 @@ def previous_fair_image_urls():
         if path.is_file() and image_content_type(path):
             urls.append(f"{PUBLIC_BASE_URL}/ferias_anteriores/{urllib.parse.quote(path.name)}")
     return urls
+
+
+def first_fair_image_urls():
+    return [
+        (
+            f"{PUBLIC_BASE_URL}/primera_feria/Primera_feria_01.png",
+            "Primeras ferias de Feria Origen Colombia.",
+        ),
+        (
+            f"{PUBLIC_BASE_URL}/primera_feria/Primera_feria_02.png",
+            "Primeras ferias de Feria Origen Colombia.",
+        ),
+        (
+            f"{PUBLIC_BASE_URL}/primera_feria/Primera_feria_03.JPG",
+            "Primeras ferias de Feria Origen Colombia.",
+        ),
+        (
+            f"{PUBLIC_BASE_URL}/primera_feria/Primera_feria_04.JPG",
+            "Primeras ferias de Feria Origen Colombia.",
+        ),
+        (
+            f"{PUBLIC_BASE_URL}/primera_feria/Primera_feria_05.JPG",
+            "Primeras ferias de Feria Origen Colombia.",
+        ),
+    ]
 
 
 def fair_gallery_image_urls():
