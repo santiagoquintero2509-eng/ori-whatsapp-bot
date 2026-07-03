@@ -134,7 +134,7 @@ EXHIBITOR_MENU_TEXT = (
     "centro histórico Cartagena de Indias.\n\n"
     "Las categorías participantes son: arte, artesanía típica, joyería, calzado y vestuario, decoración, "
     "anticuarios, salud, belleza y gastronomía.\n\n"
-    "Hay dos espacios de exposición durante los 10 días de feria:\n\n"
+    "Hay dos espacios de exposición durante los 13 días de feria:\n\n"
     "Patio de las Artes: stands ubicados en los pasillos, alrededor del claustro colonial. "
     "La zona cuenta con ventiladores de gran formato.\n\n"
     "Salón Pierre Daguet: antigua capilla del convento San Diego, salón climatizado con aire acondicionado.\n\n"
