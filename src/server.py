@@ -84,7 +84,7 @@ HISTORY_LOG_WORKER_STARTED = False
 WELCOME_BUTTON_TEXT = (
     "Hola, soy Ori Colombia, tu asistente virtual de Feria Origen Colombia.\n\n"
     "¡Me alegra saludarte! Origen Colombia es una feria para descubrir y conectar con el talento colombiano: "
-    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura, visitantes internacionales "
+    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura, expositores internacionales "
     "y emprendimientos con identidad.\n\n"
     "Puedo ayudarte con información del evento y el proceso para participar como expositor.\n\n"
     "¿Qué te gustaría hacer primero?"
@@ -98,7 +98,7 @@ MAIN_MENU_BUTTONS = WELCOME_BUTTONS
 WELCOME_BUTTON_TEXT = (
     "Hola, soy Ori Colombia, tu asistente virtual de Feria Origen Colombia.\n\n"
     "¡Me alegra saludarte! Origen Colombia es una feria para descubrir y conectar con el talento colombiano: "
-    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura, visitantes internacionales "
+    "arte, diseño, moda, joyería, gastronomía, artesanías, bienestar, cultura, expositores internacionales "
     "y emprendimientos con identidad.\n\n"
     "Puedo ayudarte con información del evento y el proceso para participar como expositor.\n\n"
     "¿Qué te gustaría hacer primero?"
@@ -481,7 +481,7 @@ def handle_whatsapp_payload(payload):
                 PLANO_STANDS_URL,
                 "Plano de stands Feria Origen Colombia 2027.",
             )
-        if should_send_previous_fair_images(message["text"]) and should_send_previous_fair_images_now(message["from"]):
+        if should_send_previous_fair_images(message["text"]):
             for image_url, caption in fair_gallery_image_urls()[:MAX_PREVIOUS_FAIR_IMAGES]:
                 send_whatsapp_image(
                     message["from"],
@@ -921,11 +921,24 @@ def handle_guided_button_message(message):
         remember_menu_turn(user_id, "Imagenes", first_reply + "\n\n" + second_reply)
         return True
 
+    if button_id == "ORI_VIS_IMAGENES":
+        first_reply = (
+            "¡Claro! Te comparto algunas imágenes para que puedas hacerte una idea del ambiente de la feria.\n\n"
+            "Vas a ver espacios pensados para recorrer, descubrir marcas colombianas y vivir una experiencia "
+            "cercana con el talento local."
+        )
+        send_whatsapp_text(user_id, first_reply)
+        media_sent = send_fair_gallery_images(user_id)
+        if media_sent:
+            time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
+        send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", VISITOR_AFTER_IMAGES_BUTTONS)
+        remember_menu_turn(user_id, "Imagenes de la feria", first_reply)
+        return True
+
     guided_actions = {
         "ORI_EXP_PRECIOS": ("precios de stands", EXHIBITOR_AFTER_REPLY_BUTTONS),
         "ORI_VIS_LLEGAR": ("como llegar", VISITOR_AFTER_ARRIVAL_BUTTONS),
         "ORI_VIS_CERCA": ("lugares cercanos a la feria", VISITOR_AFTER_NEARBY_BUTTONS),
-        "ORI_VIS_IMAGENES": ("imagenes de la feria", VISITOR_AFTER_IMAGES_BUTTONS),
     }
     if button_id not in guided_actions:
         return False
@@ -1147,7 +1160,7 @@ def send_context_media_if_needed(user_id, message_text, reply):
             "Plano de stands Feria Origen Colombia 2027.",
         )
         media_sent = True
-    if should_send_previous_fair_images(message_text) and should_send_previous_fair_images_now(user_id):
+    if should_send_previous_fair_images(message_text):
         media_sent = send_fair_gallery_images(user_id) or media_sent
     return media_sent
 
@@ -1407,13 +1420,88 @@ def subscribe_app_to_whatsapp():
         print(f"No se pudo conectar para suscribir la app a WhatsApp: {error}", flush=True)
 
 
+def local_image_media_for_url(image_url):
+    parsed = urllib.parse.urlparse(image_url or "")
+    path = urllib.parse.unquote(parsed.path or "")
+    filename = Path(path).name
+    if path == "/plano_stands.jpg" and PLANO_STANDS_JPG_BASE64:
+        return {
+            "filename": "plano_stands.jpg",
+            "mime_type": "image/jpeg",
+            "content": base64.b64decode(PLANO_STANDS_JPG_BASE64),
+        }
+    if path.startswith("/bienvenida/"):
+        file_path = WELCOME_IMAGES_DIR / filename
+        content_type = image_content_type(file_path) or image_content_type(Path(filename))
+        if file_path.exists() and file_path.is_file() and content_type:
+            return {"filename": filename, "mime_type": content_type, "content": file_path.read_bytes()}
+        fallback = WELCOME_IMAGES_BASE64.get(filename, "")
+        if fallback and content_type:
+            return {"filename": filename, "mime_type": content_type, "content": base64.b64decode(fallback)}
+    if path.startswith("/ferias_anteriores/"):
+        file_path = PREVIOUS_FAIRS_DIR / filename
+        content_type = image_content_type(file_path)
+        if file_path.exists() and file_path.is_file() and content_type:
+            return {"filename": filename, "mime_type": content_type, "content": file_path.read_bytes()}
+    return None
+
+
+def upload_whatsapp_media(media):
+    boundary = f"----OriColombia{int(time.time() * 1000)}"
+    parts = []
+    for name, value in [
+        ("messaging_product", "whatsapp"),
+        ("type", media["mime_type"]),
+    ]:
+        parts.append(f"--{boundary}\r\n".encode("utf-8"))
+        parts.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"))
+        parts.append(str(value).encode("utf-8"))
+        parts.append(b"\r\n")
+    parts.append(f"--{boundary}\r\n".encode("utf-8"))
+    parts.append(
+        (
+            f'Content-Disposition: form-data; name="file"; filename="{media["filename"]}"\r\n'
+            f'Content-Type: {media["mime_type"]}\r\n\r\n'
+        ).encode("utf-8")
+    )
+    parts.append(media["content"])
+    parts.append(b"\r\n")
+    parts.append(f"--{boundary}--\r\n".encode("utf-8"))
+    data = b"".join(parts)
+    request = urllib.request.Request(
+        f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/media",
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "Content-Length": str(len(data)),
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        parsed = json.loads(response.read().decode("utf-8", errors="replace") or "{}")
+    media_id = parsed.get("id")
+    if not media_id:
+        raise RuntimeError(f"Meta no devolvio id de media: {parsed}")
+    return media_id
+
+
 def send_whatsapp_image(to, image_url, caption=""):
     if DRY_RUN or not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
         print(f"Envio de imagen omitido. URL del plano: {image_url}", flush=True)
         return
 
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
-    image_payload = {"link": image_url}
+    local_media = local_image_media_for_url(image_url)
+    if local_media:
+        try:
+            media_id = upload_whatsapp_media(local_media)
+            image_payload = {"id": media_id}
+        except Exception as error:
+            print(f"No se pudo subir imagen a Meta, se intenta por enlace: {error}", flush=True)
+            image_payload = {"link": image_url}
+    else:
+        image_payload = {"link": image_url}
     if caption:
         image_payload["caption"] = caption
 
@@ -1441,7 +1529,9 @@ def send_whatsapp_image(to, image_url, caption=""):
             log_outgoing_message(to, "image", caption or image_url, extra={"image_url": image_url})
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar imagen: {detail}") from error
+        print(f"WhatsApp API respondio {error.code} al enviar imagen: {detail}", flush=True)
+    except urllib.error.URLError as error:
+        print(f"No se pudo conectar para enviar imagen a WhatsApp: {error}", flush=True)
 
 
 def should_send_plan_image(message, reply=""):
