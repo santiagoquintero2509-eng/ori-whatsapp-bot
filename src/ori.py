@@ -1868,6 +1868,42 @@ def admin_chat_history_reply(period="all", admin_key=None):
     return "\n".join(lines)
 
 
+def admin_chat_phone_list_reply(period="all", admin_key=None):
+    contacts = []
+    for user_id, memory in CONVERSATIONS.items():
+        history_item = latest_customer_history_item(user_id, memory, admin_key)
+        if not history_item:
+            continue
+
+        updated_at = parse_datetime(history_item.get("created_at")) or parse_datetime(memory.get("updated_at") or memory.get("created_at"))
+        if not history_period_matches(updated_at, period):
+            continue
+        contacts.append((updated_at or datetime.min.replace(tzinfo=timezone.utc), user_id, memory, history_item))
+
+    contacts.extend(load_conversation_log_contacts(period, existing_user_ids={item[1] for item in contacts}))
+    contacts.sort(key=lambda item: item[0], reverse=True)
+
+    seen = set()
+    phones = []
+    for _, user_id, memory, _ in contacts:
+        phone = str(memory.get("phone") or user_id or "").strip()
+        normalized_phone = normalize_phone(phone)
+        if not normalized_phone or normalized_phone in seen:
+            continue
+        seen.add(normalized_phone)
+        phones.append(normalized_phone)
+
+    label = {"today": "hoy", "yesterday": "ayer", "all": "en general"}.get(period, "en general")
+    if not phones:
+        return f"No encontré números que le hayan escrito {label}."
+
+    lines = [f"Números que le han escrito {label}: {len(phones)}"]
+    lines.extend(f"- {phone}" for phone in phones[:50])
+    if len(phones) > 50:
+        lines.append(f"... y {len(phones) - 50} números más.")
+    return "\n".join(lines)
+
+
 def latest_customer_history_item(user_id, memory, admin_key=None):
     last_customer_message = memory.get("last_customer_message")
     last_customer_at = parse_datetime(memory.get("last_customer_at"))

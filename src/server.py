@@ -20,6 +20,7 @@ from ori import (
     admin_guided_record_detail,
     admin_prepare_guided_assignment,
     admin_prepare_guided_release,
+    admin_chat_phone_list_reply,
     get_memory,
     get_ori_reply,
     is_admin_entry_message,
@@ -305,6 +306,12 @@ ADMIN_MENU_BUTTONS = [
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados"},
     {"id": "ORI_ADM_EXIT", "title": "Cerrar interno"},
 ]
+ADMIN_MENU_ROWS = [
+    {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos", "description": "Marcas pendientes por confirmar stand."},
+    {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados", "description": "Expositores con stand confirmado."},
+    {"id": "ORI_ADM_CONTACTS", "title": "Quiénes han escrito", "description": "Lista solo de números de WhatsApp."},
+    {"id": "ORI_ADM_EXIT", "title": "Cerrar interno", "description": "Salir del acceso interno."},
+]
 ADMIN_RECORD_PRE_BUTTONS = [
     {"id": "ORI_ADM_ASSIGN", "title": "Asignar stand"},
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
@@ -510,7 +517,7 @@ def handle_whatsapp_payload(payload):
         send_preinscription_category_list_if_needed(message["from"])
         send_preinscription_confirmation_buttons_if_needed(message["from"])
         if is_admin_entry_message(message.get("text", "")):
-            send_whatsapp_buttons(message["from"], admin_guided_menu_text(), ADMIN_MENU_BUTTONS)
+            send_admin_menu(message["from"])
             continue
         if is_admin_exit_message(message.get("text", "")):
             continue
@@ -780,6 +787,7 @@ def button_reply_text(button_id, title):
         "ORI_ADM_MENU": "Menú interno",
         "ORI_ADM_PREINSCRITOS": "Preinscritos",
         "ORI_ADM_CONFIRMADOS": "Confirmados",
+        "ORI_ADM_CONTACTS": "Quiénes han escrito",
         "ORI_ADM_ASSIGN": "Asignar stand",
         "ORI_ADM_RELEASE": "Liberar stand",
         "ORI_ADM_EXIT": "Cerrar interno",
@@ -1011,13 +1019,23 @@ def handle_guided_button_message(message):
     return True
 
 
+def send_admin_menu(user_id, body=None):
+    send_whatsapp_list(
+        user_id,
+        body or admin_guided_menu_text(),
+        "Menú interno",
+        "Elegir opción",
+        ADMIN_MENU_ROWS,
+    )
+
+
 def handle_admin_guided_button_message(user_id, button_id):
     if not is_admin_session_active(user_id):
         send_whatsapp_text(user_id, "Puedo ayudarte con información de la feria, ubicación, stands, productos y participación.")
         return True
 
     if button_id == "ORI_ADM_MENU":
-        send_whatsapp_buttons(user_id, admin_guided_menu_text(), ADMIN_MENU_BUTTONS)
+        send_admin_menu(user_id)
         remember_menu_turn(user_id, "Menú interno", admin_guided_menu_text())
         return True
 
@@ -1046,7 +1064,7 @@ def handle_admin_guided_button_message(user_id, button_id):
             send_whatsapp_list(user_id, body, "Preinscritos", "Ver lista", rows)
         else:
             send_whatsapp_text(user_id, body)
-            send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", ADMIN_MENU_BUTTONS)
+            send_admin_menu(user_id, "Puedes elegir otra opcion:")
         remember_menu_turn(user_id, "Preinscritos", body)
         return True
 
@@ -1056,8 +1074,15 @@ def handle_admin_guided_button_message(user_id, button_id):
             send_whatsapp_list(user_id, body, "Confirmados", "Ver lista", rows)
         else:
             send_whatsapp_text(user_id, body)
-            send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", ADMIN_MENU_BUTTONS)
+            send_admin_menu(user_id, "Puedes elegir otra opcion:")
         remember_menu_turn(user_id, "Confirmados", body)
+        return True
+
+    if button_id == "ORI_ADM_CONTACTS":
+        reply = admin_chat_phone_list_reply("all", admin_key=user_id)
+        send_whatsapp_text(user_id, reply)
+        send_admin_menu(user_id, "Puedes elegir otra opcion:")
+        remember_menu_turn(user_id, "Quienes han escrito", reply)
         return True
 
     if button_id.startswith("ORI_ADM_PRE_") or button_id.startswith("ORI_ADM_CON_"):
@@ -1068,7 +1093,7 @@ def handle_admin_guided_button_message(user_id, button_id):
         elif kind == "confirmado":
             send_whatsapp_buttons(user_id, "¿Qué quieres hacer con este expositor?", ADMIN_RECORD_CONF_BUTTONS)
         else:
-            send_whatsapp_buttons(user_id, "¿Volvemos al menú interno?", ADMIN_MENU_BUTTONS)
+            send_admin_menu(user_id, "Volvemos al menu interno?")
         remember_menu_turn(user_id, button_reply_text(button_id, ""), reply)
         return True
 
