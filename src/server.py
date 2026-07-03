@@ -191,8 +191,24 @@ VISITOR_MENU_BUTTONS = [
     {"id": "ORI_VIS_LLEGAR", "title": "Cómo llegar"},
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
 ]
+VISITOR_MENU_ROWS = [
+    {"id": "ORI_VIS_INFO", "title": "Info feria", "description": "Fechas, acceso y datos generales."},
+    {"id": "ORI_VIS_TRAYECTORIA", "title": "Trayectoria", "description": "Historia y recorrido de la feria."},
+    {"id": "ORI_VIS_LLEGAR", "title": "Cómo llegar", "description": "Ubicación y ruta en Google Maps."},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Lo que encontrarás en la feria."},
+    {"id": "ORI_VIS_IMAGENES", "title": "Imágenes", "description": "Fotos de la feria y espacios."},
+    {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
+]
+VISITOR_AFTER_TRAJECTORY_ROWS = [
+    {"id": "ORI_VIS_INFO", "title": "Info feria", "description": "Fechas, acceso y datos generales."},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Lo que encontrarás en la feria."},
+    {"id": "ORI_VIS_IMAGENES", "title": "Imágenes", "description": "Fotos de la feria y espacios."},
+    {"id": "ORI_VIS_LLEGAR", "title": "Cómo llegar", "description": "Ubicación y ruta en Google Maps."},
+    {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
+]
 VISITOR_INFO_LIST_ROWS = [
-    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Categorías y productos que encontrarás."},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Productos que encontrarás."},
+    {"id": "ORI_VIS_TRAYECTORIA", "title": "Trayectoria", "description": "Historia y recorrido de la feria."},
     {"id": "ORI_VIS_PROMOCIONES", "title": "Promociones", "description": "Ofertas o novedades disponibles."},
     {"id": "ORI_VIS_IMAGENES", "title": "Imágenes", "description": "Fotos de la feria y espacios."},
     {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
@@ -239,12 +255,7 @@ EXHIBITOR_AFTER_REPLY_BUTTONS = [
 EXHIBITOR_AFTER_PLAN_BUTTONS = [
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
     {"id": "ORI_EXP_IMAGENES", "title": "Imágenes"},
-    {"id": "ORI_MENU", "title": "Volver al menú"},
-]
-EXHIBITOR_AFTER_PLAN_BUTTONS = [
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
     {"id": "ORI_MENU", "title": "Menú principal"},
-    {"id": "ORI_ADVISOR", "title": "Hablar con un asesor"},
 ]
 EXHIBITOR_CATEGORY_ROWS = [
     {"id": "ORI_PRE_CAT_ARTE", "title": "Arte", "description": "Obras, piezas y propuestas creativas."},
@@ -267,8 +278,8 @@ EXHIBITOR_CATEGORY_BY_BUTTON = {
     "ORI_PRE_CAT_GASTRONOMIA": "Gastronomía",
 }
 EXHIBITOR_AFTER_IMAGES_BUTTONS = [
+    {"id": "ORI_EXP_TRAYECTORIA", "title": "Trayectoria"},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
     {"id": "ORI_MENU", "title": "Inicio"},
 ]
 EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS = [
@@ -298,7 +309,7 @@ VISITOR_AFTER_NEARBY_BUTTONS = [
 ]
 VISITOR_AFTER_IMAGES_BUTTONS = [
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
-    {"id": "ORI_VIS_INFO", "title": "Info feria"},
+    {"id": "ORI_VIS_TRAYECTORIA", "title": "Trayectoria"},
     {"id": "ORI_MENU", "title": "Volver al menú"},
 ]
 ADMIN_MENU_BUTTONS = [
@@ -773,6 +784,7 @@ def button_reply_text(button_id, title):
         "ORI_VIS_PRODUCTOS": "Productos",
         "ORI_VIS_PROMOCIONES": "Promociones",
         "ORI_VIS_IMAGENES": "Imágenes de la feria",
+        "ORI_VIS_TRAYECTORIA": "Trayectoria",
         "ORI_VIS_CERCA": "Lugares cerca",
         "ORI_VIS_CAT_ARTE": "Arte",
         "ORI_VIS_CAT_ARTESANIA": "Artesanía",
@@ -829,7 +841,13 @@ def handle_guided_button_message(message):
         memory["last_intent"] = "visitor_menu"
         memory["guided_mode"] = "visitante"
         save_persistent_state()
-        send_whatsapp_buttons(user_id, VISITOR_MENU_TEXT, VISITOR_MENU_BUTTONS)
+        send_whatsapp_list(
+            user_id,
+            VISITOR_MENU_TEXT,
+            "Opciones visitante",
+            "Elegir opción",
+            VISITOR_MENU_ROWS,
+        )
         remember_menu_turn(user_id, "Quiero visitar", VISITOR_MENU_TEXT)
         return True
 
@@ -882,15 +900,15 @@ def handle_guided_button_message(message):
         reply = (
             "En la feria encontrarás propuestas colombianas de arte, artesanía, joyería, moda, "
             "decoración, anticuarios, salud y belleza, gastronomía y otras marcas con identidad.\n\n"
-            "Elige una categoría y te cuento un poco más sobre lo que podrás encontrar."
+            "Vas a encontrar productos con historia, diseño, oficio y mucho talento colombiano."
         )
         send_whatsapp_text(user_id, reply)
         send_whatsapp_list(
             user_id,
-            "¿Qué categoría quieres revisar?",
-            "Categorías",
-            "Ver categorías",
-            VISITOR_PRODUCT_CATEGORY_ROWS,
+            "¿Qué te gustaría revisar ahora?",
+            "Opciones visitante",
+            "Elegir opción",
+            VISITOR_AFTER_TRAJECTORY_ROWS,
         )
         remember_menu_turn(user_id, "Productos", reply)
         return True
@@ -947,6 +965,20 @@ def handle_guided_button_message(message):
             "Opciones expositor",
             "Elegir opción",
             EXHIBITOR_AFTER_TRAJECTORY_ROWS,
+        )
+        remember_menu_turn(user_id, "Trayectoria", EXHIBITOR_TRAJECTORY_TEXT)
+        return True
+
+    if button_id == "ORI_VIS_TRAYECTORIA":
+        send_whatsapp_text(user_id, EXHIBITOR_TRAJECTORY_TEXT)
+        send_first_fair_images(user_id)
+        time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
+        send_whatsapp_list(
+            user_id,
+            "¿Qué te gustaría revisar ahora?",
+            "Opciones visitante",
+            "Elegir opción",
+            VISITOR_AFTER_TRAJECTORY_ROWS,
         )
         remember_menu_turn(user_id, "Trayectoria", EXHIBITOR_TRAJECTORY_TEXT)
         return True
@@ -1179,7 +1211,7 @@ def send_guided_menu_for_free_text(message):
     if mode == "expositor":
         send_exhibitor_menu(user_id, text)
     elif mode == "visitante":
-        send_whatsapp_buttons(user_id, text, VISITOR_MENU_BUTTONS)
+        send_whatsapp_list(user_id, text, "Opciones visitante", "Elegir opción", VISITOR_MENU_ROWS)
     else:
         send_whatsapp_buttons(user_id, text, MAIN_MENU_BUTTONS)
     remember_menu_turn(user_id, message.get("text") or "[mensaje libre]", text)
@@ -1740,26 +1772,27 @@ def previous_fair_image_urls():
 
 
 def first_fair_image_urls():
+    caption = "Lanzamiento Origen Colombia - Noviembre 2003"
     return [
         (
             f"{PUBLIC_BASE_URL}/primera_feria/Primera_feria_01.png",
-            "Primeras ferias de Feria Origen Colombia.",
+            caption,
         ),
         (
             f"{PUBLIC_BASE_URL}/primera_feria/Primera_feria_02.png",
-            "Primeras ferias de Feria Origen Colombia.",
+            caption,
         ),
         (
             f"{PUBLIC_BASE_URL}/primera_feria/Primera_feria_03.JPG",
-            "Primeras ferias de Feria Origen Colombia.",
+            caption,
         ),
         (
             f"{PUBLIC_BASE_URL}/primera_feria/Primera_feria_04.JPG",
-            "Primeras ferias de Feria Origen Colombia.",
+            caption,
         ),
         (
             f"{PUBLIC_BASE_URL}/primera_feria/Primera_feria_05.JPG",
-            "Primeras ferias de Feria Origen Colombia.",
+            caption,
         ),
     ]
 
