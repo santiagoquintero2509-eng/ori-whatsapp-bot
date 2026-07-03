@@ -71,6 +71,7 @@ PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
 FIRST_FAIRS_DIR = PUBLIC_DIR / "primera_feria"
+ORI_WELCOME_IMAGE_URL = f"{PUBLIC_BASE_URL}/bienvenida/ori_colombia.png"
 LAST_PLAN_IMAGE_SENT = {}
 LAST_PREVIOUS_FAIR_IMAGES_SENT = {}
 PLAN_IMAGE_COOLDOWN_SECONDS = 600
@@ -482,7 +483,7 @@ def handle_whatsapp_payload(payload):
 
         if should_send_initial_welcome_buttons(message):
             mark_welcome_buttons_sent(message["from"], message["text"])
-            send_whatsapp_buttons(message["from"], WELCOME_BUTTON_TEXT, WELCOME_BUTTONS)
+            send_initial_welcome(message["from"])
             continue
 
         if should_block_free_text(message):
@@ -1123,6 +1124,12 @@ def mark_welcome_buttons_sent(user_id, user_message):
     memory["guided_mode"] = "main"
     remember_turn(memory, user_message or "[inicio]", WELCOME_BUTTON_TEXT)
     save_persistent_state()
+
+
+def send_initial_welcome(user_id):
+    send_whatsapp_image(user_id, ORI_WELCOME_IMAGE_URL, "Ori Colombia.")
+    time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
+    send_whatsapp_buttons(user_id, WELCOME_BUTTON_TEXT, WELCOME_BUTTONS)
 
 
 def should_block_free_text(message):
