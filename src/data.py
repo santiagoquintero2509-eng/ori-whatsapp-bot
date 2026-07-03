@@ -28,25 +28,25 @@ FAIR_INFO = {
     "dates": "del 2 al 14 de enero de 2027",
     "venue": "Sede UNIBAC",
     "official_site": "https://www.origencolombia.com/",
-    "purpose": "conectar talento, tradicion y oportunidades que impulsan lo mejor de Colombia.",
+    "purpose": "conectar talento, tradición y oportunidades que impulsan lo mejor de Colombia.",
     "tagline": "#SoyOrigenColombia",
-    "experience_years": "22 anos de experiencia",
+    "experience_years": "22 años de experiencia",
     "total_fairs": "28 ferias realizadas",
-    "total_exhibitors": "mas de 1.000 expositores totales",
-    "visitors_per_event": "mas de 8.000 visitantes por evento",
+    "total_exhibitors": "más de 1.000 expositores totales",
+    "visitors_per_event": "más de 8.000 visitantes por evento",
     "official_fairs": (
         "Feria Origen Colombia Semana Santa 2026, Feria Origen Diciembre 2026 "
         "y Feria Origen Colombia Semana Santa 2027."
     ),
     "registration_form_url": "https://www.origencolombia.com/origen-colombia-2027/#ffff",
-    "registration_form_label": "Formulario de inscripcion - 29a Feria Origen Colombia Semana Santa 2026",
+    "registration_form_label": "Formulario de inscripción - 29a Feria Origen Colombia Semana Santa 2026",
     "registration_form_note": (
-        "El boton 'Inscribete' de la web oficial lleva al formulario publicado para "
+        "El botón 'Inscríbete' de la web oficial lleva al formulario publicado para "
         "la 29a Feria Origen Colombia Semana Santa 2026."
     ),
     "active_fair_public_note": (
         "En la web oficial aparece la 29a Feria Origen Colombia Semana Santa 2026 "
-        "con formulario de inscripcion. Tambien aparecen anunciadas Feria Origen "
+        "con formulario de inscripción. También aparecen anunciadas Feria Origen "
         "Diciembre 2026 y Semana Santa 2027 bajo el texto 'Tejiendo el Origen'."
     ),
     "visitor_summary": (
@@ -60,100 +60,100 @@ FAIR_INFO = {
     "previous_fairs_summary": (
         "Las ferias anteriores muestran una experiencia cercana y cultural: visitantes "
         "recorriendo stands, maestros artesanos compartiendo sus piezas, productos de "
-        "moda, arte, artesania, belleza, salud y gastronomia, y el ambiente historico "
+        "moda, arte, artesanía, belleza, salud y gastronomía, y el ambiente histórico "
         "del Convento de San Diego en Cartagena."
     ),
     "exhibitor_summary": (
         "Un espacio para que expositores presenten sus productos, conecten con visitantes "
-        "y reciban acompanamiento comercial."
+        "y reciban acompañamiento comercial."
     ),
     "ori_mission": (
-        "Ori acompana la decision: informa con claridad, sugiere opciones reales y abre el camino "
-        "hacia la preinscripcion o un asesor solo cuando el interes del cliente ya esta maduro."
+        "Ori acompaña la decisión: informa con claridad, sugiere opciones reales y abre el camino "
+        "hacia la preinscripción o un asesor solo cuando el interés del cliente ya está maduro."
     ),
     "visitor_mode": (
-        "Si la persona pregunta por la feria, productos, actividades, ubicacion, experiencia o marcas, "
-        "Ori actua como anfitriona para visitantes y turistas. No debe hablarle como expositor."
+        "Si la persona pregunta por la feria, productos, actividades, ubicación, experiencia o marcas, "
+        "Ori actúa como anfitriona para visitantes y turistas. No debe hablarle como expositor."
     ),
     "sales_mode": (
         "Ori adopta personalidad de asesora comercial solo cuando la persona expresa que quiere participar, "
         "exponer, vender, reservar un stand, conocer precios de stand o tiene una marca/emprendimiento."
     ),
     "confirmed_exhibitors_note": (
-        "Todavia no hay un listado oficial completo de expositores confirmados por marca. "
-        "Mientras tanto, Ori puede orientar por categorias y productos esperados."
+        "Todavía no hay un listado oficial completo de expositores confirmados por marca. "
+        "Mientras tanto, Ori puede orientar por categorías y productos esperados."
     ),
     "products": (
-        "arte, artesania tipica, joyeria, calzado y vestuario, decoracion, anticuarios, "
-        "salud y belleza, gastronomia, productos culturales y servicios creativos."
+        "arte, artesanía típica, joyería, calzado y vestuario, decoración, anticuarios, "
+        "salud y belleza, gastronomía, productos culturales y servicios creativos."
     ),
     "registration_categories": (
-        "Arte, Artesania tipica, Joyeria, Calzado y vestuario, Decoracion, "
-        "Anticuarios, Salud y belleza, Gastronomia."
+        "Arte, Artesanía típica, Joyería, Calzado y vestuario, Decoración, "
+        "Anticuarios, Salud y belleza, Gastronomía."
     ),
     "registration_fields": (
-        "razon social, nombre del representante, nombre para el stand, ciudad de origen, "
-        "WhatsApp, correo electronico, redes sociales o pagina web, categoria, productos "
-        "a participar, catalogo o imagenes y preguntas o comentarios."
+        "razón social, nombre del representante, nombre para el stand, ciudad de origen, "
+        "WhatsApp, correo electrónico, redes sociales o página web, categoría, productos "
+        "a participar, catálogo o imágenes y preguntas o comentarios."
     ),
     "activities": (
         "muestras comerciales, recorridos por stands, experiencias culturales, "
         "activaciones de marca y espacios de networking."
     ),
     "venue_history": (
-        "La sede esta en el Convento de San Diego, fundado en 1608 y terminado "
+        "La sede está en el Convento de San Diego, fundado en 1608 y terminado "
         "aproximadamente en 1625. Fue sede de los Franciscanos Recoletos Descalzos "
-        "hasta 1821, tuvo varios usos institucionales y en 1976 se establecio como "
-        "sede de la Escuela de Bellas Artes. En 2021 fue declarado Bien de Interes "
-        "Cultural de Caracter Nacional."
+        "hasta 1821, tuvo varios usos institucionales y en 1976 se estableció como "
+        "sede de la Escuela de Bellas Artes. En 2021 fue declarado Bien de Interés "
+        "Cultural de Carácter Nacional."
     ),
     "venue_context": (
         "Hoy el edificio es sede de la Institucion Universitaria Bellas Artes y Ciencias "
-        "de Bolivar, UNIBAC. Esta en la plaza de San Diego, en el centro historico de "
-        "Cartagena, cerca del Sofitel Santa Clara, las Bovedas, galerias y restaurantes."
+        "de Bolívar, UNIBAC. Está en la plaza de San Diego, en el centro histórico de "
+        "Cartagena, cerca del Sofitel Santa Clara, las Bóvedas, galerías y restaurantes."
     ),
     "nearby_places": (
-        "La feria queda en la plaza de San Diego, dentro del centro historico de Cartagena. "
-        "Cerca puedes encontrar el sector de San Diego, las Bovedas, la muralla, el Sofitel "
-        "Santa Clara, galerias, cafes, restaurantes y calles para caminar dentro del centro "
-        "historico. Ori no confirma horarios, precios ni disponibilidad de esos lugares."
+        "La feria queda en la plaza de San Diego, dentro del centro histórico de Cartagena. "
+        "Cerca puedes encontrar el sector de San Diego, las Bóvedas, la muralla, el Sofitel "
+        "Santa Clara, galerías, cafés, restaurantes y calles para caminar dentro del centro "
+        "histórico. Ori no confirma horarios, precios ni disponibilidad de esos lugares."
     ),
     "arrival_tip": (
         "Para llegar, el visitante puede pedir indicaciones hacia UNIBAC, Convento de San Diego "
-        "o plaza de San Diego, en el centro historico de Cartagena. Es una zona reconocida del "
-        "centro historico y cercana a Las Bovedas y al Sofitel Santa Clara."
+        "o plaza de San Diego, en el centro histórico de Cartagena. Es una zona reconocida del "
+        "centro histórico y cercana a Las Bóvedas y al Sofitel Santa Clara."
     ),
     "google_maps_url": "https://maps.google.com/?q=10.428161,-75.5473187",
     "arrival_guide": (
-        "Si el usuario pregunta como llegar, Ori debe actuar como guia local: confirmar que la feria "
-        "queda en el Claustro de San Diego / UNIBAC, plaza de San Diego, Centro Historico de Cartagena; "
-        "preguntar desde donde sale si no lo sabe; y si ya esta en Cartagena, sugerir buscar en Maps "
+        "Si el usuario pregunta cómo llegar, Ori debe actuar como guía local: confirmar que la feria "
+        "queda en el Claustro de San Diego / UNIBAC, plaza de San Diego, Centro Histórico de Cartagena; "
+        "preguntar desde dónde sale si no lo sabe; y si ya está en Cartagena, sugerir buscar en Maps "
         "'UNIBAC Cartagena' o 'Plaza de San Diego Cartagena'. En taxi o Uber puede pedir Plaza de San Diego "
-        "o UNIBAC Bellas Artes. Si esta en la Ciudad Amurallada puede caminar segun su punto de partida. "
-        "Desde Bocagrande el trayecto suele ser corto en taxi o app, dependiendo del trafico. No inventar tarifas."
+        "o UNIBAC Bellas Artes. Si está en la Ciudad Amurallada puede caminar según su punto de partida. "
+        "Desde Bocagrande el trayecto suele ser corto en taxi o app, dependiendo del tráfico. No inventar tarifas."
     ),
     "entry_cost": (
-        "Para visitantes, la entrada se maneja como acceso libre. La web oficial de la edicion 2027 no publica un costo de entrada diferente, "
-        "asi que no se deben inventar valores."
+        "Para visitantes, la entrada se maneja como acceso libre. La web oficial de la edición 2027 no publica un costo de entrada diferente, "
+        "así que no se deben inventar valores."
     ),
     "exhibition_spaces": {
         "patio": (
             "Patio de las Artes: espacio de convergencia donde los stands se ubican en "
             "pasillos formando un recorrido circular y continuo. Tiene arquitectura "
             "colonial, arcadas, vigas de madera, ventiladores de techo de gran formato "
-            "y acceso directo desde la calle por el zaguan."
+            "y acceso directo desde la calle por el zaguán."
         ),
         "salon": (
-            "Salon Pierre Daguet: antigua capilla colonial con techos artesonados de "
+            "Salón Pierre Daguet: antigua capilla colonial con techos artesonados de "
             "gran altura. Los stands se disponen en bloques e islas centrales para un "
-            "recorrido facil e intuitivo conectado con el patio central. Cuenta con aire "
+            "recorrido fácil e intuitivo conectado con el patio central. Cuenta con aire "
             "acondicionado y acceso directo desde la calle por el atrio principal."
         ),
     },
     "gallery_sections": "Familia Origen Colombia, Rostros Origen, Visitantes y Nuestro Espacio.",
     "location": (
         "La feria se realiza en la Sede UNIBAC, en el Convento de San Diego, plaza de "
-        "San Diego, centro historico de Cartagena."
+        "San Diego, centro histórico de Cartagena."
     ),
     "human_help": (
         "Por ahora no tengo un asesor disponible para transferirte desde este chat. "
@@ -161,7 +161,7 @@ FAIR_INFO = {
     ),
     "stand_includes": (
         "Todos los stands incluyen 3 muros blancos, excepto los esquineros que incluyen 2 muros blancos. "
-        "Tambien incluyen 1 mesa de 120 x 60 cm y 1 estante con 2 puestos de 180 cm."
+        "También incluyen 1 mesa de 120 x 60 cm y 1 estante con 2 puestos de 180 cm."
     ),
 }
 

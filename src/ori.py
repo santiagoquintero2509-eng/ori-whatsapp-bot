@@ -64,7 +64,7 @@ PREINSCRIPTION_FIELD_ORDER = [
 ]
 
 PREINSCRIPTION_FIELD_LABELS = {
-    "legal_name": "Razon social",
+    "legal_name": "Razón social",
     "representative": "Representante",
     "stand_name": "Nombre para el stand",
     "city": "Ciudad",
@@ -431,7 +431,7 @@ def handle_admin_command(raw_message, user_id=None):
 
     if not is_admin_user(user_id):
         if mentions_internal_access(text):
-            return "Puedo ayudarte con informacion de la feria, ubicacion, stands, productos y participacion."
+            return "Puedo ayudarte con información de la feria, ubicación, stands, productos y participación."
         return None
 
     pending = PERSISTENT_STATE.setdefault("admin_pending_actions", {}).get(admin_key)
@@ -442,7 +442,7 @@ def handle_admin_command(raw_message, user_id=None):
     if pending and cancels_admin_action(text):
         PERSISTENT_STATE["admin_pending_actions"].pop(admin_key, None)
         save_persistent_state()
-        return "Listo, no hice ningun cambio."
+        return "Listo, no hice ningún cambio."
 
     action = parse_admin_action(message, text)
     if not action:
@@ -452,12 +452,12 @@ def handle_admin_command(raw_message, user_id=None):
     if not action:
         return (
             "Acceso interno activo.\n\n"
-            "No voy a iniciar un flujo de cliente mientras estes en acceso interno. "
+            "No voy a iniciar un flujo de cliente mientras estés en acceso interno. "
             "Puedes pedirme datos de formularios, historial, clientes o stands.\n\n"
             "Ejemplos:\n"
-            "- quienes han llenado el formulario\n"
-            "- quienes te han escrito hoy\n"
-            "- dame la razon social de Arroz\n"
+            "- quiénes han llenado el formulario\n"
+            "- quiénes te han escrito hoy\n"
+            "- dame la razón social de Arroz\n"
             "- dale el stand 4 a una marca"
         )
 
@@ -504,7 +504,7 @@ def handle_admin_command(raw_message, user_id=None):
 
     if action["type"] == "chat_history_prompt":
         remember_admin_context(admin_key, "chat_history_period")
-        return "Claro. Que historial quieres revisar: hoy, ayer o en general?"
+        return "Claro. ¿Qué historial quieres revisar: hoy, ayer o en general?"
 
     if action["type"] == "chat_history":
         remember_admin_context(admin_key, "chat_history_period")
@@ -517,7 +517,7 @@ def handle_admin_command(raw_message, user_id=None):
     if action["type"] == "retry_form_lookup":
         last_query = PERSISTENT_STATE.get("admin_last_form_lookup", {}).get(admin_key, "")
         if not last_query:
-            return "Claro. Dime que razon social quieres consultar en el formulario."
+            return "Claro. Dime qué razón social quieres consultar en el formulario."
         return admin_form_lookup_reply(last_query, admin_key, force=True)
 
     if action["type"] == "form_summary":
@@ -983,14 +983,14 @@ def admin_action_confirmation_prompt(action):
         current = admin_stand_assignment(stand)
         current_note = ""
         if current:
-            current_note = f"\n\nAtencion: actualmente aparece confirmado para {current.get('brand', 'otra marca')}."
+            current_note = f"\n\nAtención: actualmente aparece confirmado para {current.get('brand', 'otra marca')}."
         sheet_owner = form_record_for_confirmed_stand(stand)
         if sheet_owner and not record_matches_brand(sheet_owner, brand):
-            current_note += f"\n\nAtencion: en la hoja ya aparece para {admin_record_title(sheet_owner)}."
+            current_note += f"\n\nAtención: en la hoja ya aparece para {admin_record_title(sheet_owner)}."
         return (
             f"Voy a marcar el stand {stand} como confirmado para {brand}.{current_note}\n\n"
-            "Al confirmar, Ori tambien enviara el mensaje de confirmacion al expositor.\n\n"
-            "Para aplicar el cambio, responde: si confirmo.\n"
+            "Al confirmar, Ori también enviará el mensaje de confirmación al expositor.\n\n"
+            "Para aplicar el cambio, responde: sí confirmo.\n"
             "Para dejarlo igual, responde: cancelar."
         )
 
@@ -1000,35 +1000,35 @@ def admin_action_confirmation_prompt(action):
         current = admin_stand_assignment(stand)
         current_note = ""
         if current:
-            current_note = f"\n\nAtencion: actualmente aparece {current.get('status', 'ocupado')} para {current.get('brand', 'administracion')}."
-        brand_note = f" para {brand}" if brand else " por administracion"
+            current_note = f"\n\nAtención: actualmente aparece {current.get('status', 'ocupado')} para {current.get('brand', 'administración')}."
+        brand_note = f" para {brand}" if brand else " por administración"
         return (
-            f"Voy a bloquear el stand {stand}{brand_note}. Ori dejara de ofrecerlo como disponible.{current_note}\n\n"
-            "Para aplicar el cambio, responde: si confirmo.\n"
+            f"Voy a bloquear el stand {stand}{brand_note}. Ori dejará de ofrecerlo como disponible.{current_note}\n\n"
+            "Para aplicar el cambio, responde: sí confirmo.\n"
             "Para dejarlo igual, responde: cancelar."
         )
 
     if action["type"] == "release_stand":
         return (
-            f"Voy a liberar la confirmacion administrativa del stand {action['stand']}.\n\n"
-            "Para aplicar el cambio, responde: si confirmo.\n"
+            f"Voy a liberar la confirmación administrativa del stand {action['stand']}.\n\n"
+            "Para aplicar el cambio, responde: sí confirmo.\n"
             "Para dejarlo igual, responde: cancelar."
         )
 
     if action["type"] == "reset_preinscription":
         return (
-            f"Voy a reiniciar el estado de preinscripcion del numero {action['phone']}.\n\n"
-            "Esto permite que ese contacto pueda iniciar una nueva preinscripcion por WhatsApp.\n\n"
-            "Para aplicar el cambio, responde: si confirmo.\n"
+            f"Voy a reiniciar el estado de preinscripción del número {action['phone']}.\n\n"
+            "Esto permite que ese contacto pueda iniciar una nueva preinscripción por WhatsApp.\n\n"
+            "Para aplicar el cambio, responde: sí confirmo.\n"
             "Para dejarlo igual, responde: cancelar."
         )
 
     if action["type"] == "forget_chat_memory":
         return (
             f"Voy a borrar toda la memoria de Ori asociada al chat {action['phone']}.\n\n"
-            "Esto reinicia la conversacion de ese numero, elimina su estado de preinscripcion, "
-            "quita formularios pendientes en cola y borra del Google Sheet la fila que coincida en la columna Telefono chat.\n\n"
-            "Para aplicar el cambio, responde: si confirmo.\n"
+            "Esto reinicia la conversación de ese número, elimina su estado de preinscripción, "
+            "quita formularios pendientes en cola y borra del Google Sheet la fila que coincida en la columna Teléfono chat.\n\n"
+            "Para aplicar el cambio, responde: sí confirmo.\n"
             "Para dejarlo igual, responde: cancelar."
         )
 
@@ -1047,7 +1047,7 @@ def execute_admin_action(admin_key, action):
     elif action["type"] == "forget_chat_memory":
         reply = forget_chat_memory_for_phone(action["phone"])
     else:
-        reply = "No pude aplicar esa accion."
+        reply = "No pude aplicar esa acción."
 
     PERSISTENT_STATE.setdefault("admin_pending_actions", {}).pop(admin_key, None)
     save_persistent_state()
@@ -1057,10 +1057,10 @@ def execute_admin_action(admin_key, action):
 def block_stand_by_admin(stand, brand=None):
     booth = base_booth(stand)
     if not booth:
-        return f"No encuentro el stand {stand} en el plano cargado, asi que no lo bloquee."
+        return f"No encuentro el stand {stand} en el plano cargado, así que no lo bloqueé."
 
     now = datetime.now(timezone.utc).isoformat()
-    label = brand or "Bloqueado por administracion"
+    label = brand or "Bloqueado por administración"
     matched_user_id, matched_memory = find_user_by_brand(brand) if brand else (None, None)
     assignment = {
         "stand": stand,
@@ -1090,7 +1090,7 @@ def block_stand_by_admin(stand, brand=None):
     save_persistent_state()
 
     return (
-        f"Listo. Bloquee el stand {stand}.\n\n"
+        f"Listo. Bloqueé el stand {stand}.\n\n"
         f"Estado actualizado: reservado / bloqueado.\n"
         f"Referencia: {label}."
     )
@@ -1099,12 +1099,12 @@ def block_stand_by_admin(stand, brand=None):
 def confirm_stand_for_brand(stand, brand):
     booth = base_booth(stand)
     if not booth:
-        return f"No encuentro el stand {stand} en el plano cargado, asi que no lo confirme."
+        return f"No encuentro el stand {stand} en el plano cargado, así que no lo confirmé."
 
     sheet_owner = form_record_for_confirmed_stand(stand)
     if sheet_owner and not record_matches_brand(sheet_owner, brand):
         return (
-            f"No confirme el stand {stand} porque ya aparece asignado a {admin_record_title(sheet_owner)} "
+            f"No confirmé el stand {stand} porque ya aparece asignado a {admin_record_title(sheet_owner)} "
             "en la hoja de preinscripciones."
         )
 
@@ -1158,13 +1158,13 @@ def confirm_stand_for_brand(stand, brand):
     user_note = ""
     if matched_memory:
         user_note = (
-            f"\nCategoria: {matched_memory.get('category') or 'sin categoria cargada'}"
+            f"\nCategoría: {matched_memory.get('category') or 'sin categoría cargada'}"
             f"\nProducto: {matched_memory.get('product') or 'sin producto cargado'}"
-            f"\nTelefono: {matched_memory.get('phone') or 'sin telefono'}"
+            f"\nTeléfono: {matched_memory.get('phone') or 'sin teléfono'}"
         )
 
     return (
-        f"Listo. Confirme el stand {stand} para {brand}.\n\n"
+        f"Listo. Confirmé el stand {stand} para {brand}.\n\n"
         f"Estado actualizado: ocupado / confirmado.{user_note}{sheet_note}{notification_note}"
     )
 
@@ -1176,26 +1176,26 @@ def sync_confirmed_stand_to_sheet(assignment, original_brand, stand):
         result = update_confirmed_stand(query, stand, representative=representative)
     except Exception as error:
         print(f"No se pudo actualizar stand confirmado en Sheet: {error}", flush=True)
-        return "\nHoja de calculo: no pude actualizarla en este momento."
+        return "\nHoja de cálculo: no pude actualizarla en este momento."
 
     if result.get("ok"):
-        return "\nHoja de calculo: stand confirmado actualizado."
+        return "\nHoja de cálculo: stand confirmado actualizado."
     if result.get("queued"):
-        return "\nHoja de calculo: actualizacion pendiente en cola."
-    return f"\nHoja de calculo: no pude actualizarla ({result.get('error') or 'sin detalle'})."
+        return "\nHoja de cálculo: actualización pendiente en cola."
+    return f"\nHoja de cálculo: no pude actualizarla ({result.get('error') or 'sin detalle'})."
 
 
 def send_exhibitor_confirmation_message(assignment, stand):
     phone = normalize_outbound_whatsapp_number(assignment.get("phone") or assignment.get("user_id"))
     if not phone:
-        return "\nMensaje al expositor: no pude enviarlo porque no encontre un WhatsApp valido."
+        return "\nMensaje al expositor: no pude enviarlo porque no encontré un WhatsApp válido."
 
     brand = assignment.get("brand") or "tu marca"
     message = exhibitor_confirmation_message(brand, stand)
     try:
         send_whatsapp_text_from_ori(phone, message)
     except Exception as error:
-        print(f"No se pudo enviar confirmacion al expositor {phone}: {error}", flush=True)
+        print(f"No se pudo enviar confirmación al expositor {phone}: {error}", flush=True)
         return "\nMensaje al expositor: no pude enviarlo en este momento."
 
     return "\nMensaje al expositor: enviado."
@@ -1203,10 +1203,10 @@ def send_exhibitor_confirmation_message(assignment, stand):
 
 def exhibitor_confirmation_message(brand, stand):
     return (
-        f"¡Que alegria darte esta noticia, {brand}!\n\n"
-        f"¡Nos emociona mucho contar contigo en esta edicion con el stand {stand}!\n\n"
-        "Tu preinscripcion para Feria Origen Colombia 2027 fue revisada y tu participacion ha sido confirmada.\n\n"
-        "Muy pronto el equipo organizador se comunicara contigo para continuar con los detalles de inscripcion, pagos y preparacion para la feria."
+        f"¡Qué alegría darte esta noticia, {brand}!\n\n"
+        f"¡Nos emociona mucho contar contigo en esta edición con el stand {stand}!\n\n"
+        "Tu preinscripción para Feria Origen Colombia 2027 fue revisada y tu participación ha sido confirmada.\n\n"
+        "Muy pronto el equipo organizador se comunicará contigo para continuar con los detalles de inscripción, pagos y preparación para la feria."
     )
 
 
@@ -1227,7 +1227,7 @@ def send_whatsapp_text_from_ori(to, body):
     graph_version = os.getenv("GRAPH_API_VERSION", "v20.0")
     dry_run = os.getenv("DRY_RUN", "true").lower() == "true"
     if dry_run or not token or not phone_number_id:
-        print(f"Envio de confirmacion omitido para {to}: DRY_RUN activo o faltan credenciales.", flush=True)
+        print(f"Envío de confirmación omitido para {to}: DRY_RUN activo o faltan credenciales.", flush=True)
         return
 
     url = f"https://graph.facebook.com/{graph_version}/{phone_number_id}/messages"
@@ -1270,12 +1270,12 @@ def admin_form_lookup_reply(query, admin_key=None, force=False):
         if error:
             return (
                 "No pude consultar la hoja de preinscripciones en este momento. "
-                "El enlace ya puede estar compartido, pero Google todavia puede bloquear la descarga CSV. "
-                "Revisa que la hoja permita lectura con enlace o publicala como CSV."
+                "El enlace ya puede estar compartido, pero Google todavía puede bloquear la descarga CSV. "
+                "Revisa que la hoja permita lectura con enlace o publícala como CSV."
             )
-        return f"No encontre una preinscripcion para {query} en la hoja conectada."
+        return f"No encontré una preinscripción para {query} en la hoja conectada."
 
-    return "Si, encontre esta preinscripcion:\n\n" + format_form_record(record)
+    return "Sí, encontré esta preinscripción:\n\n" + format_form_record(record)
 
 
 def admin_reason_social_lookup_reply(query):
@@ -1287,14 +1287,14 @@ def admin_reason_social_lookup_reply(query):
                 "No pude consultar la hoja de preinscripciones en este momento. "
                 "Intenta nuevamente en unos segundos."
             )
-        return f"No encontre una razon social asociada a {query} en la hoja conectada."
+        return f"No encontré una razón social asociada a {query} en la hoja conectada."
 
     legal_name = record.get("legal_name") or "sin dato"
     stand_name = record.get("stand_name") or query
     representative = record.get("representative") or "sin dato"
     whatsapp = record.get("whatsapp") or "sin dato"
     return (
-        f"La razon social asociada a {stand_name} es: {legal_name}.\n\n"
+        f"La razón social asociada a {stand_name} es: {legal_name}.\n\n"
         f"Representante: {representative}\n"
         f"WhatsApp: {whatsapp}"
     )
@@ -1308,7 +1308,7 @@ def admin_client_info_reply(query):
 
     if not record and not assignment and not memories:
         return (
-            f"No encontre informacion administrativa para {query} en la hoja, memoria de WhatsApp "
+            f"No encontré información administrativa para {query} en la hoja, memoria de WhatsApp "
             "ni stands confirmados. Puede estar escrito diferente."
         )
 
@@ -1318,7 +1318,7 @@ def admin_client_info_reply(query):
     if record:
         lines.extend(format_admin_record_lines(record))
     else:
-        lines.append("Formulario: no encontre registro en la hoja conectada.")
+        lines.append("Formulario: no encontré registro en la hoja conectada.")
 
     lines.append("")
     lines.extend(format_admin_assignment_lines(query, record, assignment, memories))
@@ -1329,15 +1329,15 @@ def admin_client_info_reply(query):
         if len(memories) > 1:
             lines.append(f"Otros chats posiblemente relacionados: {len(memories) - 1}.")
     else:
-        lines.append("Conversacion por WhatsApp: no encontre memoria asociada a esta marca o telefono.")
+        lines.append("Conversación por WhatsApp: no encontré memoria asociada a esta marca o teléfono.")
 
     return "\n".join(lines)
 
 
 def format_admin_record_lines(record):
     lines = [
-        "Formulario: preinscripcion recibida.",
-        f"Razon social: {record.get('legal_name') or 'sin dato'}",
+        "Formulario: preinscripción recibida.",
+        f"Razón social: {record.get('legal_name') or 'sin dato'}",
         f"Representante: {record.get('representative') or 'sin dato'}",
         f"Nombre para el stand: {record.get('stand_name') or 'sin dato'}",
         f"Ciudad: {record.get('city') or 'sin dato'}",
@@ -1348,7 +1348,7 @@ def format_admin_record_lines(record):
     if record.get("socials"):
         lines.append(f"Redes/web: {record.get('socials')}")
     if record.get("sample"):
-        lines.append(f"Muestra/catalogo: {record.get('sample')}")
+        lines.append(f"Muestra/catálogo: {record.get('sample')}")
     if record.get("comments"):
         lines.append(f"Comentarios: {record.get('comments')}")
     return lines
@@ -1357,14 +1357,14 @@ def format_admin_record_lines(record):
 def format_admin_assignment_lines(query, record, assignment, memories):
     if assignment:
         return [
-            f"Stand asignado: {assignment.get('stand') or 'sin numero'}",
+            f"Stand asignado: {assignment.get('stand') or 'sin número'}",
             f"Estado administrativo: {assignment.get('status') or 'confirmado'}",
         ]
 
     if record and record.get("confirmed_stand"):
         return [
             f"Stand asignado en hoja: {record.get('confirmed_stand')}",
-            "Estado administrativo: validar si esa columna corresponde a confirmacion final del equipo.",
+            "Estado administrativo: validar si esa columna corresponde a confirmación final del equipo.",
         ]
 
     for _, memory in memories:
@@ -1376,9 +1376,9 @@ def format_admin_assignment_lines(query, record, assignment, memories):
 
     return [
         "Stand asignado: pendiente.",
-        "Estado administrativo: preinscripcion recibida, pendiente de asignacion de stand."
+        "Estado administrativo: preinscripción recibida, pendiente de asignación de stand."
         if record
-        else "Estado administrativo: sin preinscripcion en hoja, revisar manualmente.",
+        else "Estado administrativo: sin preinscripción en hoja, revisar manualmente.",
     ]
 
 
@@ -1389,29 +1389,29 @@ def format_admin_memory_lines(memory_item):
     blocked = memory.get("blocked_stand")
     suggested = memory.get("last_suggested_stand")
     if selected:
-        parts.append(f"mostro interes en el stand {selected}")
+        parts.append(f"mostró interés en el stand {selected}")
     elif suggested:
-        parts.append(f"recibio sugerencia del stand {suggested}")
+        parts.append(f"recibió sugerencia del stand {suggested}")
     elif blocked:
-        parts.append(f"consulto el stand {blocked}, que aparece {STATUS_LABELS.get(memory.get('blocked_stand_status'), 'no disponible')}")
+        parts.append(f"consultó el stand {blocked}, que aparece {STATUS_LABELS.get(memory.get('blocked_stand_status'), 'no disponible')}")
     else:
         parts.append("ha conversado con Ori")
 
     if memory.get("form_submitted"):
-        parts.append("ya indico que lleno o envio el formulario")
+        parts.append("ya indicó que llenó o envió el formulario")
     elif memory.get("registration_link_sent_at"):
-        parts.append("ya recibio el link de preinscripcion")
+        parts.append("ya recibió el link de preinscripción")
     else:
-        parts.append("aun no indico formulario enviado")
+        parts.append("aún no indicó formulario enviado")
 
     lines = [
-        f"Conversacion por WhatsApp: {', y '.join(parts)}.",
-        f"Telefono del chat: {memory.get('phone') or user_id}",
+        f"Conversación por WhatsApp: {', y '.join(parts)}.",
+        f"Teléfono del chat: {memory.get('phone') or user_id}",
     ]
     if memory.get("brand"):
         lines.append(f"Marca detectada en chat: {memory.get('brand')}")
     if memory.get("category"):
-        lines.append(f"Categoria detectada en chat: {memory.get('category')}")
+        lines.append(f"Categoría detectada en chat: {memory.get('category')}")
     if memory.get("product"):
         lines.append(f"Producto detectado en chat: {memory.get('product')}")
     if memory.get("city"):
@@ -1423,18 +1423,18 @@ def admin_help_reply():
     return (
         "Acceso interno activo.\n\n"
         "Puedes pedirme, por ejemplo:\n"
-        "- Ori, dame mas informacion sobre Aurora Boreal\n"
-        "- Ori, que datos tienes de Panta\n"
-        "- Ori, dame la razon social de Arroz\n"
+        "- Ori, dame más información sobre Aurora Boreal\n"
+        "- Ori, qué datos tienes de Panta\n"
+        "- Ori, dame la razón social de Arroz\n"
         "- Ori, busca Aurora Boreal en el formulario\n"
-        "- Ori, Aurora Boreal ya lleno formulario?\n"
+        "- Ori, Aurora Boreal ya llenó formulario?\n"
         "- Ori, muestra preinscritos\n"
         "- Ori, ver formularios pendientes\n"
         "- Ori, reenviar formularios pendientes\n"
-        "- Ori, quienes le han escrito\n"
+        "- Ori, quiénes le han escrito\n"
         "- Ori, confirma el stand 3 para Aurora Boreal\n"
         "- Ori, dale el stand 29 a Zonum SAS\n"
-        "- Ori, reinicia preinscripcion de este numero 573004851602\n"
+        "- Ori, reinicia preinscripción de este número 573004851602\n"
         "- Ori, forg_573004851602\n"
         "- Ori, bloquea el stand 3\n"
         "- Ori, quien tiene el stand 3"
@@ -1444,7 +1444,7 @@ def admin_help_reply():
 def admin_guided_menu_text():
     return (
         "Acceso interno activo.\n\n"
-        "Elige que quieres revisar:"
+        "Elige qué quieres revisar:"
     )
 
 
@@ -1462,11 +1462,11 @@ def admin_guided_preinscribed_rows(admin_key):
     for index, record in enumerate(preinscribed[:10]):
         row_id = f"ORI_ADM_PRE_{index}"
         title = admin_record_title(record)
-        category = record.get("category") or "sin categoria"
+        category = record.get("category") or "sin categoría"
         interests = record.get("comments") or record.get("postdata") or record.get("raw", {}).get("Stands de interes", "")
         description = f"{category}"
         if interests:
-            description += f" - Interes: {interests}"
+            description += f" - Interés: {interests}"
         rows.append(
             {
                 "id": row_id,
@@ -1477,7 +1477,7 @@ def admin_guided_preinscribed_rows(admin_key):
         lookup[row_id] = {"kind": "preinscrito", "query": title, "record": record}
 
     save_admin_guided_lookup(admin_key, lookup)
-    body = f"Preinscritos pendientes: {len(preinscribed)}\n\nElige una razon social para revisar sus datos."
+    body = f"Preinscritos pendientes: {len(preinscribed)}\n\nElige una razón social para revisar sus datos."
     if len(preinscribed) > 10:
         body += f"\n\nMostrando los primeros 10 de {len(preinscribed)}."
     return body, rows
@@ -1498,7 +1498,7 @@ def admin_guided_confirmed_rows(admin_key):
         row_id = f"ORI_ADM_CON_{index}"
         title = admin_record_title(record)
         stand = str(record.get("confirmed_stand") or "").strip()
-        category = record.get("category") or "sin categoria"
+        category = record.get("category") or "sin categoría"
         rows.append(
             {
                 "id": row_id,
@@ -1509,7 +1509,7 @@ def admin_guided_confirmed_rows(admin_key):
         lookup[row_id] = {"kind": "confirmado", "query": title, "record": record}
 
     save_admin_guided_lookup(admin_key, lookup)
-    body = f"Expositores confirmados: {len(confirmed)}\n\nElige una razon social para ver el detalle."
+    body = f"Expositores confirmados: {len(confirmed)}\n\nElige una razón social para ver el detalle."
     if len(confirmed) > 10:
         body += f"\n\nMostrando los primeros 10 de {len(confirmed)}."
     return body, rows
@@ -1518,7 +1518,7 @@ def admin_guided_confirmed_rows(admin_key):
 def admin_guided_record_detail(admin_key, button_id):
     selected = admin_guided_selected_record(admin_key, button_id)
     if not selected:
-        return "No pude encontrar esa seleccion. Vuelve a abrir la lista y elige la razon social nuevamente.", None
+        return "No pude encontrar esa selección. Vuelve a abrir la lista y elige la razón social nuevamente.", None
 
     record = selected["record"]
     kind = selected["kind"]
@@ -1530,8 +1530,8 @@ def admin_guided_record_detail(admin_key, button_id):
 
     lines.extend(
         [
-            f"Categoria: {record.get('category') or 'sin categoria'}",
-            f"Stands de interes: {admin_record_stand_interests(record)}",
+            f"Categoría: {record.get('category') or 'sin categoría'}",
+            f"Stands de interés: {admin_record_stand_interests(record)}",
             f"Archivos de productos: {record.get('sample') or 'No registra'}",
             f"Representante: {record.get('representative') or 'sin dato'}",
             f"WhatsApp: {record.get('whatsapp') or 'sin dato'}",
@@ -1547,26 +1547,26 @@ def admin_guided_record_detail(admin_key, button_id):
 def admin_prepare_guided_assignment(admin_key):
     selected = get_admin_selected_record(admin_key)
     if not selected:
-        return "Primero elige una razon social desde Preinscritos o Confirmados."
+        return "Primero elige una razón social desde Preinscritos o Confirmados."
 
     brand = selected.get("query") or "esta marca"
     remember_admin_context(admin_key, "guided_assign_stand", brand=brand)
     return (
         f"Perfecto. Vamos a asignar un stand a {brand}.\n\n"
         f"{admin_available_stands_text()}\n\n"
-        "Escribe el numero del stand que quieres asignar."
+        "Escribe el número del stand que quieres asignar."
     )
 
 
 def admin_prepare_guided_release(admin_key):
     selected = get_admin_selected_record(admin_key)
     if not selected:
-        return "Primero elige una razon social desde Confirmados."
+        return "Primero elige una razón social desde Confirmados."
 
     record = find_form_record(selected.get("query"), force=True)
     stand = int(str(record.get("confirmed_stand") or "0").strip() or 0) if record else 0
     if not stand:
-        return "Esa razon social no tiene stand confirmado en la hoja."
+        return "Esa razón social no tiene stand confirmado en la hoja."
 
     action = {"type": "release_stand", "stand": stand}
     PERSISTENT_STATE.setdefault("admin_pending_actions", {})[admin_key] = action
@@ -1678,9 +1678,9 @@ def admin_no_form_records_reply():
     if last_form_error():
         return (
             "No pude consultar la hoja de preinscripciones en este momento. "
-            "Revisa la conexion con Google Sheet e intenta nuevamente."
+            "Revisa la conexión con Google Sheet e intenta nuevamente."
         )
-    return "No encontre preinscritos en la hoja conectada."
+    return "No encontré preinscritos en la hoja conectada."
 
 
 def confirmed_stands_from_sheet():
@@ -1701,11 +1701,11 @@ def admin_form_summary_reply(category=None, today_only=False):
         if error:
             return (
                 "No pude consultar la hoja de preinscripciones en este momento. "
-                "Revisa que la Google Sheet este compartida para lectura con el enlace."
+                "Revisa que la Google Sheet esté compartida para lectura con el enlace."
             )
         if category:
-            return f"No encontre preinscritos de {category} en la hoja conectada."
-        return "No encontre preinscritos en la hoja conectada."
+            return f"No encontré preinscritos de {category} en la hoja conectada."
+        return "No encontré preinscritos en la hoja conectada."
 
     title = "Preinscritos"
     if category:
@@ -1732,7 +1732,7 @@ def admin_unassigned_stands_reply():
                 "No pude consultar la hoja de preinscripciones en este momento. "
                 "Intenta nuevamente en unos segundos."
             )
-        return "No encontre preinscritos en la hoja conectada."
+        return "No encontré preinscritos en la hoja conectada."
 
     unassigned = [record for record in records if not record.get("confirmed_stand")]
     if not unassigned:
@@ -1758,7 +1758,7 @@ def record_stand_status(record):
 def admin_queue_status_reply():
     items = pending_queue_items()
     if not items:
-        return "No encontre formularios pendientes en la cola de este servidor."
+        return "No encontré formularios pendientes en la cola de este servidor."
 
     submit_items = [item for item in items if item.get("action") == "submit_preinscription"]
     file_items = [item for item in items if item.get("action") == "upload_file"]
@@ -1770,13 +1770,13 @@ def admin_queue_status_reply():
 
     for item in submit_items[:8]:
         data = item.get("data") or {}
-        brand = data.get("razon_social") or data.get("nombre_para_stand") or "sin razon social"
+        brand = data.get("razon_social") or data.get("nombre_para_stand") or "sin razón social"
         phone = data.get("whatsapp") or data.get("telefono_chat") or "sin WhatsApp"
         products = data.get("productos") or "sin producto"
         lines.append(f"- {brand}: {phone}, {products}")
 
     if len(submit_items) > 8:
-        lines.append(f"... y {len(submit_items) - 8} formularios mas.")
+        lines.append(f"... y {len(submit_items) - 8} formularios más.")
 
     lines.append("")
     lines.append("Para intentar subirlos al Sheet, escribe: Ori, reenviar formularios pendientes")
@@ -1786,10 +1786,10 @@ def admin_queue_status_reply():
 def admin_retry_pending_queue_reply():
     result = retry_pending_queue()
     if result.get("total", 0) == 0:
-        return "No encontre formularios pendientes en la cola de este servidor."
+        return "No encontré formularios pendientes en la cola de este servidor."
 
     lines = [
-        "Resultado de reenvio de cola:",
+        "Resultado de reenvío de cola:",
         f"- Pendientes encontrados: {result.get('total', 0)}",
         f"- Enviados correctamente: {result.get('sent', 0)}",
         f"- Siguen pendientes: {result.get('remaining', 0)}",
@@ -1827,7 +1827,7 @@ def admin_connection_status_reply():
         lines.append("- Carpeta madre de Drive: falta PREINSCRIPTION_DRIVE_FOLDER_ID.")
 
     lines.append("")
-    lines.append("Si falta el webhook, Ori puede conversar y recibir datos, pero no puede escribirlos todavia en Google Sheet/Drive.")
+    lines.append("Si falta el webhook, Ori puede conversar y recibir datos, pero no puede escribirlos todavía en Google Sheet/Drive.")
     return "\n".join(lines)
 
 
@@ -1848,23 +1848,23 @@ def admin_chat_history_reply(period="all", admin_key=None):
 
     label = {"today": "hoy", "yesterday": "ayer", "all": "en general"}.get(period, "en general")
     if not contacts:
-        return f"No encontre conversaciones de {label} en la memoria de Ori."
+        return f"No encontré conversaciones de {label} en la memoria de Ori."
 
     lines = [f"Conversaciones de {label}: {len(contacts)}"]
     for updated_at, user_id, memory, history_item in contacts[:15]:
-        phone = memory.get("phone") or user_id or "sin telefono"
+        phone = memory.get("phone") or user_id or "sin teléfono"
         brand = memory.get("brand") or "sin marca"
         role = memory.get("role") or "sin rol"
         stage = lead_stage(memory) if is_lead_memory(memory) else "sin etapa comercial"
         stand = memory.get("confirmed_stand") or memory.get("selected_stand") or memory.get("last_suggested_stand") or "sin stand"
-        last_message = history_item.get("user") or "sin ultimo mensaje"
+        last_message = history_item.get("user") or "sin último mensaje"
         lines.append(
             f"- {phone}: {brand}, {role}, stand {stand}, {stage}. "
-            f"Ultimo: {shorten_text(last_message, 80)} ({format_local_datetime(updated_at)})"
+            f"Último: {shorten_text(last_message, 80)} ({format_local_datetime(updated_at)})"
         )
 
     if len(contacts) > 15:
-        lines.append(f"... y {len(contacts) - 15} conversaciones mas.")
+        lines.append(f"... y {len(contacts) - 15} conversaciones más.")
     return "\n".join(lines)
 
 
@@ -2028,7 +2028,7 @@ def release_stand_confirmation(stand):
                 sheet_note = f"\nHoja de calculo: no pude limpiarla ({result.get('error') or 'sin detalle'})."
         except Exception as error:
             print(f"No se pudo liberar stand confirmado en Sheet: {error}", flush=True)
-            sheet_note = "\nHoja de calculo: no pude limpiarla en este momento."
+            sheet_note = "\nHoja de cálculo: no pude limpiarla en este momento."
 
     removed = PERSISTENT_STATE.setdefault("stands", {}).pop(str(stand), None)
     for memory in CONVERSATIONS.values():
@@ -2041,19 +2041,19 @@ def release_stand_confirmation(stand):
 
     save_persistent_state()
     if not removed and not sheet_record:
-        return f"El stand {stand} no tenia una confirmacion administrativa guardada."
-    return f"Listo. Libere la confirmacion administrativa del stand {stand}.{sheet_note}"
+        return f"El stand {stand} no tenía una confirmación administrativa guardada."
+    return f"Listo. Liberé la confirmación administrativa del stand {stand}.{sheet_note}"
 
 
 def reset_preinscription_for_phone(phone):
     user_id, memory = find_user_by_phone(phone)
     if not memory:
-        return f"No encontre memoria de WhatsApp para el numero {phone}."
+        return f"No encontré memoria de WhatsApp para el número {phone}."
 
     clear_preinscription_state(memory)
     memory["updated_at"] = datetime.now(timezone.utc).isoformat()
     save_persistent_state()
-    return f"Listo. Reinicie el estado de preinscripcion del numero {memory.get('phone') or user_id}."
+    return f"Listo. Reinicié el estado de preinscripción del número {memory.get('phone') or user_id}."
 
 
 def forget_chat_memory_for_phone(phone):
@@ -2070,15 +2070,15 @@ def forget_chat_memory_for_phone(phone):
         CONVERSATIONS.pop(user_id, None)
     save_persistent_state()
 
-    lines = [f"Listo. Reinicie todo lo asociado al chat {display_phone}."]
+    lines = [f"Listo. Reinicié todo lo asociado al chat {display_phone}."]
     lines.append("")
-    lines.append(f"- Memoria de WhatsApp: {'borrada' if removed_memory else 'no habia memoria local guardada'}")
+    lines.append(f"- Memoria de WhatsApp: {'borrada' if removed_memory else 'no había memoria local guardada'}")
     lines.append(f"- Stands internos asociados: {removed_stands}")
     lines.append(f"- Estados internos de administrador asociados: {removed_admin_state}")
     lines.append(f"- Formularios pendientes en cola: {removed_queue}")
     lines.append(f"- Google Sheet: {sheet_result}")
     lines.append("")
-    lines.append("La proxima vez que ese numero escriba, Ori lo tratara como una conversacion nueva.")
+    lines.append("La próxima vez que ese número escriba, Ori lo tratará como una conversación nueva.")
     return "\n".join(lines)
 
 
@@ -2111,11 +2111,11 @@ def remove_admin_state_for_phone(phone):
 
 def delete_sheet_preinscription_for_phone(phone):
     if not phone:
-        return "no se recibio un numero valido"
+        return "no se recibió un número válido"
     try:
         result = delete_preinscription_by_chat_phone(phone)
     except Exception as error:
-        print(f"No se pudo borrar preinscripcion en Sheet: {error}", flush=True)
+        print(f"No se pudo borrar preinscripción en Sheet: {error}", flush=True)
         return "no pude borrarla en este momento"
 
     if result.get("ok"):
@@ -2124,7 +2124,7 @@ def delete_sheet_preinscription_for_phone(phone):
             refresh_form_cache_after_delete()
             return f"fila eliminada ({deleted})"
         refresh_form_cache_after_delete()
-        return "no habia fila con ese Telefono chat"
+        return "no había fila con ese Teléfono chat"
     if result.get("queued"):
         return "borrado pendiente en cola"
     return f"no pude borrarla ({result.get('error') or 'sin detalle'})"
@@ -2184,10 +2184,10 @@ def admin_stand_owner_reply(stand):
         details = [
             f"Stand {stand}: confirmado / ocupado.",
             f"Marca o referencia: {record_brand(sheet_record)}",
-            f"Razon social: {sheet_record.get('legal_name') or 'sin dato'}",
+            f"Razón social: {sheet_record.get('legal_name') or 'sin dato'}",
             f"Representante: {sheet_record.get('representative') or 'sin dato'}",
             f"Producto: {sheet_record.get('products') or 'sin producto cargado'}",
-            f"Telefono: {sheet_record.get('whatsapp') or 'sin telefono'}",
+            f"Teléfono: {sheet_record.get('whatsapp') or 'sin teléfono'}",
         ]
         return "\n".join(details)
 
@@ -2200,9 +2200,9 @@ def admin_stand_owner_reply(stand):
         details = [
             f"Stand {stand}: {status} / ocupado.",
             f"Marca o referencia: {brand}",
-            f"Categoria: {assignment.get('category') or 'sin categoria cargada'}",
+            f"Categoría: {assignment.get('category') or 'sin categoría cargada'}",
             f"Producto: {assignment.get('product') or 'sin producto cargado'}",
-            f"Telefono: {assignment.get('phone') or assignment.get('user_id') or 'sin telefono'}",
+            f"Teléfono: {assignment.get('phone') or assignment.get('user_id') or 'sin teléfono'}",
         ]
         return "\n".join(details)
 
@@ -2213,7 +2213,7 @@ def admin_stand_owner_reply(stand):
         )
 
     status = STATUS_LABELS.get(booth.get("status"), booth.get("status"))
-    lines = [f"Stand {stand}: no tiene confirmacion administrativa guardada. Estado actual: {status}."]
+    lines = [f"Stand {stand}: no tiene confirmación administrativa guardada. Estado actual: {status}."]
     if interested:
         lines.append("")
         lines.append("Interesados detectados:")
@@ -2251,8 +2251,8 @@ def admin_brand_stand_assignment_reply(query):
         return (
             f"{brand} tiene el stand {stand} marcado en memoria administrativa.\n\n"
             f"Estado: {status}.\n"
-            f"Categoria: {assignment.get('category') or 'sin categoria cargada'}.\n"
-            f"Telefono: {assignment.get('phone') or assignment.get('user_id') or 'sin telefono'}."
+            f"Categoría: {assignment.get('category') or 'sin categoría cargada'}.\n"
+            f"Teléfono: {assignment.get('phone') or assignment.get('user_id') or 'sin teléfono'}."
         )
 
     if last_form_error():
@@ -2263,15 +2263,15 @@ def admin_brand_stand_assignment_reply(query):
 
     if record:
         return (
-            f"{record_brand(record)} si aparece en la hoja de preinscripciones, "
-            "pero por ahora no encuentro un stand asignado o confirmado para esa razon social.\n\n"
+            f"{record_brand(record)} sí aparece en la hoja de preinscripciones, "
+            "pero por ahora no encuentro un stand asignado o confirmado para esa razón social.\n\n"
             "Puedes confirmarlo con: Ori, confirma el stand 29 para "
             f"{record_brand(record)}"
         )
 
     return (
-        f"No encontre una preinscripcion ni un stand confirmado para {query}. "
-        "Puedes revisar el nombre exacto de la razon social o buscarla primero en el formulario."
+        f"No encontré una preinscripción ni un stand confirmado para {query}. "
+        "Puedes revisar el nombre exacto de la razón social o buscarla primero en el formulario."
     )
 
 
@@ -2314,7 +2314,7 @@ def admin_confirmed_stands_reply():
         lines.append(
             f"Stand {assignment.get('stand')}: {assignment.get('brand', 'sin marca')} "
             f"- {assignment.get('status') or 'confirmado'} "
-            f"({assignment.get('category') or 'sin categoria'})"
+            f"({assignment.get('category') or 'sin categoría'})"
         )
     return "\n".join(lines)
 
@@ -2340,17 +2340,17 @@ def admin_interested_summary_reply(category=None):
 
 def format_lead_line(memory):
     brand = memory.get("brand") or "sin marca"
-    category = memory.get("category") or "sin categoria"
+    category = memory.get("category") or "sin categoría"
     stand = memory.get("confirmed_stand") or memory.get("selected_stand") or "sin stand"
     stage = lead_stage(memory)
-    phone = memory.get("phone") or "sin telefono"
+    phone = memory.get("phone") or "sin teléfono"
     return f"- {brand}: {category}, stand {stand}, {stage}. Tel: {phone}"
 
 
 def format_form_lead_line(record):
     brand = record_brand(record)
-    category = record.get("category") or "sin categoria"
-    phone = record.get("whatsapp") or "sin telefono"
+    category = record.get("category") or "sin categoría"
+    phone = record.get("whatsapp") or "sin teléfono"
     city = record.get("city") or "sin ciudad"
     return f"- {brand}: {category}, {city}. Tel: {phone}"
 
@@ -3085,16 +3085,16 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
             return record_post_submission_correction(memory, message)
         if incoming_media:
             return (
-                "Recibi el archivo como complemento de tu preinscripcion.\n\n"
-                "No cree una nueva solicitud. El equipo revisara la informacion enviada y se comunicara contigo "
-                "para confirmar disponibilidad, inscripcion y metodos de pago."
+                "Recibí el archivo como complemento de tu preinscripción.\n\n"
+                "No creé una nueva solicitud. El equipo revisará la información enviada y se comunicará contigo "
+                "para confirmar disponibilidad, inscripción y métodos de pago."
             )
         if wants_to_correct_preinscription(text):
             memory["pending_field"] = "post_submission_correction"
             save_persistent_state()
             return (
-                "Claro, no voy a crear una nueva preinscripcion.\n\n"
-                "Escribeme el dato que quieres ajustar y lo dejare como nota para el equipo."
+                "Claro, no voy a crear una nueva preinscripción.\n\n"
+                "Escríbeme el dato que quieres ajustar y lo dejaré como nota para el equipo."
             )
         if pre.get("active"):
             pre["active"] = False
@@ -3114,8 +3114,8 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
         if pre.get("active") and pre.get("step") in {"files", "correction_files"}:
             return receive_preinscription_media(memory, incoming_media)
         return (
-            "Recibi el archivo. Si quieres hacer una preinscripcion, escribeme que deseas participar "
-            "y te guio paso a paso."
+            "Recibí el archivo. Si quieres hacer una preinscripción, escríbeme que deseas participar "
+            "y te guío paso a paso."
         )
 
     if not pre.get("active"):
@@ -3127,7 +3127,7 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
     if wants_to_cancel_preinscription(text):
         memory["preinscription"] = {}
         memory["pending_field"] = None
-        return "Listo, detuve la preinscripcion por ahora. Cuando quieras retomarla, escribeme que deseas participar."
+        return "Listo, detuve la preinscripción por ahora. Cuando quieras retomarla, escríbeme que deseas participar."
 
     step = pre.get("step") or next_preinscription_step(pre)
 
@@ -3156,7 +3156,7 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
             if unavailable:
                 unavailable_text = ", ".join(str(item) for item in unavailable)
                 return (
-                    f"Estos stands no aparecen disponibles en la informacion actual: {unavailable_text}.\n\n"
+                    f"Estos stands no aparecen disponibles en la información actual: {unavailable_text}.\n\n"
                     "Por favor dime 1 o 2 stands disponibles."
                 )
             updated_value = ", ".join(str(item) for item in valid[:2])
@@ -3166,7 +3166,7 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
         pre.pop("editing_field", None)
         pre["step"] = "confirmation"
         save_persistent_state()
-        return "Perfecto, ya actualice ese dato.\n\n" + preinscription_summary_reply(memory)
+        return "Perfecto, ya actualicé ese dato.\n\n" + preinscription_summary_reply(memory)
 
     if step == "correction_files":
         if incoming_media:
@@ -3178,7 +3178,7 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
             pre.pop("editing_field", None)
             pre["step"] = "confirmation"
             save_persistent_state()
-            return "Perfecto, deje los archivos como no enviados.\n\n" + preinscription_summary_reply(memory)
+            return "Perfecto, dejé los archivos como no enviados.\n\n" + preinscription_summary_reply(memory)
         if is_done_with_files(text):
             if not pre.get("files"):
                 pre["files_status"] = "No enviados"
@@ -3187,7 +3187,7 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
             pre.pop("editing_field", None)
             pre["step"] = "confirmation"
             save_persistent_state()
-            return "Perfecto, ya actualice los archivos.\n\n" + preinscription_summary_reply(memory)
+            return "Perfecto, ya actualicé los archivos.\n\n" + preinscription_summary_reply(memory)
         return preinscription_field_correction_prompt("files", memory)
 
     if step == "files":
@@ -3197,7 +3197,7 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
             save_persistent_state()
             return (
                 "No hay problema, podemos continuar sin archivos por ahora.\n\n"
-                "Si mas adelante tienes imagenes o catalogo, podras enviarlos para complementar la revision de tus productos.\n\n"
+                "Si más adelante tienes imágenes o catálogo, podrás enviarlos para complementar la revisión de tus productos.\n\n"
                 f"{preinscription_prompt('confirmation', memory)}"
             )
         if is_done_with_files(text):
@@ -3211,9 +3211,9 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
             save_persistent_state()
             return no_files_note + preinscription_prompt("confirmation", memory)
         return (
-            "Puedes enviarme imagenes, catalogo o PDF de tus productos.\n\n"
-            "Si no tienes archivos por ahora, escribeme 'no tengo'. "
-            "Cuando termines de enviarlos, escribeme 'listo'."
+            "Puedes enviarme imágenes, catálogo o PDF de tus productos.\n\n"
+            "Si no tienes archivos por ahora, escríbeme 'no tengo'. "
+            "Cuando termines de enviarlos, escríbeme 'listo'."
         )
 
     if step == "confirmation":
@@ -3223,7 +3223,7 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
             return preinscription_correction_options_reply()
         if confirms_preinscription(text):
             return finish_preinscription(memory)
-        return "Para enviarla, respondeme 'si confirmo'. Si quieres corregir algo, dime 'corregir'."
+        return "Para enviarla, respóndeme 'sí confirmo'. Si quieres corregir algo, dime 'corregir'."
 
     if step == "preferred_stands":
         stands = extract_preferred_stands(text)
@@ -3233,7 +3233,7 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
         if unavailable:
             unavailable_text = ", ".join(str(item) for item in unavailable)
             return (
-                f"Estos stands no aparecen disponibles en la informacion actual: {unavailable_text}.\n\n"
+                f"Estos stands no aparecen disponibles en la información actual: {unavailable_text}.\n\n"
                 "Por favor dime 1 o 2 stands disponibles."
             )
         selected_stands = ", ".join(str(item) for item in valid[:2])
@@ -3335,19 +3335,19 @@ def select_preinscription_category(memory, category):
 
 def preferred_stands_prompt():
     return (
-        "Perfecto! Ya tengo la informacion principal para tu preinscripcion.\n\n"
+        "¡Perfecto! Ya tengo la información principal para tu preinscripción.\n\n"
         "Antes de enviarla, te comparto el plano actual y estos son los stands disponibles:\n\n"
         f"{available_stands_text()}\n\n"
-        "Dime 1 o 2 stands de interes. Recuerda que la asignacion final queda sujeta "
-        "a confirmacion por parte del equipo organizador."
+        "Dime 1 o 2 stands de interés. Recuerda que la asignación final queda sujeta "
+        "a confirmación por parte del equipo organizador."
     )
 
 
 def preinscription_correction_options_reply():
     return (
         "Claro, lo ajustamos sin empezar de cero.\n\n"
-        "Dime exactamente que dato quieres cambiar. Puedes responder solo con el numero:\n\n"
-        "1. Razon social\n"
+        "Dime exactamente qué dato quieres cambiar. Puedes responder solo con el número:\n\n"
+        "1. Razón social\n"
         "2. Representante\n"
         "3. Nombre para el stand\n"
         "4. Ciudad\n"
@@ -3355,8 +3355,8 @@ def preinscription_correction_options_reply():
         "6. Redes\n"
         "7. Productos\n"
         "8. Archivos de productos\n"
-        "9. Categoria\n"
-        "10. Stands de interes"
+        "9. Categoría\n"
+        "10. Stands de interés"
     )
 
 
@@ -3390,16 +3390,16 @@ def preinscription_field_correction_prompt(field, memory):
     if field == "files":
         return (
             "Perfecto, actualicemos los archivos de productos.\n\n"
-            "Puedes enviarme imagenes, catalogo o PDF. Si quieres reemplazar los archivos anteriores, enviame los nuevos ahora.\n\n"
-            "Cuando termines, escribeme: listo. Si quieres dejarlo sin archivos, escribeme: no tengo."
+            "Puedes enviarme imágenes, catálogo o PDF. Si quieres reemplazar los archivos anteriores, envíame los nuevos ahora.\n\n"
+            "Cuando termines, escríbeme: listo. Si quieres dejarlo sin archivos, escríbeme: no tengo."
         )
     if field == "preferred_stands":
         return (
-            "Perfecto, actualicemos los stands de interes.\n\n"
+            "Perfecto, actualicemos los stands de interés.\n\n"
             f"Estos son los stands disponibles:\n\n{available_stands_text()}\n\n"
-            "Dime 1 o 2 stands de interes."
+            "Dime 1 o 2 stands de interés."
         )
-    return f"Perfecto, cual es el nuevo dato para {label}?"
+    return f"Perfecto, ¿cuál es el nuevo dato para {label}?"
 
 
 def next_preinscription_step(pre):
@@ -3418,7 +3418,7 @@ def next_preinscription_step(pre):
 
 def receive_preinscription_media(memory, media):
     pre = memory.setdefault("preinscription", {})
-    legal_name = pre.get("fields", {}).get("legal_name") or memory.get("brand") or memory.get("phone") or "Sin razon social"
+    legal_name = pre.get("fields", {}).get("legal_name") or memory.get("brand") or memory.get("phone") or "Sin razón social"
     result = upload_product_media(
         legal_name,
         media,
@@ -3439,10 +3439,10 @@ def receive_preinscription_media(memory, media):
     save_persistent_state()
 
     if media.get("type") == "document":
-        received = "Recibi el catalogo o documento."
+        received = "Recibí el catálogo o documento."
     else:
-        received = "Recibi esta imagen."
-    return f"{received} Puedes enviar mas archivos o escribir 'listo' cuando termines."
+        received = "Recibí esta imagen."
+    return f"{received} Puedes enviar más archivos o escribir 'listo' cuando termines."
 
 
 def finish_preinscription(memory):
@@ -3467,10 +3467,10 @@ def finish_preinscription(memory):
     save_persistent_state()
 
     return (
-        "Listo! Tu preinscripcion fue recibida correctamente.\n\n"
-        "El equipo revisara la informacion, los productos y los stands de interes. "
-        "Luego se comunicara contigo para confirmar disponibilidad, inscripcion y metodos de pago.\n\n"
-        "Si necesitas apoyo adicional, puedes hablar con un asesor aqui:\n"
+        "¡Listo! Tu preinscripción fue recibida correctamente.\n\n"
+        "El equipo revisará la información, los productos y los stands de interés. "
+        "Luego se comunicará contigo para confirmar disponibilidad, inscripción y métodos de pago.\n\n"
+        "Si necesitas apoyo adicional, puedes hablar con un asesor aquí:\n"
         f"{ADVISOR_WHATSAPP_LINK}"
     )
 
@@ -3490,15 +3490,15 @@ def duplicate_preinscription_reply(memory):
     stand_note = ""
     if selected_stand:
         stand_note = (
-            f"\n\nTengo presente tu interes por el stand {selected_stand}. "
-            "El numero queda sujeto a confirmacion final por parte del equipo organizador."
+            f"\n\nTengo presente tu interés por el stand {selected_stand}. "
+            "El número queda sujeto a confirmación final por parte del equipo organizador."
         )
     return (
-        "Tu preinscripcion ya fue recibida, asi que no necesitas enviarla de nuevo.\n\n"
-        "El equipo revisara la informacion, los productos y los stands de interes. Luego se comunicara contigo "
-        "para confirmar disponibilidad, inscripcion y metodos de pago."
+        "Tu preinscripción ya fue recibida, así que no necesitas enviarla de nuevo.\n\n"
+        "El equipo revisará la información, los productos y los stands de interés. Luego se comunicará contigo "
+        "para confirmar disponibilidad, inscripción y métodos de pago."
         f"{stand_note}\n\n"
-        "Si necesitas apoyo adicional, puedes hablar con un asesor aqui:\n"
+        "Si necesitas apoyo adicional, puedes hablar con un asesor aquí:\n"
         f"{ADVISOR_WHATSAPP_LINK}"
     )
 
@@ -3515,9 +3515,9 @@ def record_post_submission_correction(memory, message):
     memory["updated_at"] = now
     save_persistent_state()
     return (
-        "Listo, deje esa correccion como nota para el equipo.\n\n"
-        "No cree una nueva preinscripcion. El equipo revisara tu solicitud y se comunicara contigo para confirmar "
-        "disponibilidad, inscripcion y metodos de pago."
+        "Listo, dejé esa corrección como nota para el equipo.\n\n"
+        "No creé una nueva preinscripción. El equipo revisará tu solicitud y se comunicará contigo para confirmar "
+        "disponibilidad, inscripción y métodos de pago."
     )
 
 
@@ -3547,19 +3547,19 @@ def build_preinscription_data(memory):
 def preinscription_summary_reply(memory):
     data = build_preinscription_data(memory)
     return (
-        "Excelente, antes de enviar tu preinscripcion revisa que todo este correcto:\n\n"
-        f"*Stands de interes:* {data['stands_interes'] or 'pendiente'}\n"
-        f"*Razon social:* {data['razon_social'] or 'pendiente'}\n"
+        "Excelente, antes de enviar tu preinscripción revisa que todo esté correcto:\n\n"
+        f"*Stands de interés:* {data['stands_interes'] or 'pendiente'}\n"
+        f"*Razón social:* {data['razon_social'] or 'pendiente'}\n"
         f"*Representante:* {data['nombre_representante'] or 'pendiente'}\n"
         f"*Nombre para el stand:* {data['nombre_para_stand'] or 'pendiente'}\n"
         f"*Ciudad:* {data['ciudad_origen'] or 'pendiente'}\n"
         f"*Correo:* {data['correo'] or 'pendiente'}\n"
         f"*Redes:* {data['redes'] or 'pendiente'}\n"
         f"*Productos:* {data['productos'] or 'pendiente'}\n"
-        f"*Categoria:* {data['categoria'] or 'pendiente'}\n"
+        f"*Categoría:* {data['categoria'] or 'pendiente'}\n"
         f"*Archivos de productos:* {data['archivos_productos'] or 'No enviados'}\n"
         "\n"
-        "Confirmas que puedo enviar tu preinscripcion?"
+        "¿Confirmas que puedo enviar tu preinscripción?"
     )
 
 
@@ -3734,7 +3734,7 @@ def asks_private_stand_owner(text):
 def privacy_stand_owner_reply():
     return (
         "Por privacidad no puedo compartir datos de otros expositores. "
-        "Si quieres, puedo ayudarte a revisar disponibilidad general, precios o el proceso de preinscripcion."
+        "Si quieres, puedo ayudarte a revisar disponibilidad general, precios o el proceso de preinscripción."
     )
 
 
@@ -3743,22 +3743,22 @@ def welcome_reply(memory):
     if memory.get("role") == "expositor":
         role_hint = " Como expositor, puedo orientarte con stands, disponibilidad, medidas y pasos para participar."
     elif memory.get("role") == "visitante":
-        role_hint = " Como visitante, puedo orientarte con fecha, ubicacion, productos y actividades."
+        role_hint = " Como visitante, puedo orientarte con fecha, ubicación, productos y actividades."
 
     if not memory.get("history"):
         return (
             "Hola, soy Ori Colombia, tu asistente virtual de Feria Origen Colombia.\n\n"
-            "Que alegria saludarte! Estoy aqui para ayudarte a conocer la feria y acompanarte si quieres hacer parte de ella.\n\n"
-            "Puedo contarte sobre el evento, fechas, ubicacion, productos, actividades, stands, precios y visitantes internacionales.\n\n"
-            "Tambien puedo guiarte si deseas participar como expositor.\n\n"
-            "Que te gustaria saber primero: informacion de la feria, como llegar o como participar?"
+            "¡Qué alegría saludarte! Estoy aquí para ayudarte a conocer la feria y acompañarte si quieres hacer parte de ella.\n\n"
+            "Puedo contarte sobre el evento, fechas, ubicación, productos, actividades, stands, precios y expositores internacionales.\n\n"
+            "También puedo guiarte si deseas participar como expositor.\n\n"
+            "¿Qué te gustaría saber primero: información de la feria, cómo llegar o cómo participar?"
         )
 
     return (
         "Hola, soy Ori Colombia!\n\n"
-        "Que bueno tenerte de vuelta. Puedo ayudarte con informacion de la feria, ubicacion, productos, "
-        "actividades, stands, precios, visitantes internacionales o participacion como expositor.\n\n"
-        "Que te gustaria revisar primero: informacion de la feria, como llegar o como participar?"
+        "Qué bueno tenerte de vuelta. Puedo ayudarte con información de la feria, ubicación, productos, "
+        "actividades, stands, precios, expositores internacionales o participación como expositor.\n\n"
+        "¿Qué te gustaría revisar primero: información de la feria, cómo llegar o cómo participar?"
         f"{role_hint}"
     )
 
@@ -3774,12 +3774,12 @@ def consume_welcome_gallery_signal(user_id):
 
 def event_reply():
     return (
-        f"La {FAIR_INFO['name']} se realizara {FAIR_INFO['dates']} en la sede UNIBAC, "
-        "en el Centro Historico de Cartagena.\n\n"
-        "Vas a encontrar arte, diseno, moda, joyeria, gastronomia, artesanias, bienestar "
+        f"La {FAIR_INFO['name']} se realizará {FAIR_INFO['dates']} en la sede UNIBAC, "
+        "en el Centro Histórico de Cartagena.\n\n"
+        "Vas a encontrar arte, diseño, moda, joyería, gastronomía, artesanías, bienestar "
         "y marcas colombianas con propuestas muy especiales.\n\n"
-        "La entrada para visitantes es 100% gratuita!\n\n"
-        "Quieres que te cuente primero sobre productos, como llegar, actividades, imagenes de ferias anteriores "
+        "¡La entrada para visitantes es 100% gratuita!\n\n"
+        "¿Quieres que te cuente primero sobre productos, cómo llegar, actividades, imágenes de ferias anteriores "
         "o lugares cercanos?"
     )
 
@@ -3787,14 +3787,14 @@ def event_reply():
 def fair_history_reply():
     return (
         f"La web oficial confirma que Origen Colombia tiene {FAIR_INFO['experience_years']} "
-        f"y {FAIR_INFO['total_fairs']}. No publica en el texto visible el ano exacto de la primera feria, "
-        "asi que prefiero no inventarlo. Si necesitas ese dato exacto, puedo dejar clara la solicitud para el equipo."
+        f"y {FAIR_INFO['total_fairs']}. No publica en el texto visible el año exacto de la primera feria, "
+        "así que prefiero no inventarlo. Si necesitas ese dato exacto, puedo dejar clara la solicitud para el equipo."
     )
 
 
 def metrics_reply():
     return (
-        f"Segun la web oficial, Origen Colombia cuenta con {FAIR_INFO['experience_years']}, "
+        f"Según la web oficial, Origen Colombia cuenta con {FAIR_INFO['experience_years']}, "
         f"{FAIR_INFO['total_fairs']}, {FAIR_INFO['total_exhibitors']} y "
         f"{FAIR_INFO['visitors_per_event']}."
     )
@@ -3802,23 +3802,23 @@ def metrics_reply():
 
 def date_reply():
     return (
-        f"La feria esta programada {FAIR_INFO['dates']}. "
+        f"La feria está programada {FAIR_INFO['dates']}. "
         "La agenda detallada puede ajustarse antes del evento; por ahora no tengo horarios exactos de actividades."
     )
 
 
 def location_reply():
     return (
-        "La feria se realiza en la sede UNIBAC, junto a la Plaza de San Diego, en el Centro Historico de Cartagena.\n\n"
-        f"Te dejo la ubicacion en Google Maps:\n{FAIR_INFO['google_maps_url']}\n\n"
-        "Si me dices desde que zona sales, te oriento con una ruta mas puntual."
+        "La feria se realiza en la sede UNIBAC, junto a la Plaza de San Diego, en el Centro Histórico de Cartagena.\n\n"
+        f"Te dejo la ubicación en Google Maps:\n{FAIR_INFO['google_maps_url']}\n\n"
+        "Si me dices desde qué zona sales, te oriento con una ruta más puntual."
     )
 
 
 def entry_cost_reply():
     return (
-        "Si! La entrada para visitantes es 100% gratuita.\n\n"
-        "Puedes venir a recorrer la feria, conocer marcas colombianas, descubrir productos unicos "
+        "¡Sí! La entrada para visitantes es 100% gratuita.\n\n"
+        "Puedes venir a recorrer la feria, conocer marcas colombianas, descubrir productos únicos "
         "y disfrutar la experiencia sin pagar entrada."
     )
 
@@ -3826,59 +3826,59 @@ def entry_cost_reply():
 def arrival_and_cost_reply():
     return (
         f"{FAIR_INFO['location']} {FAIR_INFO['arrival_tip']} "
-        "Si me dices desde donde sales, te puedo orientar mejor con la ruta. "
+        "Si me dices desde dónde sales, te puedo orientar mejor con la ruta. "
         "Y si vienes como visitante, la entrada es 100% gratuita."
     )
 
 
 def arrival_route_reply():
     return (
-        "Claro! La feria se realiza en UNIBAC, junto a la Plaza de San Diego, en el Centro Historico de Cartagena.\n\n"
-        f"Ubicacion en Google Maps:\n{FAIR_INFO['google_maps_url']}\n\n"
-        "Desde donde sales: Centro, Bocagrande, Getsemani, Crespo, aeropuerto, terminal u otra zona?"
+        "¡Claro! La feria se realiza en UNIBAC, junto a la Plaza de San Diego, en el Centro Histórico de Cartagena.\n\n"
+        f"Ubicación en Google Maps:\n{FAIR_INFO['google_maps_url']}\n\n"
+        "¿Desde dónde sales: Centro, Bocagrande, Getsemaní, Crespo, aeropuerto, terminal u otra zona?"
     )
 
 
 def maps_link_reply():
     return (
-        "Claro! Te comparto la ubicacion en Google Maps:\n\n"
+        "¡Claro! Te comparto la ubicación en Google Maps:\n\n"
         f"{FAIR_INFO['google_maps_url']}\n\n"
-        "La feria se realiza en la Sede UNIBAC, junto a la plaza de San Diego, en el Centro Historico de Cartagena."
+        "La feria se realiza en la sede UNIBAC, junto a la Plaza de San Diego, en el Centro Histórico de Cartagena."
     )
 
 
 def arrival_origin_reply(origin):
     if origin in {"cartagena", "centro", "ciudad_amurallada", "getsemani", "bocagrande", "crespo", "aeropuerto", "terminal"}:
         extras = {
-            "cartagena": "Si ya estas en Cartagena,",
-            "centro": "Si estas en el Centro Historico,",
-            "ciudad_amurallada": "Si estas dentro de la Ciudad Amurallada,",
-            "getsemani": "Si estas en Getsemani,",
+            "cartagena": "Si ya estás en Cartagena,",
+            "centro": "Si estás en el Centro Histórico,",
+            "ciudad_amurallada": "Si estás dentro de la Ciudad Amurallada,",
+            "getsemani": "Si estás en Getsemaní,",
             "bocagrande": "Si sales desde Bocagrande,",
-            "crespo": "Si estas en Crespo,",
+            "crespo": "Si estás en Crespo,",
             "aeropuerto": "Si vienes desde el aeropuerto,",
             "terminal": "Si vienes desde la terminal,",
         }
         return (
-            f"Perfecto! {extras[origin]} puedes usar esta ubicacion en Google Maps:\n\n"
+            f"¡Perfecto! {extras[origin]} puedes usar esta ubicación en Google Maps:\n\n"
             f"{FAIR_INFO['google_maps_url']}\n\n"
             "En taxi o Uber puedes pedir que te lleven a Plaza de San Diego o UNIBAC Bellas Artes. "
-            "Como referencia, queda cerca del Hotel Sofitel Santa Clara, en el sector San Diego del Centro Historico."
+            "Como referencia, queda cerca del Hotel Sofitel Santa Clara, en el sector San Diego del Centro Histórico."
         )
 
     return (
-        "Claro! Si vienes desde otra ciudad, lo mas practico es llegar primero a Cartagena y luego abrir esta ubicacion:\n\n"
+        "¡Claro! Si vienes desde otra ciudad, lo más práctico es llegar primero a Cartagena y luego abrir esta ubicación:\n\n"
         f"{FAIR_INFO['google_maps_url']}\n\n"
         "La feria queda en el Claustro de San Diego / UNIBAC, "
-        "en pleno Centro Historico."
+        "en pleno Centro Histórico."
     )
 
 
 def plan_reply():
     return (
         "Claro, con mucho gusto te comparto el plano actual de la feria. "
-        "Ahi podras ubicar los stands disponibles y los que ya aparecen ocupados. "
-        "Si quieres revisar un stand puntual, dime el numero."
+        "Ahí podrás ubicar los stands disponibles y los que ya aparecen ocupados. "
+        "Si quieres revisar un stand puntual, dime el número."
     )
 
 
@@ -3886,7 +3886,7 @@ def nearby_reply():
     return (
         "Cerca de la feria tienes varios puntos bonitos para complementar la visita.\n\n"
         f"{FAIR_INFO['nearby_places']}\n\n"
-        "Quieres recomendaciones para comer, hospedarte o caminar cerca de la sede?"
+        "¿Quieres recomendaciones para comer, hospedarte o caminar cerca de la sede?"
     )
 
 
@@ -3899,7 +3899,7 @@ def venue_reply(text):
 
     return (
         f"{FAIR_INFO['venue_history']} {FAIR_INFO['venue_context']} "
-        f"Espacios de exposicion: {FAIR_INFO['exhibition_spaces']['patio']} "
+        f"Espacios de exposición: {FAIR_INFO['exhibition_spaces']['patio']} "
         f"{FAIR_INFO['exhibition_spaces']['salon']}"
     )
 
@@ -3907,16 +3907,16 @@ def venue_reply(text):
 def visitor_guide_reply():
     return (
         f"Perfecto. Como visitante vas a encontrar {FAIR_INFO['products']} "
-        f"Tambien habra {FAIR_INFO['activities']} "
-        f"La galeria oficial destaca: {FAIR_INFO['gallery_sections']} "
-        "Si quieres hacerte una idea del ambiente, tambien puedo compartirte fotos de ferias anteriores. "
-        "Puedes preguntarme por fecha, ubicacion, actividades, productos o espacios de la sede."
+        f"También habrá {FAIR_INFO['activities']} "
+        f"La galería oficial destaca: {FAIR_INFO['gallery_sections']} "
+        "Si quieres hacerte una idea del ambiente, también puedo compartirte fotos de ferias anteriores. "
+        "Puedes preguntarme por fecha, ubicación, actividades, productos o espacios de la sede."
     )
 
 
 def previous_fairs_reply():
     return (
-        "Claro! Te comparto algunas imagenes para que puedas hacerte una idea del ambiente de la feria.\n\n"
+        "¡Claro! Te comparto algunas imágenes para que puedas hacerte una idea del ambiente de la feria.\n\n"
         "Vas a ver espacios pensados para recorrer, descubrir marcas colombianas y vivir una experiencia cercana con el talento local."
     )
 
@@ -3936,32 +3936,32 @@ def participation_overview_reply(memory=None):
         save_persistent_state()
 
     return (
-        "Que buena noticia! Puedes participar como expositor realizando la preinscripcion directamente por aqui.\n\n"
-        "Los stands tienen valores entre $3.300.000 y $6.000.000 COP, segun zona, medida y tipo de stand.\n\n"
-        "Empezamos el proceso de preinscripcion o quieres ver el plano de ubicacion?"
+        "¡Qué buena noticia! Puedes participar como expositor realizando la preinscripción directamente por aquí.\n\n"
+        "Los stands tienen valores entre $3.300.000 y $6.000.000 COP, según zona, medida y tipo de stand.\n\n"
+        "¿Empezamos el proceso de preinscripción o quieres ver el plano de ubicación?"
     )
 
 
 def category_followup_reply(category):
     return (
-        f"Perfecto! {category} aplica para la feria. Me alegra que ya tengamos clara la categoria. "
-        "Si quieres avanzar, puedo tomar tu preinscripcion directamente por este chat. "
-        "Recuerda que el stand o ubicacion queda sujeto a confirmacion del equipo organizador."
+        f"¡Perfecto! {category} aplica para la feria. Me alegra que ya tengamos clara la categoría. "
+        "Si quieres avanzar, puedo tomar tu preinscripción directamente por este chat. "
+        "Recuerda que el stand o ubicación queda sujeto a confirmación del equipo organizador."
     )
 
 
 def product_detail_followup_reply(memory):
-    category = memory.get("category") or "la categoria que venimos revisando"
+    category = memory.get("category") or "la categoría que venimos revisando"
     if memory.get("form_submitted"):
         return (
-            f"Que bonito proyecto! Ya tengo claro que va por {category}.\n\n"
-            "Como ya reportaste que enviaste la preinscripcion, el equipo revisara tu solicitud "
-            "y se comunicara contigo para confirmar disponibilidad, inscripcion y metodos de pago."
+            f"¡Qué bonito proyecto! Ya tengo claro que va por {category}.\n\n"
+            "Como ya reportaste que enviaste la preinscripción, el equipo revisará tu solicitud "
+            "y se comunicará contigo para confirmar disponibilidad, inscripción y métodos de pago."
         )
     return (
-        f"Que bonito proyecto! Ya tengo claro que va por {category}. "
-        "Si ya quieres avanzar, puedo tomar tu preinscripcion directamente por este chat. "
-        "Si prefieres, tambien revisamos primero stands disponibles."
+        f"¡Qué bonito proyecto! Ya tengo claro que va por {category}. "
+        "Si ya quieres avanzar, puedo tomar tu preinscripción directamente por este chat. "
+        "Si prefieres, también revisamos primero stands disponibles."
     )
 
 
@@ -3973,22 +3973,22 @@ def reservation_reply(memory):
 
     if selected_stand and selected_status == "available":
         return (
-            f"Me alegra que te hayas animado a reservar! Esta es una oportunidad unica para darle visibilidad a tu marca. "
-            "Puedo tomar tu preinscripcion directamente por este chat. "
+            f"¡Me alegra que te hayas animado a reservar! Esta es una oportunidad única para darle visibilidad a tu marca. "
+            "Puedo tomar tu preinscripción directamente por este chat. "
             f"Recordemos que el stand {selected_stand} aparece disponible por ahora, "
-            "pero el numero queda sujeto a confirmacion final por parte de los organizadores."
+            "pero el número queda sujeto a confirmación final por parte de los organizadores."
         )
 
     if blocked_stand:
         return (
-            f"Te entiendo, pero el stand {blocked_stand} aparece {blocked_status}, asi que no debo guiarte a reservarlo. "
-            "Dime otro numero disponible y te acompano con el proceso."
+            f"Te entiendo, pero el stand {blocked_stand} aparece {blocked_status}, así que no debo guiarte a reservarlo. "
+            "Dime otro número disponible y te acompaño con el proceso."
         )
 
     return (
-        "Claro! Me alegra que quieras avanzar con tu reserva o preinscripcion. "
+        "¡Claro! Me alegra que quieras avanzar con tu reserva o preinscripción. "
         "Puedo tomar tus datos directamente por este chat. "
-        "El numero del stand queda sujeto a confirmacion final por parte de los organizadores."
+        "El número del stand queda sujeto a confirmación final por parte de los organizadores."
     )
 
 
@@ -3996,21 +3996,21 @@ def registration_link_reply(memory):
     if memory.get("form_submitted"):
         return form_submitted_reply()
     category = memory.get("category")
-    category_note = f" Ya tengo presente tu categoria: {category}." if category else ""
+    category_note = f" Ya tengo presente tu categoría: {category}." if category else ""
     return (
-        "Me alegra que te hayas decidido a participar! Feria Origen Colombia 2027 es una oportunidad unica "
+        "¡Me alegra que te hayas decidido a participar! Feria Origen Colombia 2027 es una oportunidad única "
         "para mostrar tu marca, conectar con visitantes y hacer parte de una experiencia con identidad colombiana. "
-        "Puedo tomar tu preinscripcion directamente por este chat. "
-        "Recuerda que la disponibilidad del stand o ubicacion queda sujeta a confirmacion del equipo organizador."
+        "Puedo tomar tu preinscripción directamente por este chat. "
+        "Recuerda que la disponibilidad del stand o ubicación queda sujeta a confirmación del equipo organizador."
         f"{category_note}"
     )
 
 
 def form_submitted_reply():
     return (
-        "Que buena noticia! Ya diste el primer paso para hacer parte de Feria Origen Colombia 2027.\n\n"
-        "El equipo revisara tu preinscripcion y se comunicara contigo para confirmar disponibilidad, inscripcion y metodos de pago.\n\n"
-        "Estoy aqui si quieres revisar ubicacion, stands, fechas o cualquier otra informacion de la feria."
+        "¡Qué buena noticia! Ya diste el primer paso para hacer parte de Feria Origen Colombia 2027.\n\n"
+        "El equipo revisará tu preinscripción y se comunicará contigo para confirmar disponibilidad, inscripción y métodos de pago.\n\n"
+        "Estoy aquí si quieres revisar ubicación, stands, fechas o cualquier otra información de la feria."
     )
 
 
@@ -4019,20 +4019,20 @@ def submitted_reservation_reply(memory):
     stand_note = ""
     if selected_stand:
         stand_note = (
-            f"\n\nTengo presente tu interes por el stand {selected_stand}. "
-            "Recuerda que el numero del stand queda sujeto a confirmacion final por parte del equipo organizador."
+            f"\n\nTengo presente tu interés por el stand {selected_stand}. "
+            "Recuerda que el número del stand queda sujeto a confirmación final por parte del equipo organizador."
         )
     return (
-        "Perfecto! Como ya enviaste la preinscripcion, no necesitas volver a llenar el formulario.\n\n"
-        "El equipo revisara tu solicitud y se comunicara contigo para confirmar disponibilidad, inscripcion y metodos de pago."
+        "¡Perfecto! Como ya enviaste la preinscripción, no necesitas volver a llenar el formulario.\n\n"
+        "El equipo revisará tu solicitud y se comunicará contigo para confirmar disponibilidad, inscripción y métodos de pago."
         f"{stand_note}"
     )
 
 
 def preinscription_status_reply():
     return (
-        "Con gusto! Despues de enviar tu preinscripcion, el equipo revisara tu solicitud y se comunicara contigo "
-        "para confirmar disponibilidad, inscripcion y metodos de pago.\n\n"
+        "¡Con gusto! Después de enviar tu preinscripción, el equipo revisará tu solicitud y se comunicará contigo "
+        "para confirmar disponibilidad, inscripción y métodos de pago.\n\n"
         "Por ahora no tengo un tiempo exacto oficial. "
         "Te recomiendo estar pendiente del WhatsApp o correo que dejaste en el formulario."
     )
@@ -4041,25 +4041,25 @@ def preinscription_status_reply():
 def thanks_reply(memory):
     if memory.get("form_submitted"):
         return (
-            "Con mucho gusto! El equipo revisara tu preinscripcion y se comunicara contigo para confirmar "
-            "disponibilidad, inscripcion y metodos de pago.\n\n"
-            "Estoy aqui si quieres revisar stands, ubicacion o cualquier detalle de la feria."
+            "¡Con mucho gusto! El equipo revisará tu preinscripción y se comunicará contigo para confirmar "
+            "disponibilidad, inscripción y métodos de pago.\n\n"
+            "Estoy aquí si quieres revisar stands, ubicación o cualquier detalle de la feria."
         )
 
     if memory.get("registration_link_sent_at") or memory.get("process_stage") == "link_preinscripcion_enviado":
         return (
-            "Con mucho gusto! Cuando completes la preinscripcion, el equipo revisara tu solicitud y se comunicara contigo "
-            "para confirmar disponibilidad, inscripcion y metodos de pago.\n\n"
-            "Estoy aqui si quieres revisar stands, precios o ubicacion."
+            "¡Con mucho gusto! Cuando completes la preinscripción, el equipo revisará tu solicitud y se comunicará contigo "
+            "para confirmar disponibilidad, inscripción y métodos de pago.\n\n"
+            "Estoy aquí si quieres revisar stands, precios o ubicación."
         )
 
     if memory.get("last_intent") in {"booths", "plan", "prices", "stand_includes"} or memory.get("selected_stand"):
-        return "Con mucho gusto! Si quieres revisar otro stand, precios, medidas o el plano, aqui estoy para ayudarte."
+        return "¡Con mucho gusto! Si quieres revisar otro stand, precios, medidas o el plano, aquí estoy para ayudarte."
 
     if memory.get("role") == "visitante":
-        return "Con mucho gusto! Estoy aqui si quieres revisar ubicacion, fecha, actividades o productos de la feria."
+        return "¡Con mucho gusto! Estoy aquí si quieres revisar ubicación, fecha, actividades o productos de la feria."
 
-    return "Con gusto. Soy Ori y estoy aqui para ayudarte con la feria cuando lo necesites."
+    return "Con gusto. Soy Ori y estoy aquí para ayudarte con la feria cuando lo necesites."
 
 
 def exhibitor_city_reply(memory, city):
@@ -4067,67 +4067,67 @@ def exhibitor_city_reply(memory, city):
     selected_note = f" y el stand {selected_stand}" if selected_stand else ""
     return (
         f"Perfecto, gracias por contarme que vienes de {city}. "
-        f"Lo tengo presente para tu proceso de preinscripcion{selected_note}.\n\n"
-        "Si ya quieres avanzar, puedo tomar tu preinscripcion directamente por este chat.\n\n"
-        "Necesitas ayuda con algo mas?"
+        f"Lo tengo presente para tu proceso de preinscripción{selected_note}.\n\n"
+        "Si ya quieres avanzar, puedo tomar tu preinscripción directamente por este chat.\n\n"
+        "¿Necesitas ayuda con algo más?"
     )
 
 
 def suggestions_reply(memory):
     if memory.get("role") == "expositor":
         return (
-            "Puedes preguntarme cosas como: que stands estan disponibles, cuanto mide el stand 21, "
-            "que categorias acepta la feria, que datos debo enviar para participar o como es la sede."
+            "Puedes preguntarme cosas como: qué stands están disponibles, cuánto mide el stand 21, "
+            "qué categorías acepta la feria, qué datos debo enviar para participar o cómo es la sede."
         )
 
     return (
-        "Puedes preguntarme cosas como: donde es la feria, cuando se realiza, que productos encontrare, "
-        "que actividades habra, como es el Convento de San Diego, como participar como expositor o que stands estan disponibles."
+        "Puedes preguntarme cosas como: dónde es la feria, cuándo se realiza, qué productos encontraré, "
+        "qué actividades habrá, cómo es el Convento de San Diego, cómo participar como expositor o qué stands están disponibles."
     )
 
 
 def products_reply(text):
     if has_any(text, ["categoria", "categorias", "acepta"]):
-        return f"Las categorias oficiales de inscripcion son: {FAIR_INFO['registration_categories']}"
+        return f"Las categorías oficiales de inscripción son: {FAIR_INFO['registration_categories']}"
 
     category = detect_product_category(text)
     if category:
         category_notes = {
-            "Joyeria": "piezas artesanales, accesorios, disenos hechos a mano y propuestas con identidad colombiana.",
-            "Gastronomia": "sabores locales, productos especiales, cafe, dulces, bebidas y propuestas para disfrutar durante el recorrido.",
+            "Joyería": "piezas artesanales, accesorios, diseños hechos a mano y propuestas con identidad colombiana.",
+            "Gastronomía": "sabores locales, productos especiales, café, dulces, bebidas y propuestas para disfrutar durante el recorrido.",
             "Calzado y vestuario": "moda, ropa, calzado, bolsos y accesorios de marcas colombianas con estilo propio.",
-            "Decoracion": "piezas para el hogar, objetos decorativos y propuestas con diseno local.",
-            "Anticuarios": "piezas con historia, objetos especiales y propuestas para quienes disfrutan lo autentico.",
+            "Decoración": "piezas para el hogar, objetos decorativos y propuestas con diseño local.",
+            "Anticuarios": "piezas con historia, objetos especiales y propuestas para quienes disfrutan lo auténtico.",
             "Salud y belleza": "bienestar, cuidado personal, belleza y productos pensados para consentirte.",
-            "Artesania tipica": "oficios hechos a mano, piezas tradicionales y creaciones con mucha identidad regional.",
-            "Arte": "obras, ilustracion, pintura, escultura y propuestas creativas de talento colombiano.",
+            "Artesanía típica": "oficios hechos a mano, piezas tradicionales y creaciones con mucha identidad regional.",
+            "Arte": "obras, ilustración, pintura, escultura y propuestas creativas de talento colombiano.",
         }
         return (
-            f"Que buena eleccion! En {category.lower()} podras encontrar {category_notes.get(category, 'propuestas colombianas con identidad y mucho cuidado en los detalles')}\n\n"
-            "Aun no tengo la lista oficial completa de marcas confirmadas para esta edicion, "
-            "pero si quieres puedo orientarte por categorias o mostrarte imagenes de ferias anteriores."
+            f"¡Qué buena elección! En {category.lower()} podrás encontrar {category_notes.get(category, 'propuestas colombianas con identidad y mucho cuidado en los detalles')}\n\n"
+            "Aún no tengo la lista oficial completa de marcas confirmadas para esta edición, "
+            "pero si quieres puedo orientarte por categorías o mostrarte imágenes de ferias anteriores."
         )
 
     return (
-        "Encontraras productos colombianos con mucha identidad: artesanias, joyeria, moda, accesorios, gastronomia, "
-        "decoracion, bienestar, arte y diseno.\n\n"
-        "Tambien hay piezas hechas a mano, propuestas locales y articulos inspirados en la cultura colombiana.\n\n"
-        "Te interesa alguna categoria en especial: gastronomia, joyeria, moda o artesanias?"
+        "Encontrarás productos colombianos con mucha identidad: artesanías, joyería, moda, accesorios, gastronomía, "
+        "decoración, bienestar, arte y diseño.\n\n"
+        "También hay piezas hechas a mano, propuestas locales y artículos inspirados en la cultura colombiana.\n\n"
+        "¿Te interesa alguna categoría en especial: gastronomía, joyería, moda o artesanías?"
     )
 
 
 def confirmed_exhibitors_reply():
     return (
-        "Aun no tengo la lista oficial completa de marcas confirmadas para esta edicion.\n\n"
-        f"Lo que si puedo contarte es que la feria reune propuestas de {FAIR_INFO['products']}\n\n"
-        "Quieres que te hable de alguna categoria en especial, como moda, joyeria, gastronomia o artesanias?"
+        "Aún no tengo la lista oficial completa de marcas confirmadas para esta edición.\n\n"
+        f"Lo que sí puedo contarte es que la feria reúne propuestas de {FAIR_INFO['products']}\n\n"
+        "¿Quieres que te hable de alguna categoría en especial, como moda, joyería, gastronomía o artesanías?"
     )
 
 
 def activities_reply():
     return (
-        f"La feria tendra {FAIR_INFO['activities']} "
-        "La programacion detallada todavia debe confirmarse, asi que por ahora no tengo horas exactas."
+        f"La feria tendrá {FAIR_INFO['activities']} "
+        "La programación detallada todavía debe confirmarse, así que por ahora no tengo horas exactas."
     )
 
 
@@ -4138,7 +4138,7 @@ def prices_reply(memory, text=""):
         price = STAND_PRICES.get(stand_number)
         if not stand or not price:
             return (
-                f"Aun no tengo precio confirmado para el stand {stand_number}. "
+                f"Aún no tengo precio confirmado para el stand {stand_number}. "
                 "Si quieres, puedo mostrarte los stands disponibles con precio."
             )
 
@@ -4146,9 +4146,9 @@ def prices_reply(memory, text=""):
         zone = ZONE_LABELS[stand["zone"]]
         status_note = ""
         if stand["status"] == "reserved":
-            status_note = " Ojo: aparece reservado, asi que no debo ofrecerlo como disponible."
+            status_note = " Ojo: aparece reservado, así que no debo ofrecerlo como disponible."
         elif stand["status"] == "unavailable":
-            status_note = " Ojo: aparece no disponible, asi que no debo ofrecerlo como opcion."
+            status_note = " Ojo: aparece no disponible, así que no debo ofrecerlo como opción."
 
         return (
             f"Stand {stand_number}: {status}.\n\n"
@@ -4156,7 +4156,7 @@ def prices_reply(memory, text=""):
             f"Medidas: {price['size']}\n"
             f"Tipo: {price['type']}\n"
             f"Precio: {price['price']}{status_note}\n\n"
-            "La asignacion final queda sujeta a confirmacion del equipo organizador."
+            "La asignación final queda sujeta a confirmación del equipo organizador."
         )
 
     if memory.get("role") == "expositor" or memory.get("last_intent") in {"booths", "exhibitor"}:
@@ -4164,28 +4164,28 @@ def prices_reply(memory, text=""):
         memory["updated_at"] = datetime.now(timezone.utc).isoformat()
         save_persistent_state()
         return (
-            "Claro. Los stands van desde $3.300.000 hasta $6.000.000 COP, segun ubicacion, medida y tipo.\n\n"
+            "Claro. Los stands van desde $3.300.000 hasta $6.000.000 COP, según ubicación, medida y tipo.\n\n"
             "Patio de las Artes: desde $3.300.000 COP.\n"
-            "Salon Pierre Daguet: desde $5.000.000 COP.\n\n"
-            "Quieres que te comparta el plano de ubicaciones?"
+            "Salón Pierre Daguet: desde $5.000.000 COP.\n\n"
+            "¿Quieres que te comparta el plano de ubicaciones?"
         )
 
     memory["last_offer"] = "plan_after_prices"
     memory["updated_at"] = datetime.now(timezone.utc).isoformat()
     save_persistent_state()
     return (
-        "Claro. Los stands van desde $3.300.000 hasta $6.000.000 COP, segun ubicacion, medida y tipo.\n\n"
+        "Claro. Los stands van desde $3.300.000 hasta $6.000.000 COP, según ubicación, medida y tipo.\n\n"
         "Patio de las Artes: desde $3.300.000 COP.\n"
-        "Salon Pierre Daguet: desde $5.000.000 COP.\n\n"
-        "Quieres que te comparta el plano de ubicaciones?"
+        "Salón Pierre Daguet: desde $5.000.000 COP.\n\n"
+        "¿Quieres que te comparta el plano de ubicaciones?"
     )
 
 
 def ambiguous_value_reply():
     return (
-        "Hola! Si te refieres a la entrada para visitar la feria, es 100% gratuita.\n\n"
-        "Si quieres participar como expositor, los stands tienen valores entre $3.300.000 y $6.000.000 COP, segun zona, medida y tipo.\n\n"
-        "Quieres venir como visitante o estas pensando en participar con tu marca?"
+        "¡Hola! Si te refieres a la entrada para visitar la feria, es 100% gratuita.\n\n"
+        "Si quieres participar como expositor, los stands tienen valores entre $3.300.000 y $6.000.000 COP, según zona, medida y tipo.\n\n"
+        "¿Quieres venir como visitante o estás pensando en participar con tu marca?"
     )
 
 
@@ -4215,7 +4215,7 @@ def stand_includes_reply(number=None):
 
     return (
         "Todos los stands incluyen 3 muros blancos, excepto los esquineros que incluyen 2 muros blancos. "
-        "Tambien incluyen 1 mesa de 120 x 60 cm y 1 estante con 2 puestos de 180 cm."
+        "También incluyen 1 mesa de 120 x 60 cm y 1 estante con 2 puestos de 180 cm."
     )
 
 
@@ -4234,14 +4234,14 @@ def advisor_reply(memory=None):
         if selected_stand:
             return (
                 f"{FAIR_INFO['human_help']} "
-                f"Eso si: el stand {blocked_stand} aparece {blocked_status}, "
-                f"asi que no debo tomarlo como disponible. Podemos seguir con el stand {selected_stand} "
-                f"o revisar otra opcion disponible.{submitted_note}"
+                f"Eso sí: el stand {blocked_stand} aparece {blocked_status}, "
+                f"así que no debo tomarlo como disponible. Podemos seguir con el stand {selected_stand} "
+                f"o revisar otra opción disponible.{submitted_note}"
             )
         return (
             f"{FAIR_INFO['human_help']} "
-            f"Eso si: el stand {blocked_stand} aparece {blocked_status}, "
-            f"asi que no debo tomarlo como disponible. Podemos revisar otra opcion disponible.{submitted_note}"
+            f"Eso sí: el stand {blocked_stand} aparece {blocked_status}, "
+            f"así que no debo tomarlo como disponible. Podemos revisar otra opción disponible.{submitted_note}"
         )
 
     return f"{FAIR_INFO['human_help']}{submitted_note}"
@@ -4251,26 +4251,26 @@ def smart_fallback_reply(message, memory):
     if looks_like_lead(message):
         memory["last_intent"] = "lead"
         return (
-            "Gracias, ya tengo una parte de tu informacion. Para que el equipo pueda revisarla mejor, envia en un solo mensaje: "
-            "nombre, marca, producto, ciudad y stand de interes si ya lo tienes."
+            "Gracias, ya tengo una parte de tu información. Para que el equipo pueda revisarla mejor, envía en un solo mensaje: "
+            "nombre, marca, producto, ciudad y stand de interés si ya lo tienes."
         )
 
     if memory.get("last_intent") == "booths":
         return (
-            "Sigo contigo en el tema de stands. Puedes escribirme un numero, por ejemplo 'stand 21', "
+            "Sigo contigo en el tema de stands. Puedes escribirme un número, por ejemplo 'stand 21', "
             "o escribir 'stands disponibles' para ver las opciones."
         )
 
     if memory.get("role") == "expositor":
         return (
-            "Creo que tu consulta va por el lado de participacion como expositor. "
+            "Creo que tu consulta va por el lado de participación como expositor. "
             "Puedo ayudarte con stands disponibles, medidas y zonas. "
-            "Si quieres avanzar, tambien puedo tomar tu preinscripcion directamente por aqui."
+            "Si quieres avanzar, también puedo tomar tu preinscripción directamente por aquí."
         )
 
     return (
-        "Te entiendo. Puedo orientarte sobre evento, fecha, ubicacion, productos, actividades y stands. "
-        "Preguntame como lo dirias normalmente, por ejemplo: 'donde es', 'que productos encontrare' o 'quiero participar con mi marca'."
+        "Te entiendo. Puedo orientarte sobre evento, fecha, ubicación, productos, actividades y stands. "
+        "Pregúntame como lo dirías normalmente, por ejemplo: 'dónde es', 'qué productos encontraré' o 'quiero participar con mi marca'."
     )
 
 
@@ -4291,36 +4291,36 @@ def describe_stand(number, memory=None):
         price_line = f"Precio: {price['price']}." if price else ""
         if memory.get("form_submitted"):
             return (
-                f"Perfecto! El stand {stand['number']} esta disponible en {zone}.\n\n"
+                f"¡Perfecto! El stand {stand['number']} está disponible en {zone}.\n\n"
                 f"Medidas: {stand['size']}.\n"
                 f"{type_line}\n"
                 f"{price_line}\n\n"
-                "Como ya enviaste el formulario, el equipo revisara tu solicitud y confirmara disponibilidad, "
-                "inscripcion y metodos de pago.\n\n"
-                "Necesitas ayuda con algo mas?"
+                "Como ya enviaste el formulario, el equipo revisará tu solicitud y confirmará disponibilidad, "
+                "inscripción y métodos de pago.\n\n"
+                "¿Necesitas ayuda con algo más?"
             )
         return (
-            f"Genial eleccion! El stand {stand['number']} esta disponible en {zone}.\n\n"
+            f"¡Genial elección! El stand {stand['number']} está disponible en {zone}.\n\n"
             f"Medidas: {stand['size']}.\n"
             f"{type_line}\n"
             f"{price_line}\n\n"
-            "Si te interesa avanzar, puedo tomar tu preinscripcion directamente por este chat.\n\n"
-            "El numero del stand queda sujeto a confirmacion final por parte de los organizadores. "
-            "Una vez envies la preinscripcion, el equipo revisara tu solicitud y se pondra en contacto contigo para confirmar inscripcion y metodos de pago.\n\n"
-            "Necesitas ayuda con algo mas?"
+            "Si te interesa avanzar, puedo tomar tu preinscripción directamente por este chat.\n\n"
+            "El número del stand queda sujeto a confirmación final por parte de los organizadores. "
+            "Una vez envíes la preinscripción, el equipo revisará tu solicitud y se pondrá en contacto contigo para confirmar inscripción y métodos de pago.\n\n"
+            "¿Necesitas ayuda con algo más?"
         )
 
     if stand["status"] == "reserved":
         return (
-            f"Disculpa, el stand {stand['number']} ya esta reservado para otro expositor. "
+            f"Disculpa, el stand {stand['number']} ya está reservado para otro expositor. "
             f"Zona: {zone}. Medidas: {stand['size']}.{price_text} "
-            "No debo tomarlo como disponible, pero puedo sugerirte otro. Que otro te interesa?"
+            "No debo tomarlo como disponible, pero puedo sugerirte otro. ¿Qué otro te interesa?"
         )
 
     return (
         f"Disculpa, el stand {stand['number']} aparece no disponible. "
         f"Zona: {zone}. Medidas: {stand['size']}.{price_text} "
-        "No debo ofrecerlo como opcion, pero puedo ayudarte a revisar alternativas disponibles."
+        "No debo ofrecerlo como opción, pero puedo ayudarte a revisar alternativas disponibles."
     )
 
 
@@ -4335,15 +4335,15 @@ def available_stands_reply():
     return (
         "Claro, te comparto el plano actual y estos son los stands disponibles por ahora:\n"
         f"Patio de las Artes: {', '.join(str(item) for item in patio)}.\n"
-        f"Salon Pierre Daguet: {', '.join(str(item) for item in salon)}.\n"
-        "Si quieres detalle de uno, escribeme por ejemplo: stand 21."
+        f"Salón Pierre Daguet: {', '.join(str(item) for item in salon)}.\n"
+        "Si quieres detalle de uno, escríbeme por ejemplo: stand 21."
     )
 
 
 def stand_type_followup_reply(stand_type):
     return (
         f"Entendido, buscas un stand {stand_type}. "
-        "Para recomendarte opciones reales, dime en que zona prefieres ubicarte: Patio de las Artes o Salon Pierre Daguet."
+        "Para recomendarte opciones reales, dime en qué zona prefieres ubicarte: Patio de las Artes o Salón Pierre Daguet."
     )
 
 
@@ -4372,7 +4372,7 @@ def matching_stands_reply(stand_type, zone, memory=None):
     options = ", ".join(f"{number} ({price['price']})" for number, price in matches[:8])
     return (
         f"En {zone_name}, estos stands {stand_type} aparecen disponibles: {options}. "
-        "Si alguno te llama la atencion, dime el numero y revisamos el detalle."
+        "Si alguno te llama la atención, dime el número y revisamos el detalle."
     )
 
 
@@ -4380,8 +4380,8 @@ def stand_recommendation_reply(memory):
     zone = recommendation_zone(memory)
     if not zone:
         return (
-            "Claro! Para recomendarte mejor, dime en que zona prefieres ubicarte: "
-            "Patio de las Artes o Salon Pierre Daguet."
+            "¡Claro! Para recomendarte mejor, dime en qué zona prefieres ubicarte: "
+            "Patio de las Artes o Salón Pierre Daguet."
         )
 
     options = recommended_stands_for_zone(zone, memory.get("desired_stand_type"))
@@ -4396,7 +4396,7 @@ def stand_recommendation_reply(memory):
     memory["desired_zone"] = zone
     memory["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-    intro = f"Como el stand {memory.get('blocked_stand')} no esta disponible, " if memory.get("blocked_stand") else ""
+    intro = f"Como el stand {memory.get('blocked_stand')} no está disponible, " if memory.get("blocked_stand") else ""
     lines = [
         f"{intro}te recomiendo mirar estas opciones en {zone_name}:",
         "",
@@ -4661,7 +4661,7 @@ def handle_affirmative_followup(memory):
         memory["pending_field"] = None
         memory["last_intent"] = "maps_link"
         return maps_link_reply()
-    return "Claro! Con gusto."
+    return "¡Claro! Con gusto."
 
 
 def wants_plan_after_prices_offer(text, memory):
@@ -5124,7 +5124,7 @@ def is_arrival_followup(text, memory):
 
 
 def detect_arrival_origin(text):
-    if has_any(text, ["aeropuerto", "rafael nunez", "rafael nuÃ±ez"]):
+    if has_any(text, ["aeropuerto", "rafael nunez", "rafael nuñez"]):
         return "aeropuerto"
     if has_any(text, ["terminal", "terminal de transporte"]):
         return "terminal"
@@ -5285,13 +5285,13 @@ def looks_like_lead(message):
 
 def detect_product_category(text):
     category_aliases = [
-        ("Joyeria", ["joyeria", "joyero", "joyera", "joyeros", "joyeras", "joria", "joyas", "bisuteria", "aretes", "collares", "pulseras", "anillos", "reloj", "relojes"]),
-        ("Gastronomia", ["gastronomia", "comida", "cafe", "chocolate", "dulces", "bebidas"]),
+        ("Joyería", ["joyeria", "joyero", "joyera", "joyeros", "joyeras", "joria", "joyas", "bisuteria", "aretes", "collares", "pulseras", "anillos", "reloj", "relojes"]),
+        ("Gastronomía", ["gastronomia", "comida", "cafe", "chocolate", "dulces", "bebidas"]),
         ("Calzado y vestuario", ["calzado", "zapatos", "sandalias", "vestuario", "ropa", "moda", "bolsos", "bolso"]),
-        ("Decoracion", ["decoracion", "hogar", "muebles", "deco"]),
+        ("Decoración", ["decoracion", "hogar", "muebles", "deco"]),
         ("Anticuarios", ["anticuarios", "antiguedades"]),
         ("Salud y belleza", ["salud", "belleza", "cosmetica", "cosmeticos", "bienestar", "cuidado personal"]),
-        ("Artesania tipica", ["artesania", "artesanias", "artesania tipica", "artesanal", "artesanales", "manualidades"]),
+        ("Artesanía típica", ["artesania", "artesanias", "artesania tipica", "artesanal", "artesanales", "manualidades"]),
         ("Arte", ["arte", "pintura", "ilustracion", "escultura"]),
     ]
     for category, aliases in category_aliases:
@@ -5549,8 +5549,8 @@ def build_feria_context():
         f"Trayectoria: {FAIR_INFO['experience_years']}; {FAIR_INFO['total_fairs']}; "
         f"{FAIR_INFO['total_exhibitors']}; {FAIR_INFO['visitors_per_event']}\n"
         f"Ferias publicadas: {FAIR_INFO['official_fairs']}\n"
-        f"Nota publica de ferias activas: {FAIR_INFO['active_fair_public_note']}\n"
-        f"Formulario oficial de inscripcion: {FAIR_INFO['registration_form_url']}\n"
+        f"Nota pública de ferias activas: {FAIR_INFO['active_fair_public_note']}\n"
+        f"Formulario oficial de inscripción: {FAIR_INFO['registration_form_url']}\n"
         f"Nota del formulario: {FAIR_INFO['registration_form_note']}\n"
         f"Resumen visitantes: {FAIR_INFO['visitor_summary']}\n"
         f"Fotos para visitantes: {FAIR_INFO['visitor_photo_invite']}\n"
@@ -5558,12 +5558,12 @@ def build_feria_context():
         f"Resumen expositores: {FAIR_INFO['exhibitor_summary']}\n"
         f"Expositores confirmados: {FAIR_INFO['confirmed_exhibitors_note']}\n"
         f"Productos y servicios: {FAIR_INFO['products']}\n"
-        f"Categorias oficiales de inscripcion: {FAIR_INFO['registration_categories']}\n"
-        f"Datos solicitados en inscripcion: {FAIR_INFO['registration_fields']}\n"
+        f"Categorías oficiales de inscripción: {FAIR_INFO['registration_categories']}\n"
+        f"Datos solicitados en inscripción: {FAIR_INFO['registration_fields']}\n"
         f"Actividades: {FAIR_INFO['activities']}\n"
-        f"Ubicacion: {FAIR_INFO['location']}\n"
-        f"Como llegar: {FAIR_INFO['arrival_tip']}\n"
-        f"Guia de llegada: {FAIR_INFO['arrival_guide']}\n"
+        f"Ubicación: {FAIR_INFO['location']}\n"
+        f"Cómo llegar: {FAIR_INFO['arrival_tip']}\n"
+        f"Guía de llegada: {FAIR_INFO['arrival_guide']}\n"
         f"Google Maps oficial: {FAIR_INFO['google_maps_url']}\n"
         f"Costo de entrada visitantes: {FAIR_INFO['entry_cost']}\n"
         f"Lugares cercanos: {FAIR_INFO['nearby_places']}\n"

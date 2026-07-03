@@ -93,7 +93,7 @@ WELCOME_BUTTONS = [
     {"id": "ORI_EXPOSITOR", "title": "Quiero exponer"},
     {"id": "ORI_VISITANTE", "title": "Quiero visitar"},
 ]
-MAIN_MENU_TEXT = "Elige una opcion para que pueda ayudarte mejor:"
+MAIN_MENU_TEXT = "Elige una opción para que pueda ayudarte mejor:"
 MAIN_MENU_BUTTONS = WELCOME_BUTTONS
 WELCOME_BUTTON_TEXT = (
     "Hola, soy Ori Colombia, tu asistente virtual de Feria Origen Colombia.\n\n"
@@ -109,21 +109,21 @@ WELCOME_BUTTONS = [
 ]
 MAIN_MENU_BUTTONS = WELCOME_BUTTONS
 EXHIBITOR_MENU_TEXT = (
-    "Que buena noticia que estes pensando en participar como expositor!\n\n"
-    "Los stands tienen valores entre $3.300.000 y $6.000.000 COP, segun zona, medida y tipo de stand.\n\n"
+    "¡Qué buena noticia que estés pensando en participar como expositor!\n\n"
+    "Los stands tienen valores entre $3.300.000 y $6.000.000 COP, según zona, medida y tipo de stand.\n\n"
     "Todos los stands incluyen:\n"
     "- 3 muros blancos en stands generales.\n"
     "- 2 muros blancos en stands esquineros.\n"
     "- 1 mesa de 120 x 60 cm.\n"
     "- 1 estante con 2 puestos de 180 cm.\n\n"
-    "Tambien puedes hablar con un asesor aqui:\n"
+    "También puedes hablar con un asesor aquí:\n"
     "https://wa.me/573160282537\n\n"
-    "Que te gustaria hacer primero?"
+    "¿Qué te gustaría hacer primero?"
 )
 EXHIBITOR_MENU_BUTTONS = [
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
-    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes"},
 ]
 EXHIBITOR_MENU_TEXT = (
     "¡Qué bueno que estés pensando en participar como expositor!\n\n"
@@ -139,109 +139,109 @@ EXHIBITOR_MENU_TEXT = (
 )
 EXHIBITOR_MENU_BUTTONS = [
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
-    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes"},
 ]
 EXHIBITOR_MENU_ROWS = [
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta", "description": "Ver ubicaciones y valores."},
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion", "description": "Iniciar el formulario por WhatsApp."},
-    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes", "description": "Ver fotos de los espacios."},
-    {"id": "ORI_MENU", "title": "Volver al menu", "description": "Regresar al inicio."},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción", "description": "Iniciar el formulario por WhatsApp."},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes", "description": "Ver fotos de los espacios."},
+    {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
 ]
 VISITOR_MENU_TEXT = (
-    "Que alegria que quieras visitar la feria!\n\n"
-    "La entrada para visitantes es 100% gratuita. Puedo ayudarte con informacion del evento, "
-    "como llegar o los productos que encontraras."
+    "¡Qué alegría que quieras visitar la feria!\n\n"
+    "La entrada para visitantes es 100% gratuita. Puedo ayudarte con información del evento, "
+    "cómo llegar o los productos que encontrarás."
 )
 VISITOR_MENU_BUTTONS = [
     {"id": "ORI_VIS_INFO", "title": "Info feria"},
-    {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
+    {"id": "ORI_VIS_LLEGAR", "title": "Cómo llegar"},
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
 ]
 VISITOR_INFO_LIST_ROWS = [
-    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Categorias y productos que encontraras."},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Categorías y productos que encontrarás."},
     {"id": "ORI_VIS_PROMOCIONES", "title": "Promociones", "description": "Ofertas o novedades disponibles."},
-    {"id": "ORI_VIS_IMAGENES", "title": "Imagenes", "description": "Fotos de la feria y espacios."},
-    {"id": "ORI_MENU", "title": "Volver al menu", "description": "Regresar al inicio."},
+    {"id": "ORI_VIS_IMAGENES", "title": "Imágenes", "description": "Fotos de la feria y espacios."},
+    {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
 ]
 VISITOR_PRODUCT_CATEGORY_ROWS = [
     {"id": "ORI_VIS_CAT_ARTE", "title": "Arte", "description": "Obras, piezas y propuestas creativas."},
-    {"id": "ORI_VIS_CAT_ARTESANIA", "title": "Artesania", "description": "Tecnicas tradicionales y hechas a mano."},
-    {"id": "ORI_VIS_CAT_JOYERIA", "title": "Joyeria", "description": "Piezas de autor y accesorios especiales."},
+    {"id": "ORI_VIS_CAT_ARTESANIA", "title": "Artesanía", "description": "Técnicas tradicionales y hechas a mano."},
+    {"id": "ORI_VIS_CAT_JOYERIA", "title": "Joyería", "description": "Piezas de autor y accesorios especiales."},
     {"id": "ORI_VIS_CAT_CALZADO", "title": "Calzado y vestuario", "description": "Moda, prendas, cuero y complementos."},
-    {"id": "ORI_VIS_CAT_DECORACION", "title": "Decoracion", "description": "Objetos para hogar y espacios con identidad."},
-    {"id": "ORI_VIS_CAT_ANTICUARIOS", "title": "Anticuarios", "description": "Piezas con historia, coleccion y memoria."},
+    {"id": "ORI_VIS_CAT_DECORACION", "title": "Decoración", "description": "Objetos para hogar y espacios con identidad."},
+    {"id": "ORI_VIS_CAT_ANTICUARIOS", "title": "Anticuarios", "description": "Piezas con historia, colección y memoria."},
     {"id": "ORI_VIS_CAT_SALUD", "title": "Salud y belleza", "description": "Bienestar, cuidado personal y belleza."},
-    {"id": "ORI_VIS_CAT_GASTRONOMIA", "title": "Gastronomia", "description": "Sabores, productos y experiencias locales."},
+    {"id": "ORI_VIS_CAT_GASTRONOMIA", "title": "Gastronomía", "description": "Sabores, productos y experiencias locales."},
     {"id": "ORI_VIS_CAT_OTRO", "title": "Otro", "description": "Ver otras propuestas participantes."},
-    {"id": "ORI_MENU", "title": "Volver al menu", "description": "Regresar al inicio."},
+    {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
 ]
 VISITOR_CATEGORY_BY_BUTTON = {
     "ORI_VIS_CAT_ARTE": "Arte",
-    "ORI_VIS_CAT_ARTESANIA": "Artesania tipica",
-    "ORI_VIS_CAT_JOYERIA": "Joyeria",
+    "ORI_VIS_CAT_ARTESANIA": "Artesanía típica",
+    "ORI_VIS_CAT_JOYERIA": "Joyería",
     "ORI_VIS_CAT_CALZADO": "Calzado y vestuario",
-    "ORI_VIS_CAT_DECORACION": "Decoracion",
+    "ORI_VIS_CAT_DECORACION": "Decoración",
     "ORI_VIS_CAT_ANTICUARIOS": "Anticuarios",
     "ORI_VIS_CAT_SALUD": "Salud y belleza",
-    "ORI_VIS_CAT_GASTRONOMIA": "Gastronomia",
+    "ORI_VIS_CAT_GASTRONOMIA": "Gastronomía",
     "ORI_VIS_CAT_OTRO": "",
 }
 VISITOR_CATEGORY_DESCRIPTIONS = {
-    "Arte": "Arte reune obras, piezas visuales y propuestas creativas con sello colombiano.",
-    "Artesania tipica": "Artesania es ideal para descubrir tecnicas tradicionales, trabajo hecho a mano y objetos con identidad cultural.",
-    "Joyeria": "Joyeria incluye piezas de autor, accesorios y detalles creados por marcas y talleres colombianos.",
-    "Calzado y vestuario": "Calzado y vestuario presenta moda, prendas, cuero, complementos y propuestas de diseno colombiano.",
-    "Decoracion": "Decoracion trae objetos para el hogar, detalles para espacios y piezas con caracter artesanal o de diseno.",
-    "Anticuarios": "Anticuarios es para quienes disfrutan piezas con historia, coleccion, memoria y encanto clasico.",
-    "Salud y belleza": "Salud y belleza conecta con bienestar, cuidado personal, cosmetica, aromas y productos para sentirse bien.",
-    "Gastronomia": "Gastronomia reune sabores, productos locales, alimentos especiales y experiencias para probar en la feria.",
-    "": "Aqui reunimos otras propuestas especiales que tambien hacen parte de la feria.",
+    "Arte": "Arte reúne obras, piezas visuales y propuestas creativas con sello colombiano.",
+    "Artesanía típica": "Artesanía es ideal para descubrir técnicas tradicionales, trabajo hecho a mano y objetos con identidad cultural.",
+    "Joyería": "Joyería incluye piezas de autor, accesorios y detalles creados por marcas y talleres colombianos.",
+    "Calzado y vestuario": "Calzado y vestuario presenta moda, prendas, cuero, complementos y propuestas de diseño colombiano.",
+    "Decoración": "Decoración trae objetos para el hogar, detalles para espacios y piezas con carácter artesanal o de diseño.",
+    "Anticuarios": "Anticuarios es para quienes disfrutan piezas con historia, colección, memoria y encanto clásico.",
+    "Salud y belleza": "Salud y belleza conecta con bienestar, cuidado personal, cosmética, aromas y productos para sentirse bien.",
+    "Gastronomía": "Gastronomía reúne sabores, productos locales, alimentos especiales y experiencias para probar en la feria.",
+    "": "Aquí reunimos otras propuestas especiales que también hacen parte de la feria.",
 }
 EXHIBITOR_AFTER_REPLY_BUTTONS = [
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
-    {"id": "ORI_MENU", "title": "Volver al menu"},
+    {"id": "ORI_MENU", "title": "Volver al menú"},
 ]
 EXHIBITOR_AFTER_PLAN_BUTTONS = [
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
-    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
-    {"id": "ORI_MENU", "title": "Volver al menu"},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes"},
+    {"id": "ORI_MENU", "title": "Volver al menú"},
 ]
 EXHIBITOR_AFTER_PLAN_BUTTONS = [
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
-    {"id": "ORI_MENU", "title": "Menu principal"},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
+    {"id": "ORI_MENU", "title": "Menú principal"},
     {"id": "ORI_ADVISOR", "title": "Hablar con un asesor"},
 ]
 EXHIBITOR_CATEGORY_ROWS = [
     {"id": "ORI_PRE_CAT_ARTE", "title": "Arte", "description": "Obras, piezas y propuestas creativas."},
-    {"id": "ORI_PRE_CAT_ARTESANIA", "title": "Artesania tipica", "description": "Tecnicas tradicionales y hechas a mano."},
-    {"id": "ORI_PRE_CAT_JOYERIA", "title": "Joyeria", "description": "Piezas de autor y accesorios."},
+    {"id": "ORI_PRE_CAT_ARTESANIA", "title": "Artesanía típica", "description": "Técnicas tradicionales y hechas a mano."},
+    {"id": "ORI_PRE_CAT_JOYERIA", "title": "Joyería", "description": "Piezas de autor y accesorios."},
     {"id": "ORI_PRE_CAT_CALZADO", "title": "Calzado y vestuario", "description": "Moda, prendas, cuero y complementos."},
-    {"id": "ORI_PRE_CAT_DECORACION", "title": "Decoracion", "description": "Objetos para hogar y espacios."},
-    {"id": "ORI_PRE_CAT_ANTICUARIOS", "title": "Anticuarios", "description": "Piezas con historia y coleccion."},
+    {"id": "ORI_PRE_CAT_DECORACION", "title": "Decoración", "description": "Objetos para hogar y espacios."},
+    {"id": "ORI_PRE_CAT_ANTICUARIOS", "title": "Anticuarios", "description": "Piezas con historia y colección."},
     {"id": "ORI_PRE_CAT_SALUD", "title": "Salud y belleza", "description": "Bienestar, cuidado personal y belleza."},
-    {"id": "ORI_PRE_CAT_GASTRONOMIA", "title": "Gastronomia", "description": "Sabores, productos y experiencias."},
+    {"id": "ORI_PRE_CAT_GASTRONOMIA", "title": "Gastronomía", "description": "Sabores, productos y experiencias."},
 ]
 EXHIBITOR_CATEGORY_BY_BUTTON = {
     "ORI_PRE_CAT_ARTE": "Arte",
-    "ORI_PRE_CAT_ARTESANIA": "Artesania tipica",
-    "ORI_PRE_CAT_JOYERIA": "Joyeria",
+    "ORI_PRE_CAT_ARTESANIA": "Artesanía típica",
+    "ORI_PRE_CAT_JOYERIA": "Joyería",
     "ORI_PRE_CAT_CALZADO": "Calzado y vestuario",
-    "ORI_PRE_CAT_DECORACION": "Decoracion",
+    "ORI_PRE_CAT_DECORACION": "Decoración",
     "ORI_PRE_CAT_ANTICUARIOS": "Anticuarios",
     "ORI_PRE_CAT_SALUD": "Salud y belleza",
-    "ORI_PRE_CAT_GASTRONOMIA": "Gastronomia",
+    "ORI_PRE_CAT_GASTRONOMIA": "Gastronomía",
 }
 EXHIBITOR_AFTER_IMAGES_BUTTONS = [
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripcion"},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
     {"id": "ORI_MENU", "title": "Inicio"},
 ]
 EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS = [
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
-    {"id": "ORI_EXP_IMAGENES", "title": "Imagenes"},
-    {"id": "ORI_MENU", "title": "Volver al menu"},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes"},
+    {"id": "ORI_MENU", "title": "Volver al menú"},
 ]
 PREINSCRIPTION_CONFIRM_BUTTONS = [
     {"id": "ORI_PRE_CONFIRM", "title": "Sí, confirmar"},
@@ -249,24 +249,24 @@ PREINSCRIPTION_CONFIRM_BUTTONS = [
     {"id": "ORI_PRE_CANCEL", "title": "Cancelar"},
 ]
 VISITOR_AFTER_REPLY_BUTTONS = [
-    {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
+    {"id": "ORI_VIS_LLEGAR", "title": "Cómo llegar"},
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
-    {"id": "ORI_MENU", "title": "Volver al menu"},
+    {"id": "ORI_MENU", "title": "Volver al menú"},
 ]
 VISITOR_AFTER_ARRIVAL_BUTTONS = [
     {"id": "ORI_VIS_CERCA", "title": "Lugares cerca"},
     {"id": "ORI_VIS_INFO", "title": "Info feria"},
-    {"id": "ORI_MENU", "title": "Volver al menu"},
+    {"id": "ORI_MENU", "title": "Volver al menú"},
 ]
 VISITOR_AFTER_NEARBY_BUTTONS = [
-    {"id": "ORI_VIS_LLEGAR", "title": "Como llegar"},
+    {"id": "ORI_VIS_LLEGAR", "title": "Cómo llegar"},
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
-    {"id": "ORI_MENU", "title": "Volver al menu"},
+    {"id": "ORI_MENU", "title": "Volver al menú"},
 ]
 VISITOR_AFTER_IMAGES_BUTTONS = [
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
     {"id": "ORI_VIS_INFO", "title": "Info feria"},
-    {"id": "ORI_MENU", "title": "Volver al menu"},
+    {"id": "ORI_MENU", "title": "Volver al menú"},
 ]
 ADMIN_MENU_BUTTONS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
@@ -276,22 +276,22 @@ ADMIN_MENU_BUTTONS = [
 ADMIN_RECORD_PRE_BUTTONS = [
     {"id": "ORI_ADM_ASSIGN", "title": "Asignar stand"},
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
-    {"id": "ORI_ADM_MENU", "title": "Menu interno"},
+    {"id": "ORI_ADM_MENU", "title": "Menú interno"},
 ]
 ADMIN_RECORD_CONF_BUTTONS = [
     {"id": "ORI_ADM_ASSIGN", "title": "Cambiar stand"},
     {"id": "ORI_ADM_RELEASE", "title": "Liberar stand"},
-    {"id": "ORI_ADM_MENU", "title": "Menu interno"},
+    {"id": "ORI_ADM_MENU", "title": "Menú interno"},
 ]
 ADMIN_AFTER_ACTION_BUTTONS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados"},
-    {"id": "ORI_ADM_MENU", "title": "Menu interno"},
+    {"id": "ORI_ADM_MENU", "title": "Menú interno"},
 ]
 ADMIN_CONFIRM_ACTION_BUTTONS = [
-    {"id": "ORI_ADM_APPLY", "title": "Si, confirmar"},
+    {"id": "ORI_ADM_APPLY", "title": "Sí, confirmar"},
     {"id": "ORI_ADM_CANCEL", "title": "Cancelar"},
-    {"id": "ORI_ADM_MENU", "title": "Menu interno"},
+    {"id": "ORI_ADM_MENU", "title": "Menú interno"},
 ]
 
 
@@ -425,8 +425,8 @@ def handle_whatsapp_payload(payload):
     for message in messages:
         if not is_message_for_configured_phone_number(message):
             print(
-                "Mensaje ignorado porque llego a otro numero de WhatsApp. "
-                f"Recibido en {message.get('display_phone_number') or 'sin numero visible'} "
+                "Mensaje ignorado porque llegó a otro número de WhatsApp. "
+                f"Recibido en {message.get('display_phone_number') or 'sin número visible'} "
                 f"({message.get('phone_number_id') or 'sin phone_number_id'}). "
                 f"Configurado: {PHONE_NUMBER_ID or 'sin PHONE_NUMBER_ID'}.",
                 flush=True,
@@ -551,7 +551,7 @@ def is_message_for_configured_phone_number(message):
     configured = str(PHONE_NUMBER_ID or "").strip()
     received = str(message.get("phone_number_id") or "").strip()
     if not configured:
-        print("Advertencia: PHONE_NUMBER_ID no esta configurado; no se puede filtrar por numero receptor.", flush=True)
+        print("Advertencia: PHONE_NUMBER_ID no está configurado; no se puede filtrar por número receptor.", flush=True)
         return True
     if not received:
         return False
@@ -704,37 +704,37 @@ def button_reply_text(button_id, title):
         "ORI_VISITANTE": "Quiero visitar",
         "ORI_EXP_PRECIOS": "Precios",
         "ORI_EXP_PLANO": "Plano de venta",
-        "ORI_EXP_PREINSCRIPCION": "Preinscripcion",
-        "ORI_EXP_IMAGENES": "Imagenes",
+        "ORI_EXP_PREINSCRIPCION": "Preinscripción",
+        "ORI_EXP_IMAGENES": "Imágenes",
         "ORI_ADVISOR": "Hablar con un asesor",
         "ORI_PRE_CAT_ARTE": "Arte",
-        "ORI_PRE_CAT_ARTESANIA": "Artesania tipica",
-        "ORI_PRE_CAT_JOYERIA": "Joyeria",
+        "ORI_PRE_CAT_ARTESANIA": "Artesanía típica",
+        "ORI_PRE_CAT_JOYERIA": "Joyería",
         "ORI_PRE_CAT_CALZADO": "Calzado y vestuario",
-        "ORI_PRE_CAT_DECORACION": "Decoracion",
+        "ORI_PRE_CAT_DECORACION": "Decoración",
         "ORI_PRE_CAT_ANTICUARIOS": "Anticuarios",
         "ORI_PRE_CAT_SALUD": "Salud y belleza",
-        "ORI_PRE_CAT_GASTRONOMIA": "Gastronomia",
-        "ORI_PRE_CONFIRM": "Si, confirmar",
+        "ORI_PRE_CAT_GASTRONOMIA": "Gastronomía",
+        "ORI_PRE_CONFIRM": "Sí, confirmar",
         "ORI_PRE_EDIT": "Cambiar un dato",
         "ORI_PRE_CANCEL": "Cancelar",
-        "ORI_VIS_INFO": "Informacion de la feria",
-        "ORI_VIS_LLEGAR": "Como llegar",
+        "ORI_VIS_INFO": "Información de la feria",
+        "ORI_VIS_LLEGAR": "Cómo llegar",
         "ORI_VIS_PRODUCTOS": "Productos",
         "ORI_VIS_PROMOCIONES": "Promociones",
-        "ORI_VIS_IMAGENES": "Imagenes de la feria",
+        "ORI_VIS_IMAGENES": "Imágenes de la feria",
         "ORI_VIS_CERCA": "Lugares cerca",
         "ORI_VIS_CAT_ARTE": "Arte",
-        "ORI_VIS_CAT_ARTESANIA": "Artesania",
-        "ORI_VIS_CAT_JOYERIA": "Joyeria",
+        "ORI_VIS_CAT_ARTESANIA": "Artesanía",
+        "ORI_VIS_CAT_JOYERIA": "Joyería",
         "ORI_VIS_CAT_CALZADO": "Calzado y vestuario",
-        "ORI_VIS_CAT_DECORACION": "Decoracion",
+        "ORI_VIS_CAT_DECORACION": "Decoración",
         "ORI_VIS_CAT_ANTICUARIOS": "Anticuarios",
         "ORI_VIS_CAT_SALUD": "Salud y belleza",
-        "ORI_VIS_CAT_GASTRONOMIA": "Gastronomia",
+        "ORI_VIS_CAT_GASTRONOMIA": "Gastronomía",
         "ORI_VIS_CAT_OTRO": "Otro",
-        "ORI_MENU": "Volver al menu",
-        "ORI_ADM_MENU": "Menu interno",
+        "ORI_MENU": "Volver al menú",
+        "ORI_ADM_MENU": "Menú interno",
         "ORI_ADM_PREINSCRITOS": "Preinscritos",
         "ORI_ADM_CONFIRMADOS": "Confirmados",
         "ORI_ADM_ASSIGN": "Asignar stand",
@@ -759,7 +759,7 @@ def handle_guided_button_message(message):
 
     if button_id == "ORI_MENU":
         send_whatsapp_buttons(user_id, MAIN_MENU_TEXT, MAIN_MENU_BUTTONS)
-        remember_menu_turn(user_id, "Menu", MAIN_MENU_TEXT)
+        remember_menu_turn(user_id, "Menú", MAIN_MENU_TEXT)
         return True
 
     if button_id == "ORI_EXPOSITOR":
@@ -811,17 +811,17 @@ def handle_guided_button_message(message):
         send_preinscription_category_list_if_needed(user_id)
         send_preinscription_confirmation_buttons_if_needed(user_id)
         if not is_questionnaire_active(user_id):
-            send_whatsapp_buttons(user_id, "Puedes volver al menu cuando quieras:", [{"id": "ORI_MENU", "title": "Menu principal"}])
+            send_whatsapp_buttons(user_id, "Puedes volver al menú cuando quieras:", [{"id": "ORI_MENU", "title": "Menú principal"}])
         return True
 
     if button_id == "ORI_VIS_INFO":
-        reply = get_ori_reply("informacion de la feria", user_id=user_id)
+        reply = get_ori_reply("información de la feria", user_id=user_id)
         send_whatsapp_text(user_id, reply)
         send_whatsapp_list(
             user_id,
-            "Que te gustaria revisar ahora?",
+            "¿Qué te gustaría revisar ahora?",
             "Opciones visitante",
-            "Elegir opcion",
+            "Elegir opción",
             VISITOR_INFO_LIST_ROWS,
         )
         remember_menu_turn(user_id, "Info feria", reply)
@@ -829,16 +829,16 @@ def handle_guided_button_message(message):
 
     if button_id == "ORI_VIS_PRODUCTOS":
         reply = (
-            "En la feria encontraras propuestas colombianas de arte, artesania, joyeria, moda, "
-            "decoracion, anticuarios, salud y belleza, gastronomia y otras marcas con identidad.\n\n"
-            "Elige una categoria y te cuento un poco mas sobre lo que podras encontrar."
+            "En la feria encontrarás propuestas colombianas de arte, artesanía, joyería, moda, "
+            "decoración, anticuarios, salud y belleza, gastronomía y otras marcas con identidad.\n\n"
+            "Elige una categoría y te cuento un poco más sobre lo que podrás encontrar."
         )
         send_whatsapp_text(user_id, reply)
         send_whatsapp_list(
             user_id,
-            "Que categoria quieres revisar?",
-            "Categorias",
-            "Ver categorias",
+            "¿Qué categoría quieres revisar?",
+            "Categorías",
+            "Ver categorías",
             VISITOR_PRODUCT_CATEGORY_ROWS,
         )
         remember_menu_turn(user_id, "Productos", reply)
@@ -850,9 +850,9 @@ def handle_guided_button_message(message):
         send_whatsapp_text(user_id, reply)
         send_whatsapp_list(
             user_id,
-            "Puedes revisar otra categoria o volver al menu.",
-            "Categorias",
-            "Ver categorias",
+            "Puedes revisar otra categoría o volver al menú.",
+            "Categorías",
+            "Ver categorías",
             VISITOR_PRODUCT_CATEGORY_ROWS,
         )
         remember_menu_turn(user_id, button_reply_text(button_id, ""), reply)
@@ -861,15 +861,15 @@ def handle_guided_button_message(message):
     if button_id == "ORI_VIS_PROMOCIONES":
         reply = (
             "Por ahora no hay promociones oficiales anunciadas para visitantes.\n\n"
-            "Lo que si puedo confirmarte es que la entrada a la feria es 100% gratuita. "
-            "Si el equipo anuncia promociones, descuentos o novedades especiales, las podremos mostrar aqui."
+            "Lo que sí puedo confirmarte es que la entrada a la feria es 100% gratuita. "
+            "Si el equipo anuncia promociones, descuentos o novedades especiales, las podremos mostrar aquí."
         )
         send_whatsapp_text(user_id, reply)
         send_whatsapp_list(
             user_id,
-            "Quieres revisar otra cosa?",
+            "¿Quieres revisar otra cosa?",
             "Opciones visitante",
-            "Elegir opcion",
+            "Elegir opción",
             VISITOR_INFO_LIST_ROWS,
         )
         remember_menu_turn(user_id, "Promociones", reply)
@@ -878,12 +878,12 @@ def handle_guided_button_message(message):
     if button_id == "ORI_EXP_PREINSCRIPCION":
         memory = get_memory(user_id)
         reply = start_preinscription_flow(memory)
-        remember_turn(memory, "Preinscripcion", reply)
+        remember_turn(memory, "Preinscripción", reply)
         save_persistent_state()
         send_whatsapp_text(user_id, reply)
         send_preinscription_category_list_if_needed(user_id)
         if not is_questionnaire_active(user_id):
-            send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS)
+            send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS)
         return True
 
     if button_id == "ORI_EXP_PLANO":
@@ -918,7 +918,7 @@ def handle_guided_button_message(message):
             "¿Qué te gustaría hacer ahora?"
         )
         send_whatsapp_buttons(user_id, second_reply, EXHIBITOR_AFTER_IMAGES_BUTTONS)
-        remember_menu_turn(user_id, "Imagenes", first_reply + "\n\n" + second_reply)
+        remember_menu_turn(user_id, "Imágenes", first_reply + "\n\n" + second_reply)
         return True
 
     if button_id == "ORI_VIS_IMAGENES":
@@ -931,8 +931,8 @@ def handle_guided_button_message(message):
         media_sent = send_fair_gallery_images(user_id)
         if media_sent:
             time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
-        send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", VISITOR_AFTER_IMAGES_BUTTONS)
-        remember_menu_turn(user_id, "Imagenes de la feria", first_reply)
+        send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", VISITOR_AFTER_IMAGES_BUTTONS)
+        remember_menu_turn(user_id, "Imágenes de la feria", first_reply)
         return True
 
     guided_actions = {
@@ -950,18 +950,18 @@ def handle_guided_button_message(message):
     if media_sent:
         time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
     if not is_questionnaire_active(user_id):
-        send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", next_buttons)
+        send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", next_buttons)
     return True
 
 
 def handle_admin_guided_button_message(user_id, button_id):
     if not is_admin_session_active(user_id):
-        send_whatsapp_text(user_id, "Puedo ayudarte con informacion de la feria, ubicacion, stands, productos y participacion.")
+        send_whatsapp_text(user_id, "Puedo ayudarte con información de la feria, ubicación, stands, productos y participación.")
         return True
 
     if button_id == "ORI_ADM_MENU":
         send_whatsapp_buttons(user_id, admin_guided_menu_text(), ADMIN_MENU_BUTTONS)
-        remember_menu_turn(user_id, "Menu interno", admin_guided_menu_text())
+        remember_menu_turn(user_id, "Menú interno", admin_guided_menu_text())
         return True
 
     if button_id == "ORI_ADM_EXIT":
@@ -989,7 +989,7 @@ def handle_admin_guided_button_message(user_id, button_id):
             send_whatsapp_list(user_id, body, "Preinscritos", "Ver lista", rows)
         else:
             send_whatsapp_text(user_id, body)
-            send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", ADMIN_MENU_BUTTONS)
+            send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", ADMIN_MENU_BUTTONS)
         remember_menu_turn(user_id, "Preinscritos", body)
         return True
 
@@ -999,7 +999,7 @@ def handle_admin_guided_button_message(user_id, button_id):
             send_whatsapp_list(user_id, body, "Confirmados", "Ver lista", rows)
         else:
             send_whatsapp_text(user_id, body)
-            send_whatsapp_buttons(user_id, "Puedes elegir otra opcion:", ADMIN_MENU_BUTTONS)
+            send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", ADMIN_MENU_BUTTONS)
         remember_menu_turn(user_id, "Confirmados", body)
         return True
 
@@ -1007,18 +1007,18 @@ def handle_admin_guided_button_message(user_id, button_id):
         reply, kind = admin_guided_record_detail(user_id, button_id)
         send_whatsapp_text(user_id, reply)
         if kind == "preinscrito":
-            send_whatsapp_buttons(user_id, "Que quieres hacer con esta marca?", ADMIN_RECORD_PRE_BUTTONS)
+            send_whatsapp_buttons(user_id, "¿Qué quieres hacer con esta marca?", ADMIN_RECORD_PRE_BUTTONS)
         elif kind == "confirmado":
-            send_whatsapp_buttons(user_id, "Que quieres hacer con este expositor?", ADMIN_RECORD_CONF_BUTTONS)
+            send_whatsapp_buttons(user_id, "¿Qué quieres hacer con este expositor?", ADMIN_RECORD_CONF_BUTTONS)
         else:
-            send_whatsapp_buttons(user_id, "Volvemos al menu interno?", ADMIN_MENU_BUTTONS)
+            send_whatsapp_buttons(user_id, "¿Volvemos al menú interno?", ADMIN_MENU_BUTTONS)
         remember_menu_turn(user_id, button_reply_text(button_id, ""), reply)
         return True
 
     if button_id == "ORI_ADM_ASSIGN":
         reply = admin_prepare_guided_assignment(user_id)
         send_whatsapp_text(user_id, reply)
-        send_whatsapp_buttons(user_id, "Tambien puedes volver:", ADMIN_AFTER_ACTION_BUTTONS)
+        send_whatsapp_buttons(user_id, "También puedes volver:", ADMIN_AFTER_ACTION_BUTTONS)
         remember_menu_turn(user_id, "Asignar stand", reply)
         return True
 
@@ -1026,9 +1026,9 @@ def handle_admin_guided_button_message(user_id, button_id):
         reply = admin_prepare_guided_release(user_id)
         send_whatsapp_text(user_id, reply)
         if "Para aplicar el cambio" in reply:
-            send_whatsapp_buttons(user_id, "Confirma esta accion:", ADMIN_CONFIRM_ACTION_BUTTONS)
+            send_whatsapp_buttons(user_id, "Confirma esta acción:", ADMIN_CONFIRM_ACTION_BUTTONS)
         else:
-            send_whatsapp_buttons(user_id, "Tambien puedes volver:", ADMIN_AFTER_ACTION_BUTTONS)
+            send_whatsapp_buttons(user_id, "También puedes volver:", ADMIN_AFTER_ACTION_BUTTONS)
         remember_menu_turn(user_id, "Liberar stand", reply)
         return True
 
@@ -1102,7 +1102,7 @@ def send_exhibitor_menu(user_id, body):
         user_id,
         body,
         "Opciones expositor",
-        "Elegir opcion",
+        "Elegir opción",
         EXHIBITOR_MENU_ROWS,
     )
 
@@ -1137,7 +1137,7 @@ def send_preinscription_confirmation_buttons_if_needed(user_id):
         return False
     send_whatsapp_buttons(
         user_id,
-        "Elige una opcion:",
+        "Elige una opción:",
         PREINSCRIPTION_CONFIRM_BUTTONS,
     )
     return True
@@ -1166,14 +1166,14 @@ def send_context_media_if_needed(user_id, message_text, reply):
 
 
 def visitor_category_participants_reply(category):
-    title = (category or "otras categorias").replace("Artesania tipica", "Artesania")
+    title = (category or "otras categorías").replace("Artesanía típica", "Artesanía")
     description = VISITOR_CATEGORY_DESCRIPTIONS.get(category, VISITOR_CATEGORY_DESCRIPTIONS[""])
     records = filter_form_records(force=True)
     if last_form_error():
         return (
             f"{description}\n\n"
-            "Aun estoy esperando la lista oficial actualizada de participantes para esta categoria.\n\n"
-            "Mientras tanto, puedo mostrarte imagenes de la feria o ayudarte a revisar otra categoria."
+            "Aún estoy esperando la lista oficial actualizada de participantes para esta categoría.\n\n"
+            "Mientras tanto, puedo mostrarte imágenes de la feria o ayudarte a revisar otra categoría."
         )
 
     confirmed_records = [record for record in records if str(record.get("confirmed_stand") or "").strip()]
@@ -1205,7 +1205,7 @@ def visitor_category_participants_reply(category):
         return (
             f"{description}\n\n"
             f"Por ahora no aparecen marcas confirmadas en {title}.\n\n"
-            "Cuando el equipo confirme nuevos participantes, podras verlos aqui."
+            "Cuando el equipo confirme nuevos participantes, podrás verlos aquí."
         )
 
     lines = [description, "", f"Participantes confirmados en {title}:"]
@@ -1217,7 +1217,7 @@ def visitor_category_participants_reply(category):
         lines.append(f"- {brand}{stand_text}: {products}")
 
     if len(confirmed_records) > 8:
-        lines.append(f"... y {len(confirmed_records) - 8} participantes mas.")
+        lines.append(f"... y {len(confirmed_records) - 8} participantes más.")
     return "\n".join(lines)
 
 
@@ -1338,7 +1338,7 @@ def send_whatsapp_list(to, body, header, button_text, rows):
         "interactive": {
             "type": "list",
             "header": {"type": "text", "text": str(header or "Opciones")[:60]},
-            "body": {"text": str(body or "Elige una opcion:")[:1024]},
+            "body": {"text": str(body or "Elige una opción:")[:1024]},
             "action": {
                 "button": str(button_text or "Elegir")[:20],
                 "sections": [
@@ -1482,7 +1482,7 @@ def upload_whatsapp_media(media):
         parsed = json.loads(response.read().decode("utf-8", errors="replace") or "{}")
     media_id = parsed.get("id")
     if not media_id:
-        raise RuntimeError(f"Meta no devolvio id de media: {parsed}")
+        raise RuntimeError(f"Meta no devolvió id de media: {parsed}")
     return media_id
 
 

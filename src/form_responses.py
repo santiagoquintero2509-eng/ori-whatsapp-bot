@@ -103,7 +103,7 @@ def fetch_apps_script_records(force=False):
         body = response.read().decode("utf-8-sig", errors="replace")
     parsed = json.loads(body or "{}")
     if not parsed.get("ok"):
-        raise RuntimeError(parsed.get("error") or "Apps Script no devolvio preinscripciones.")
+        raise RuntimeError(parsed.get("error") or "Apps Script no devolvió preinscripciones.")
     records = []
     for row in parsed.get("records", []):
         if not isinstance(row, dict):
@@ -130,14 +130,14 @@ def fetch_sheet_csv(force=False):
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 csv_text = response.read().decode("utf-8-sig", errors="replace")
                 if looks_like_google_html(csv_text):
-                    raise RuntimeError("Google devolvio una pagina HTML en vez del CSV")
+                    raise RuntimeError("Google devolvió una página HTML en vez del CSV")
                 return csv_text
         except urllib.error.HTTPError as error:
             errors.append(f"{url}: Google Sheet respondio {error.code}")
         except urllib.error.URLError as error:
             errors.append(f"{url}: No hubo conexion con Google Sheet: {error}")
         except (TimeoutError, socket.timeout, OSError) as error:
-            errors.append(f"{url}: Google Sheet tardo demasiado en responder: {error}")
+            errors.append(f"{url}: Google Sheet tardó demasiado en responder: {error}")
         except RuntimeError as error:
             errors.append(f"{url}: {error}")
 
@@ -306,10 +306,10 @@ def record_match_score(record, query_text):
 
 def format_form_record(record):
     if not record:
-        return "No encontre esa preinscripcion en la hoja conectada."
+        return "No encontré esa preinscripción en la hoja conectada."
 
     lines = [
-        f"Razon social: {record.get('legal_name') or 'sin dato'}",
+        f"Razón social: {record.get('legal_name') or 'sin dato'}",
         f"Representante: {record.get('representative') or 'sin dato'}",
         f"Nombre para stand: {record.get('stand_name') or 'sin dato'}",
         f"Ciudad: {record.get('city') or 'sin dato'}",
@@ -318,9 +318,9 @@ def format_form_record(record):
         f"Productos: {record.get('products') or 'sin dato'}",
     ]
     if record.get("category"):
-        lines.append(f"Categoria: {record['category']}")
+        lines.append(f"Categoría: {record['category']}")
     if record.get("sample"):
-        lines.append(f"Muestra/catalogo: {record['sample']}")
+        lines.append(f"Muestra/catálogo: {record['sample']}")
     if record.get("comments"):
         lines.append(f"Comentarios: {record['comments']}")
     if record.get("confirmed_stand"):

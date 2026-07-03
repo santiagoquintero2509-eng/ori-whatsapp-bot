@@ -85,7 +85,7 @@ def log_conversation_event(event):
 
 def upload_product_media(legal_name, media, whatsapp_token, graph_version):
     if not media:
-        return {"ok": False, "queued": False, "error": "No llego archivo para subir."}
+        return {"ok": False, "queued": False, "error": "No llegó archivo para subir."}
 
     if not webhook_url():
         payload = {
@@ -192,7 +192,7 @@ def pending_queue_items():
                 if isinstance(payload, dict):
                     items.append(payload)
     except OSError as error:
-        print(f"No se pudo leer cola de preinscripcion: {error}", flush=True)
+        print(f"No se pudo leer cola de preinscripción: {error}", flush=True)
     return items
 
 
@@ -306,14 +306,14 @@ def rewrite_queue(items):
             for payload in items:
                 file.write(json.dumps(payload, ensure_ascii=False) + "\n")
     except OSError as error:
-        print(f"No se pudo reescribir cola de preinscripcion: {error}", flush=True)
+        print(f"No se pudo reescribir cola de preinscripción: {error}", flush=True)
 
 
 def queue_item_label(payload):
     action = payload.get("action") or "accion"
     data = payload.get("data") or {}
     if action == "submit_preinscription":
-        return data.get("razon_social") or data.get("nombre_para_stand") or "preinscripcion sin nombre"
+        return data.get("razon_social") or data.get("nombre_para_stand") or "preinscripción sin nombre"
     if action == "upload_file":
         return payload.get("legal_name") or payload.get("filename") or "archivo pendiente"
     return action
@@ -328,7 +328,7 @@ def download_whatsapp_media(media, whatsapp_token, graph_version):
     info = json_request(info_url, whatsapp_token)
     media_url = info.get("url")
     if not media_url:
-        raise RuntimeError("Meta no devolvio la URL del archivo.")
+        raise RuntimeError("Meta no devolvió la URL del archivo.")
 
     request = urllib.request.Request(media_url, headers={"Authorization": f"Bearer {whatsapp_token}"})
     with urllib.request.urlopen(request, timeout=30) as response:
@@ -376,7 +376,7 @@ def queue_payload(payload):
         with QUEUE_PATH.open("a", encoding="utf-8") as file:
             file.write(json.dumps(payload, ensure_ascii=False) + "\n")
     except OSError as error:
-        print(f"No se pudo guardar cola de preinscripcion: {error}", flush=True)
+        print(f"No se pudo guardar cola de preinscripción: {error}", flush=True)
 
 
 def queue_conversation_event(payload):
