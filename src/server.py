@@ -18,6 +18,7 @@ from ori import (
     admin_guided_menu_text,
     admin_guided_preinscribed_rows,
     admin_guided_record_detail,
+    admin_confirmed_records_text,
     admin_prepare_guided_assignment,
     admin_prepare_guided_release,
     available_stands_text,
@@ -1131,6 +1132,7 @@ def handle_admin_guided_button_message(user_id, button_id):
     if button_id == "ORI_ADM_CONFIRMADOS":
         body, rows = admin_guided_confirmed_rows(user_id)
         if rows:
+            send_whatsapp_text(user_id, admin_confirmed_records_text())
             send_whatsapp_list(user_id, body, "Confirmados", "Ver lista", rows)
         else:
             send_whatsapp_text(user_id, body)

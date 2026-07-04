@@ -1515,6 +1515,32 @@ def admin_guided_confirmed_rows(admin_key):
     return body, rows
 
 
+def admin_confirmed_records_text():
+    records = filter_form_records(force=True)
+    if not records:
+        return admin_no_form_records_reply()
+
+    confirmed = [record for record in records if str(record.get("confirmed_stand") or "").strip()]
+    if not confirmed:
+        return "Por ahora no hay expositores confirmados en la hoja."
+
+    confirmed = sorted(
+        confirmed,
+        key=lambda record: (
+            int(re.findall(r"\d{1,3}", str(record.get("confirmed_stand") or "999"))[0])
+            if re.findall(r"\d{1,3}", str(record.get("confirmed_stand") or ""))
+            else 999
+        ),
+    )
+    lines = [f"Expositores confirmados: {len(confirmed)}"]
+    for record in confirmed:
+        brand = record_brand(record)
+        stand = str(record.get("confirmed_stand") or "").strip()
+        category = record.get("category") or "sin categoría"
+        lines.append(f"- {brand}: stand {stand}, {category}")
+    return "\n".join(lines)
+
+
 def admin_guided_record_detail(admin_key, button_id):
     selected = admin_guided_selected_record(admin_key, button_id)
     if not selected:
@@ -2338,6 +2364,14 @@ def find_admin_assignment_by_brand(query):
 
 
 def admin_confirmed_stands_reply():
+    sheet_reply = admin_confirmed_records_text()
+    if (
+        "Expositores confirmados:" in sheet_reply
+        or "No pude consultar" in sheet_reply
+        or last_form_error()
+    ):
+        return sheet_reply
+
     assignments = sorted(
         PERSISTENT_STATE.setdefault("stands", {}).values(),
         key=lambda item: int(item.get("stand", 0)),
@@ -3600,16 +3634,7 @@ def preinscription_summary_reply(memory):
 
 
 def available_stands_text():
-    patio = sorted(
-        item["number"] for item in iter_booths() if item["status"] == "available" and item["zone"] == "patio"
-    )
-    salon = sorted(
-        item["number"] for item in iter_booths() if item["status"] == "available" and item["zone"] == "salon"
-    )
-    return (
-        f"Patio de las Artes: {', '.join(str(item) for item in patio)}.\n"
-        f"Salon Pierre Daguet: {', '.join(str(item) for item in salon)}."
-    )
+    return admin_available_stands_text()
 
 
 def sync_preinscription_field_to_memory(memory, step, value):
