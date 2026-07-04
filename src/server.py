@@ -20,6 +20,7 @@ from ori import (
     admin_guided_record_detail,
     admin_prepare_guided_assignment,
     admin_prepare_guided_release,
+    available_stands_text,
     admin_chat_phone_list_reply,
     get_memory,
     get_ori_reply,
@@ -32,7 +33,6 @@ from ori import (
     start_preinscription_flow,
 )
 from preinscription import download_whatsapp_media, log_conversation_event
-from form_responses import filter_form_records, last_form_error, record_brand
 
 try:
     from plano_image import PLANO_STANDS_JPG_BASE64
@@ -252,10 +252,12 @@ EXHIBITOR_AFTER_REPLY_BUTTONS = [
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
     {"id": "ORI_MENU", "title": "Volver al menú"},
 ]
-EXHIBITOR_AFTER_PLAN_BUTTONS = [
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
-    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes"},
-    {"id": "ORI_MENU", "title": "Menú principal"},
+EXHIBITOR_AFTER_PLAN_ROWS = [
+    {"id": "ORI_EXP_STANDS_DISPONIBLES", "title": "Stands disponibles", "description": "Ver stands libres por zona."},
+    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción", "description": "Iniciar el formulario por WhatsApp."},
+    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes", "description": "Ver fotos de los espacios."},
+    {"id": "ORI_EXP_TRAYECTORIA", "title": "Trayectoria", "description": "Historia y recorrido de la feria."},
+    {"id": "ORI_MENU", "title": "Menú principal", "description": "Regresar al inicio."},
 ]
 EXHIBITOR_CATEGORY_ROWS = [
     {"id": "ORI_PRE_CAT_ARTE", "title": "Arte", "description": "Obras, piezas y propuestas creativas."},
@@ -898,17 +900,24 @@ def handle_guided_button_message(message):
 
     if button_id == "ORI_VIS_PRODUCTOS":
         reply = (
-            "En la feria encontrarás propuestas colombianas de arte, artesanía, joyería, moda, "
-            "decoración, anticuarios, salud y belleza, gastronomía y otras marcas con identidad.\n\n"
-            "Vas a encontrar productos con historia, diseño, oficio y mucho talento colombiano."
+            "En la feria encontrarás propuestas colombianas con identidad, oficio y mucho talento local.\n\n"
+            "Arte: obras, piezas visuales y propuestas creativas.\n"
+            "Artesanía típica: técnicas tradicionales, objetos hechos a mano y saberes culturales.\n"
+            "Joyería: piezas de autor, accesorios y detalles especiales.\n"
+            "Calzado y vestuario: moda, prendas, cuero y complementos de diseño.\n"
+            "Decoración: objetos para el hogar y piezas para darle carácter a los espacios.\n"
+            "Anticuarios: piezas con historia, colección y memoria.\n"
+            "Salud y belleza: bienestar, cuidado personal, cosmética y aromas.\n"
+            "Gastronomía: sabores, productos locales y experiencias para probar.\n\n"
+            "Elige una categoría y te cuento un poco más."
         )
         send_whatsapp_text(user_id, reply)
         send_whatsapp_list(
             user_id,
-            "¿Qué te gustaría revisar ahora?",
-            "Opciones visitante",
-            "Elegir opción",
-            VISITOR_AFTER_TRAJECTORY_ROWS,
+            "¿Qué categoría quieres revisar?",
+            "Categorías",
+            "Ver categorías",
+            VISITOR_PRODUCT_CATEGORY_ROWS,
         )
         remember_menu_turn(user_id, "Productos", reply)
         return True
@@ -925,6 +934,19 @@ def handle_guided_button_message(message):
             VISITOR_PRODUCT_CATEGORY_ROWS,
         )
         remember_menu_turn(user_id, button_reply_text(button_id, ""), reply)
+        return True
+
+    if button_id == "ORI_EXP_STANDS_DISPONIBLES":
+        reply = available_stands_text()
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_list(
+            user_id,
+            "¿Qué quieres hacer ahora?",
+            "Opciones expositor",
+            "Elegir opción",
+            EXHIBITOR_AFTER_PLAN_ROWS,
+        )
+        remember_menu_turn(user_id, "Stands disponibles", reply)
         return True
 
     if button_id == "ORI_VIS_PROMOCIONES":
@@ -997,7 +1019,13 @@ def handle_guided_button_message(message):
             "para indicarlos durante el proceso de preinscripción.\n\n"
             "¿Qué quieres hacer ahora?"
         )
-        send_whatsapp_buttons(user_id, second_reply, EXHIBITOR_AFTER_PLAN_BUTTONS)
+        send_whatsapp_list(
+            user_id,
+            second_reply,
+            "Opciones expositor",
+            "Elegir opción",
+            EXHIBITOR_AFTER_PLAN_ROWS,
+        )
         remember_menu_turn(user_id, "Plano de venta", first_reply + "\n\n" + second_reply)
         return True
 
@@ -1296,57 +1324,12 @@ def send_context_media_if_needed(user_id, message_text, reply):
 def visitor_category_participants_reply(category):
     title = (category or "otras categorías").replace("Artesanía típica", "Artesanía")
     description = VISITOR_CATEGORY_DESCRIPTIONS.get(category, VISITOR_CATEGORY_DESCRIPTIONS[""])
-    records = filter_form_records(force=True)
-    if last_form_error():
-        return (
-            f"{description}\n\n"
-            "Aún estoy esperando la lista oficial actualizada de participantes para esta categoría.\n\n"
-            "Mientras tanto, puedo mostrarte imágenes de la feria o ayudarte a revisar otra categoría."
-        )
-
-    confirmed_records = [record for record in records if str(record.get("confirmed_stand") or "").strip()]
-    if category:
-        normalized_category = normalize_for_match(category)
-        confirmed_records = [
-            record
-            for record in confirmed_records
-            if normalized_category in normalize_for_match(record.get("category") or record.get("products") or "")
-        ]
-    else:
-        known_categories = [
-            "arte",
-            "artesania",
-            "joyeria",
-            "calzado y vestuario",
-            "decoracion",
-            "anticuarios",
-            "salud y belleza",
-            "gastronomia",
-        ]
-        confirmed_records = [
-            record
-            for record in confirmed_records
-            if not any(item in normalize_for_match(record.get("category") or record.get("products") or "") for item in known_categories)
-        ]
-
-    if not confirmed_records:
-        return (
-            f"{description}\n\n"
-            f"Por ahora no aparecen marcas confirmadas en {title}.\n\n"
-            "Cuando el equipo confirme nuevos participantes, podrás verlos aquí."
-        )
-
-    lines = [description, "", f"Participantes confirmados en {title}:"]
-    for record in confirmed_records[:8]:
-        brand = record_brand(record)
-        products = record.get("products") or "productos por confirmar"
-        stand = record.get("confirmed_stand")
-        stand_text = f" - stand {stand}" if stand else ""
-        lines.append(f"- {brand}{stand_text}: {products}")
-
-    if len(confirmed_records) > 8:
-        lines.append(f"... y {len(confirmed_records) - 8} participantes más.")
-    return "\n".join(lines)
+    return (
+        f"{description}\n\n"
+        f"En {title} podrás encontrar propuestas pensadas para recorrer con calma, descubrir detalles "
+        "y conectar con marcas que trabajan con identidad colombiana.\n\n"
+        "Puedes revisar otra categoría o volver al menú cuando quieras."
+    )
 
 
 def transcribe_incoming_audio(message):
