@@ -426,6 +426,11 @@ def handle_admin_command(raw_message, user_id=None):
 
     if is_admin_exit_message(message):
         clear_admin_own_active_preinscription(admin_key)
+        if is_permanent_admin_user(admin_key):
+            PERSISTENT_STATE.setdefault("admin_pending_actions", {}).pop(admin_key, None)
+            PERSISTENT_STATE.setdefault("admin_last_context", {}).pop(admin_key, None)
+            save_persistent_state()
+            return "Acceso interno permanente activo. Limpié acciones pendientes, pero este número seguirá en modo administrador."
         deactivate_admin_session(admin_key)
         return "Acceso interno cerrado."
 
@@ -2764,8 +2769,19 @@ def is_admin_session_active(user_id):
     key = normalize_phone(user_id)
     if not key:
         return False
+    if is_permanent_admin_user(key):
+        return True
     session = PERSISTENT_STATE.setdefault("admin_sessions", {}).get(key) or {}
     return bool(session.get("active"))
+
+
+def is_permanent_admin_user(user_id):
+    key = normalize_phone(user_id)
+    if not key:
+        return False
+    configured = os.getenv("ORI_ADMIN_PHONE", ADMIN_PHONE_DEFAULT)
+    admin_numbers = [normalize_phone(item) for item in re.split(r"[,;\s]+", configured or "") if item.strip()]
+    return any(phones_are_equivalent(key, admin_phone) for admin_phone in admin_numbers)
 
 
 def activate_admin_session(admin_key):
