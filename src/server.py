@@ -70,7 +70,7 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "")
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrender.com").rstrip("/")
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg?v=20260703")
-CODE_VERSION = "admin-pdf-diagnostic-20260706"
+CODE_VERSION = "admin-menu-return-20260706"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -332,22 +332,22 @@ ADMIN_MENU_ROWS = [
 ADMIN_RECORD_PRE_BUTTONS = [
     {"id": "ORI_ADM_ASSIGN", "title": "Asignar stand"},
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
-    {"id": "ORI_ADM_MENU", "title": "Menú interno"},
+    {"id": "ORI_ADM_MENU", "title": "Menú principal"},
 ]
 ADMIN_RECORD_CONF_BUTTONS = [
     {"id": "ORI_ADM_ASSIGN", "title": "Cambiar stand"},
     {"id": "ORI_ADM_RELEASE", "title": "Liberar stand"},
-    {"id": "ORI_ADM_MENU", "title": "Menú interno"},
+    {"id": "ORI_ADM_MENU", "title": "Menú principal"},
 ]
 ADMIN_AFTER_ACTION_BUTTONS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados"},
-    {"id": "ORI_ADM_MENU", "title": "Menú interno"},
+    {"id": "ORI_ADM_MENU", "title": "Menú principal"},
 ]
 ADMIN_CONFIRM_ACTION_BUTTONS = [
     {"id": "ORI_ADM_APPLY", "title": "Sí, confirmar"},
     {"id": "ORI_ADM_CANCEL", "title": "Cancelar"},
-    {"id": "ORI_ADM_MENU", "title": "Menú interno"},
+    {"id": "ORI_ADM_MENU", "title": "Menú principal"},
 ]
 
 
@@ -536,16 +536,21 @@ def handle_whatsapp_payload(payload):
         print(f"Mensaje de {message['from']}: {message['text'] or message.get('type')}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
         send_whatsapp_text(message["from"], reply)
-        send_preinscription_category_list_if_needed(message["from"])
-        send_preinscription_confirmation_buttons_if_needed(message["from"])
         if is_admin_entry_message(message.get("text", "")):
             send_admin_menu(message["from"])
             continue
         if is_admin_exit_message(message.get("text", "")):
+            if is_admin_session_active(message["from"]):
+                send_admin_menu(message["from"], "Puedes elegir otra opción:")
             continue
-        if is_admin_session_active(message["from"]) and "Para aplicar el cambio" in reply:
-            send_whatsapp_buttons(message["from"], "Confirma esta accion:", ADMIN_CONFIRM_ACTION_BUTTONS)
+        if is_admin_session_active(message["from"]):
+            if "Para aplicar el cambio" in reply:
+                send_whatsapp_buttons(message["from"], "Confirma esta acción:", ADMIN_CONFIRM_ACTION_BUTTONS)
+            else:
+                send_admin_menu(message["from"], "Puedes elegir otra opción:")
             continue
+        send_preinscription_category_list_if_needed(message["from"])
+        send_preinscription_confirmation_buttons_if_needed(message["from"])
         if should_send_plan_image(message["text"], reply):
             send_whatsapp_image(
                 message["from"],
