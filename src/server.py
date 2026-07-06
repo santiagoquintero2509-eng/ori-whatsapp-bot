@@ -526,6 +526,11 @@ def handle_whatsapp_payload(payload):
             message["media"] = None
             print(f"Audio transcrito de {message['from']}: {transcription}", flush=True)
 
+        if is_admin_session_active(message["from"]) and is_admin_pdf_request(message.get("text", "")):
+            send_admin_sheet_pdf(message["from"])
+            send_admin_menu(message["from"], "Puedes elegir otra opcion:")
+            continue
+
         reply = get_ori_reply(message["text"], user_id=message["from"], incoming_media=message.get("media"))
         print(f"Mensaje de {message['from']}: {message['text'] or message.get('type')}", flush=True)
         print(f"Respuesta de Ori: {reply}", flush=True)
@@ -1385,6 +1390,31 @@ def send_admin_sheet_pdf(user_id):
     except Exception as error:
         print(f"No se pudo enviar el PDF administrativo: {error}", flush=True)
         send_whatsapp_text(user_id, "Generé el PDF, pero no pude enviarlo por WhatsApp en este momento. Intenta nuevamente.")
+
+
+def is_admin_pdf_request(text):
+    normalized = normalize_for_match(text)
+    return any(
+        phrase in normalized
+        for phrase in [
+            "pdf excel",
+            "excel pdf",
+            "reporte pdf",
+            "reporte excel",
+            "descargar pdf",
+            "extraer pdf",
+            "genera pdf",
+            "generar pdf",
+            "mandame el pdf",
+            "enviame el pdf",
+            "pdf de la hoja",
+            "pdf del excel",
+            "pdf formulario",
+            "pdf formularios",
+            "pdf preinscritos",
+            "exportar pdf",
+        ]
+    )
 
 
 def build_preinscription_pdf(records, generated_at):
