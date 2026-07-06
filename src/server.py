@@ -34,6 +34,7 @@ from ori import (
     start_preinscription_flow,
 )
 from preinscription import download_whatsapp_media, log_conversation_event
+from form_responses import filter_form_records, last_form_error
 
 try:
     from plano_image import PLANO_STANDS_JPG_BASE64
@@ -323,6 +324,7 @@ ADMIN_MENU_BUTTONS = [
 ADMIN_MENU_ROWS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos", "description": "Marcas pendientes por confirmar stand."},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados", "description": "Expositores con stand confirmado."},
+    {"id": "ORI_ADM_PDF_EXCEL", "title": "PDF Excel", "description": "Descargar reporte de la hoja."},
     {"id": "ORI_ADM_CONTACTS", "title": "Quiénes han escrito", "description": "Lista solo de números de WhatsApp."},
     {"id": "ORI_ADM_EXIT", "title": "Cerrar interno", "description": "Salir del acceso interno."},
 ]
@@ -1147,6 +1149,12 @@ def handle_admin_guided_button_message(user_id, button_id):
         remember_menu_turn(user_id, "Quienes han escrito", reply)
         return True
 
+    if button_id == "ORI_ADM_PDF_EXCEL":
+        send_admin_sheet_pdf(user_id)
+        remember_menu_turn(user_id, "PDF Excel", "Reporte PDF enviado.")
+        send_admin_menu(user_id, "Puedes elegir otra opcion:")
+        return True
+
     if button_id.startswith("ORI_ADM_PRE_") or button_id.startswith("ORI_ADM_CON_"):
         reply, kind = admin_guided_record_detail(user_id, button_id)
         send_whatsapp_text(user_id, reply)
@@ -1348,6 +1356,193 @@ def transcribe_incoming_audio(message):
     except Exception as error:
         print(f"No se pudo descargar/transcribir audio de WhatsApp: {error}", flush=True)
     return ""
+
+
+def send_admin_sheet_pdf(user_id):
+    records = filter_form_records(force=True)
+    if not records:
+        error = last_form_error()
+        if error:
+            send_whatsapp_text(
+                user_id,
+                "No pude consultar la hoja en este momento, así que no generé el PDF. "
+                "Intenta nuevamente en unos segundos.",
+            )
+        else:
+            send_whatsapp_text(user_id, "La hoja no tiene registros para generar el PDF.")
+        return
+
+    generated_at = time.strftime("%Y-%m-%d %H:%M")
+    filename = f"reporte_preinscripciones_ori_{time.strftime('%Y%m%d_%H%M')}.pdf"
+    pdf_content = build_preinscription_pdf(records, generated_at)
+    try:
+        send_whatsapp_document_bytes(
+            user_id,
+            filename,
+            pdf_content,
+            f"Reporte de preinscripciones Ori Colombia - {generated_at}",
+        )
+    except Exception as error:
+        print(f"No se pudo enviar el PDF administrativo: {error}", flush=True)
+        send_whatsapp_text(user_id, "Generé el PDF, pero no pude enviarlo por WhatsApp en este momento. Intenta nuevamente.")
+
+
+def build_preinscription_pdf(records, generated_at):
+    lines = [
+        "Reporte de preinscripciones - Ori Colombia",
+        f"Generado: {generated_at}",
+        f"Registros: {len(records)}",
+        "",
+    ]
+    for index, record in enumerate(records, start=1):
+        raw = record.get("raw") or {}
+        lines.extend(
+            [
+                f"{index}. {record.get('legal_name') or record.get('stand_name') or 'Sin razón social'}",
+                f"   Representante: {record.get('representative') or 'sin dato'}",
+                f"   Nombre para el stand: {record.get('stand_name') or 'sin dato'}",
+                f"   Ciudad: {record.get('city') or 'sin dato'}",
+                f"   WhatsApp: {record.get('whatsapp') or 'sin dato'}",
+                f"   Correo: {record.get('email') or 'sin dato'}",
+                f"   Redes/web: {record.get('socials') or 'No registra'}",
+                f"   Categoría: {record.get('category') or 'sin categoría'}",
+                f"   Productos: {record.get('products') or 'sin dato'}",
+                f"   Stands de interés: {raw.get('Stands de interes') or raw.get('Stands de interés') or record.get('comments') or 'sin dato'}",
+                f"   Stand confirmado: {record.get('confirmed_stand') or 'pendiente'}",
+                f"   Archivos de productos: {record.get('sample') or 'No enviados'}",
+                f"   Carpeta Drive: {raw.get('Carpeta Drive') or 'sin dato'}",
+                "",
+            ]
+        )
+    return build_text_pdf(lines)
+
+
+def build_text_pdf(lines):
+    wrapped_lines = []
+    for line in lines:
+        wrapped_lines.extend(wrap_pdf_line(line, 92))
+
+    lines_per_page = 56
+    pages = [wrapped_lines[index:index + lines_per_page] for index in range(0, len(wrapped_lines), lines_per_page)]
+    if not pages:
+        pages = [["Sin información."]]
+
+    objects = {
+        1: b"<< /Type /Catalog /Pages 2 0 R >>",
+        3: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    }
+    page_ids = []
+    next_object_id = 4
+    for page_lines in pages:
+        page_id = next_object_id
+        content_id = next_object_id + 1
+        next_object_id += 2
+        page_ids.append(page_id)
+        objects[page_id] = (
+            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            f"/Resources << /Font << /F1 3 0 R >> >> /Contents {content_id} 0 R >>"
+        ).encode("ascii")
+        content = build_pdf_page_content(page_lines)
+        objects[content_id] = b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n" + content + b"\nendstream"
+
+    kids = " ".join(f"{page_id} 0 R" for page_id in page_ids)
+    objects[2] = f"<< /Type /Pages /Kids [{kids}] /Count {len(page_ids)} >>".encode("ascii")
+
+    output = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets = [0]
+    for object_id in range(1, max(objects) + 1):
+        offsets.append(len(output))
+        output.extend(f"{object_id} 0 obj\n".encode("ascii"))
+        output.extend(objects[object_id])
+        output.extend(b"\nendobj\n")
+
+    xref_start = len(output)
+    output.extend(f"xref\n0 {len(offsets)}\n".encode("ascii"))
+    output.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        output.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    output.extend(
+        f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{xref_start}\n%%EOF\n".encode("ascii")
+    )
+    return bytes(output)
+
+
+def wrap_pdf_line(line, max_length):
+    text = str(line or "")
+    if not text:
+        return [""]
+    output = []
+    current = ""
+    for word in text.split(" "):
+        if not current:
+            current = word
+        elif len(current) + len(word) + 1 <= max_length:
+            current += " " + word
+        else:
+            output.append(current)
+            current = word
+    output.append(current)
+    return output
+
+
+def build_pdf_page_content(lines):
+    content = bytearray(b"BT\n/F1 10 Tf\n40 760 Td\n12 TL\n")
+    for line in lines:
+        content.extend(pdf_text_string(line))
+        content.extend(b" Tj\nT*\n")
+    content.extend(b"ET")
+    return bytes(content)
+
+
+def pdf_text_string(text):
+    raw = str(text or "").encode("cp1252", errors="replace")
+    raw = raw.replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
+    raw = raw.replace(b"\r", b" ").replace(b"\n", b" ")
+    return b"(" + raw + b")"
+
+
+def send_whatsapp_document_bytes(to, filename, content, caption=""):
+    if DRY_RUN or not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
+        print(f"Envio de documento omitido para {to}: {filename}", flush=True)
+        return
+
+    media = {
+        "content": content,
+        "mime_type": "application/pdf",
+        "filename": filename,
+    }
+    media_id = upload_whatsapp_media(media)
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "document",
+        "document": {
+            "id": media_id,
+            "filename": filename,
+        },
+    }
+    if caption:
+        payload["document"]["caption"] = caption[:1024]
+
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            response.read()
+            print(f"Documento enviado a WhatsApp para {to}: {filename}", flush=True)
+            log_outgoing_message(to, "document", caption or filename, extra={"filename": filename})
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"WhatsApp API respondio {error.code} al enviar documento: {detail}") from error
 
 
 def send_whatsapp_text(to, body):
