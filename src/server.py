@@ -70,6 +70,7 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "")
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrender.com").rstrip("/")
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg?v=20260703")
+CODE_VERSION = "admin-pdf-diagnostic-20260706"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -365,7 +366,7 @@ class OriHandler(BaseHTTPRequestHandler):
             return
 
         if parsed_url.path == "/health":
-            self.send_json({"ok": True, "service": "Ori WhatsApp Bot"})
+            self.send_json({"ok": True, "service": "Ori WhatsApp Bot", "version": CODE_VERSION})
             return
 
         if parsed_url.path == "/plano_stands.jpg":
