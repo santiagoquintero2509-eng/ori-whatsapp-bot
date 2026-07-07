@@ -70,7 +70,7 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "")
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrender.com").rstrip("/")
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg?v=20260703")
-CODE_VERSION = "admin-menu-return-20260706"
+CODE_VERSION = "exhibitor-available-stands-menu-20260707"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -151,6 +151,7 @@ EXHIBITOR_MENU_BUTTONS = [
 ]
 EXHIBITOR_MENU_ROWS = [
     {"id": "ORI_EXP_TRAYECTORIA", "title": "Trayectoria", "description": "Historia y recorrido de la feria."},
+    {"id": "ORI_EXP_STANDS_DISPONIBLES", "title": "Stands disponibles", "description": "Ver stands libres por zona."},
     {"id": "ORI_EXP_IMAGENES", "title": "Imágenes", "description": "Ver fotos de los espacios."},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta", "description": "Ver ubicaciones y valores."},
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción", "description": "Iniciar el formulario por WhatsApp."},
@@ -953,14 +954,27 @@ def handle_guided_button_message(message):
     if button_id == "ORI_EXP_STANDS_DISPONIBLES":
         reply = available_stands_text()
         send_whatsapp_text(user_id, reply)
+        send_whatsapp_image(
+            user_id,
+            PLANO_STANDS_URL,
+            "Plano de venta Feria Origen Colombia.",
+        )
+        time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
+        second_reply = (
+            "Los valores de participación van desde $3.300.000 COP hasta $6.000.000 COP, "
+            "según la zona, ubicación y tipo de stand.\n\n"
+            "Cuando tengas una opción en mente, puedes iniciar la preinscripción e indicar 1 o 2 stands de interés. "
+            "La disponibilidad queda sujeta a confirmación del equipo organizador.\n\n"
+            "¿Qué quieres hacer ahora?"
+        )
         send_whatsapp_list(
             user_id,
-            "¿Qué quieres hacer ahora?",
+            second_reply,
             "Opciones expositor",
             "Elegir opción",
             EXHIBITOR_AFTER_PLAN_ROWS,
         )
-        remember_menu_turn(user_id, "Stands disponibles", reply)
+        remember_menu_turn(user_id, "Stands disponibles", reply + "\n\n" + second_reply)
         return True
 
     if button_id == "ORI_VIS_PROMOCIONES":
