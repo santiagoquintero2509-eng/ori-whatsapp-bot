@@ -3,6 +3,7 @@ import base64
 import json
 import os
 import queue
+import re
 import threading
 import time
 import unicodedata
@@ -69,8 +70,10 @@ WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "")
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrender.com").rstrip("/")
-PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg?v=20260703")
-CODE_VERSION = "sheet-only-stands-20260714"
+PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
+PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1LKrhVDmvgZHqkHjE5BPAv0cTrMU4lYvZ").strip()
+PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
+CODE_VERSION = "drive-plan-image-20260714"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -333,6 +336,15 @@ class OriHandler(BaseHTTPRequestHandler):
             return
 
         if parsed_url.path == "/plano_stands.jpg":
+            drive_media = fetch_drive_plan_image_media()
+            if drive_media:
+                self.send_binary(
+                    drive_media["content"],
+                    drive_media["mime_type"],
+                    drive_media["filename"],
+                    cache_control="no-store, max-age=0",
+                )
+                return
             self.send_static_file(PUBLIC_DIR / "plano_stands.jpg", "image/jpeg")
             return
 
@@ -423,6 +435,16 @@ class OriHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_binary(self, body, content_type, filename="", cache_control="no-store"):
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", cache_control)
+        if filename:
+            self.send_header("Content-Disposition", f'inline; filename="{filename}"')
         self.end_headers()
         self.wfile.write(body)
 
@@ -1765,10 +1787,103 @@ def subscribe_app_to_whatsapp():
         print(f"No se pudo conectar para suscribir la app a WhatsApp: {error}", flush=True)
 
 
+def fetch_drive_plan_image_media():
+    file_ids = []
+    if PLANO_STANDS_DRIVE_FILE_ID:
+        file_ids.append(PLANO_STANDS_DRIVE_FILE_ID)
+    if PLANO_STANDS_DRIVE_FOLDER_ID:
+        file_ids.extend(resolve_drive_folder_image_ids(PLANO_STANDS_DRIVE_FOLDER_ID))
+
+    seen = set()
+    for file_id in file_ids:
+        if not file_id or file_id in seen:
+            continue
+        seen.add(file_id)
+        media = download_drive_image_file(file_id)
+        if media:
+            return media
+    return None
+
+
+def resolve_drive_folder_image_ids(folder_id):
+    url = f"https://drive.google.com/drive/folders/{urllib.parse.quote(folder_id)}?usp=sharing"
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Ori WhatsApp Bot",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            html = response.read().decode("utf-8", errors="replace")
+    except Exception as error:
+        print(f"No se pudo leer la carpeta de Drive del plano: {error}", flush=True)
+        return []
+
+    candidates = []
+    metadata_pattern = r'\[null,"([A-Za-z0-9_-]{20,})"\][\s\S]{0,500}?"image/(?:jpeg|png|webp)"'
+    for match in re.finditer(metadata_pattern, html, re.IGNORECASE):
+        candidates.append((0, match.group(1)))
+    image_pattern = r'\["([A-Za-z0-9_-]{20,})","([^"]+\.(?:jpg|jpeg|png|webp))"'
+    for match in re.finditer(image_pattern, html, re.IGNORECASE):
+        file_id, name = match.group(1), match.group(2)
+        score = 0 if "plano" in normalize_for_match(name) else 1
+        candidates.append((score, file_id))
+    for file_id in re.findall(r"/file/d/([A-Za-z0-9_-]{20,})", html):
+        candidates.append((2, file_id))
+    if not candidates:
+        for file_id in re.findall(r'"([A-Za-z0-9_-]{25,})"', html):
+            candidates.append((3, file_id))
+
+    ordered = []
+    seen = set()
+    for _, file_id in sorted(candidates):
+        if file_id not in seen:
+            seen.add(file_id)
+            ordered.append(file_id)
+    return ordered
+
+
+def download_drive_image_file(file_id):
+    url = f"https://drive.google.com/uc?export=download&id={urllib.parse.quote(file_id)}&confirm=t"
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Ori WhatsApp Bot",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+            body = response.read()
+    except Exception as error:
+        print(f"No se pudo descargar imagen de Drive {file_id}: {error}", flush=True)
+        return None
+
+    if content_type not in {"image/jpeg", "image/png", "image/webp"}:
+        print(f"Drive no devolvio una imagen para {file_id}. Content-Type: {content_type}", flush=True)
+        return None
+
+    extension = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[content_type]
+    return {
+        "filename": f"plano_stands.{extension}",
+        "mime_type": content_type,
+        "content": body,
+    }
+
+
 def local_image_media_for_url(image_url):
     parsed = urllib.parse.urlparse(image_url or "")
     path = urllib.parse.unquote(parsed.path or "")
     filename = Path(path).name
+    if path == "/plano_stands.jpg":
+        drive_media = fetch_drive_plan_image_media()
+        if drive_media:
+            return drive_media
     if path == "/plano_stands.jpg" and PLANO_STANDS_JPG_BASE64:
         return {
             "filename": "plano_stands.jpg",
