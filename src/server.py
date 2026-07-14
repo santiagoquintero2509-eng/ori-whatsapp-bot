@@ -70,7 +70,7 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "")
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrender.com").rstrip("/")
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg?v=20260703")
-CODE_VERSION = "exhibitor-consistent-menu-20260714"
+CODE_VERSION = "visitor-consistent-menu-20260714"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -198,13 +198,7 @@ VISITOR_MENU_ROWS = [
     {"id": "ORI_VIS_IMAGENES", "title": "Imágenes", "description": "Fotos de la feria y espacios."},
     {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
 ]
-VISITOR_AFTER_TRAJECTORY_ROWS = [
-    {"id": "ORI_VIS_INFO", "title": "Info feria", "description": "Fechas, acceso y datos generales."},
-    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Lo que encontrarás en la feria."},
-    {"id": "ORI_VIS_IMAGENES", "title": "Imágenes", "description": "Fotos de la feria y espacios."},
-    {"id": "ORI_VIS_LLEGAR", "title": "Cómo llegar", "description": "Ubicación y ruta en Google Maps."},
-    {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
-]
+VISITOR_AFTER_TRAJECTORY_ROWS = VISITOR_MENU_ROWS
 VISITOR_INFO_LIST_ROWS = [
     {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Productos que encontrarás."},
     {"id": "ORI_VIS_TRAYECTORIA", "title": "Trayectoria", "description": "Historia y recorrido de la feria."},
@@ -275,26 +269,17 @@ PREINSCRIPTION_CONFIRM_BUTTONS = [
     {"id": "ORI_PRE_EDIT", "title": "Cambiar un dato"},
     {"id": "ORI_PRE_CANCEL", "title": "Cancelar"},
 ]
-VISITOR_AFTER_REPLY_BUTTONS = [
-    {"id": "ORI_VIS_LLEGAR", "title": "Cómo llegar"},
-    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
-    {"id": "ORI_MENU", "title": "Volver al menú"},
-]
+VISITOR_AFTER_REPLY_BUTTONS = VISITOR_MENU_ROWS
 VISITOR_AFTER_ARRIVAL_BUTTONS = [
-    {"id": "ORI_VIS_CERCA", "title": "Lugares cerca"},
-    {"id": "ORI_VIS_INFO", "title": "Info feria"},
-    {"id": "ORI_MENU", "title": "Volver al menú"},
+    {"id": "ORI_VIS_CERCA", "title": "Lugares cerca", "description": "Sitios de interés alrededor."},
+    {"id": "ORI_VIS_INFO", "title": "Info feria", "description": "Fechas, acceso y datos generales."},
+    {"id": "ORI_VIS_TRAYECTORIA", "title": "Trayectoria", "description": "Historia y recorrido de la feria."},
+    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos", "description": "Lo que encontrarás en la feria."},
+    {"id": "ORI_VIS_IMAGENES", "title": "Imágenes", "description": "Fotos de la feria y espacios."},
+    {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
 ]
-VISITOR_AFTER_NEARBY_BUTTONS = [
-    {"id": "ORI_VIS_LLEGAR", "title": "Cómo llegar"},
-    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
-    {"id": "ORI_MENU", "title": "Volver al menú"},
-]
-VISITOR_AFTER_IMAGES_BUTTONS = [
-    {"id": "ORI_VIS_PRODUCTOS", "title": "Productos"},
-    {"id": "ORI_VIS_TRAYECTORIA", "title": "Trayectoria"},
-    {"id": "ORI_MENU", "title": "Volver al menú"},
-]
+VISITOR_AFTER_NEARBY_BUTTONS = VISITOR_MENU_ROWS
+VISITOR_AFTER_IMAGES_BUTTONS = VISITOR_MENU_ROWS
 ADMIN_MENU_BUTTONS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados"},
@@ -892,24 +877,16 @@ def handle_guided_button_message(message):
 
     if button_id == "ORI_VIS_PRODUCTOS":
         reply = (
-            "En la feria encontrarás propuestas colombianas con identidad, oficio y mucho talento local.\n\n"
-            "Arte: obras, piezas visuales y propuestas creativas.\n"
-            "Artesanía típica: técnicas tradicionales, objetos hechos a mano y saberes culturales.\n"
-            "Joyería: piezas de autor, accesorios y detalles especiales.\n"
-            "Calzado y vestuario: moda, prendas, cuero y complementos de diseño.\n"
-            "Decoración: objetos para el hogar y piezas para darle carácter a los espacios.\n"
-            "Anticuarios: piezas con historia, colección y memoria.\n"
-            "Salud y belleza: bienestar, cuidado personal, cosmética y aromas.\n"
-            "Gastronomía: sabores, productos locales y experiencias para probar.\n\n"
-            "Elige una categoría y te cuento un poco más."
+            "Pronto encontrarás Productos Origen, una revista donde podrás ver los productos destacados "
+            "de cada categoría de la feria."
         )
         send_whatsapp_text(user_id, reply)
         send_whatsapp_list(
             user_id,
-            "¿Qué categoría quieres revisar?",
-            "Categorías",
-            "Ver categorías",
-            VISITOR_PRODUCT_CATEGORY_ROWS,
+            "¿Qué te gustaría revisar ahora?",
+            "Opciones visitante",
+            "Elegir opción",
+            VISITOR_MENU_ROWS,
         )
         remember_menu_turn(user_id, "Productos", reply)
         return True
@@ -1073,7 +1050,13 @@ def handle_guided_button_message(message):
         media_sent = send_fair_gallery_images(user_id)
         if media_sent:
             time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
-        send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", VISITOR_AFTER_IMAGES_BUTTONS)
+        send_whatsapp_list(
+            user_id,
+            "Puedes elegir otra opción:",
+            "Opciones visitante",
+            "Elegir opción",
+            VISITOR_AFTER_IMAGES_BUTTONS,
+        )
         remember_menu_turn(user_id, "Imágenes de la feria", first_reply)
         return True
 
@@ -1101,7 +1084,13 @@ def handle_guided_button_message(message):
                 next_buttons,
             )
         else:
-            send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", next_buttons)
+            send_whatsapp_list(
+                user_id,
+                "Puedes elegir otra opción:",
+                "Opciones visitante",
+                "Elegir opción",
+                next_buttons,
+            )
     return True
 
 
