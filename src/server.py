@@ -72,7 +72,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrende
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1LKrhVDmvgZHqkHjE5BPAv0cTrMU4lYvZ").strip()
 PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
-CODE_VERSION = "admin-confirmed-groups-20260714"
+CODE_VERSION = "welcome-dedupe-20260714"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -482,6 +482,10 @@ def handle_whatsapp_payload(payload):
             )
             continue
 
+        if is_duplicate_incoming_message(message):
+            print(f"Mensaje duplicado ignorado: {message.get('id')}", flush=True)
+            continue
+
         log_incoming_message(message)
 
         if is_guided_button_message(message):
@@ -595,6 +599,7 @@ def extract_incoming_messages(payload):
                 output.append(
                     {
                         "from": message.get("from", ""),
+                        "id": message.get("id", ""),
                         "text": text,
                         "type": message_type,
                         "media": media,
@@ -1239,7 +1244,7 @@ def should_send_initial_welcome_buttons(message):
     memory = get_memory(message.get("from"))
     if memory.get("welcome_buttons_sent"):
         return False
-    return not memory.get("history") or is_welcome_greeting_message(message.get("text", ""))
+    return not memory.get("history")
 
 
 def is_welcome_greeting_message(text):
@@ -1256,9 +1261,26 @@ def mark_welcome_buttons_sent(user_id, user_message):
 
 
 def send_initial_welcome(user_id):
-    send_whatsapp_image(user_id, ORI_WELCOME_IMAGE_URL, "Ori Colombia.")
+    send_whatsapp_image(user_id, ORI_WELCOME_IMAGE_URL)
     time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
     send_whatsapp_buttons(user_id, WELCOME_BUTTON_TEXT, WELCOME_BUTTONS)
+
+
+def is_duplicate_incoming_message(message):
+    message_id = str(message.get("id") or "").strip()
+    if not message_id:
+        return False
+
+    memory = get_memory(message.get("from"))
+    processed = memory.setdefault("processed_message_ids", [])
+    if message_id in processed:
+        return True
+
+    processed.append(message_id)
+    if len(processed) > 40:
+        del processed[:-40]
+    save_persistent_state()
+    return False
 
 
 def should_block_free_text(message):
