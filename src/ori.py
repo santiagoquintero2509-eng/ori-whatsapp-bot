@@ -1612,8 +1612,6 @@ def admin_available_stands_text():
         number = int(booth["number"])
         if number in occupied:
             continue
-        if admin_stand_assignment(number):
-            continue
         available.append(number)
 
     if not available:
@@ -1715,13 +1713,17 @@ def admin_no_form_records_reply():
 
 
 def confirmed_stands_from_sheet():
-    stands = set()
+    return set(sheet_confirmed_stand_map().keys())
+
+
+def sheet_confirmed_stand_map():
+    stands = {}
     for record in filter_form_records(force=True):
         value = str(record.get("confirmed_stand") or "").strip()
         if not value:
             continue
         for match in re.findall(r"\d{1,3}", value):
-            stands.add(int(match))
+            stands[int(match)] = record
     return stands
 
 
@@ -2258,7 +2260,7 @@ def admin_stand_owner_reply(stand):
         ]
         return "\n".join(details)
 
-    assignment = admin_stand_assignment(stand)
+    assignment = None
     interested = interested_users_for_stand(stand)
 
     if assignment:
@@ -2291,14 +2293,11 @@ def admin_stand_owner_reply(stand):
 
 
 def form_record_for_confirmed_stand(stand):
-    target = str(stand).strip()
-    if not target:
+    try:
+        target = int(str(stand).strip())
+    except (TypeError, ValueError):
         return None
-    for record in filter_form_records(force=True):
-        value = str(record.get("confirmed_stand") or "").strip()
-        if value == target:
-            return record
-    return None
+    return sheet_confirmed_stand_map().get(target)
 
 
 def admin_brand_stand_assignment_reply(query):
@@ -2310,7 +2309,7 @@ def admin_brand_stand_assignment_reply(query):
             "en la hoja de preinscripciones."
         )
 
-    assignment = find_admin_assignment_by_brand(query)
+    assignment = None
     if assignment:
         stand = assignment.get("stand")
         status = assignment.get("status") or "confirmado"
@@ -5381,22 +5380,26 @@ def base_booth(number):
     return next((item for item in BOOTHS if item["number"] == number), None)
 
 
-def find_booth(number):
+def find_booth(number, confirmed_map=None):
     booth = base_booth(number)
     if not booth:
         return None
 
     current = dict(booth)
-    assignment = admin_stand_assignment(number)
+    current["status"] = "available"
+    if confirmed_map is None:
+        confirmed_map = sheet_confirmed_stand_map()
+    assignment = confirmed_map.get(int(number))
     if assignment:
         current["status"] = "reserved"
-        current["confirmed_brand"] = assignment.get("brand")
+        current["confirmed_brand"] = record_brand(assignment)
     return current
 
 
 def iter_booths():
+    confirmed_map = sheet_confirmed_stand_map()
     for booth in BOOTHS:
-        yield find_booth(booth["number"])
+        yield find_booth(booth["number"], confirmed_map=confirmed_map)
 
 
 def stand_price_text(number):
