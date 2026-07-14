@@ -16,14 +16,13 @@ from pathlib import Path
 from groq_client import GroqClientError, transcribe_audio_with_groq
 from ori import (
     admin_guided_confirmed_rows,
+    admin_guided_confirmed_group_rows,
     admin_guided_menu_text,
     admin_guided_preinscribed_rows,
     admin_guided_record_detail,
-    admin_confirmed_records_text,
     admin_prepare_guided_assignment,
     admin_prepare_guided_release,
     available_stands_text,
-    admin_chat_phone_list_reply,
     get_memory,
     get_ori_reply,
     is_admin_entry_message,
@@ -73,7 +72,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrende
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1LKrhVDmvgZHqkHjE5BPAv0cTrMU4lYvZ").strip()
 PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
-CODE_VERSION = "drive-plan-image-20260714"
+CODE_VERSION = "admin-confirmed-groups-20260714"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -292,7 +291,6 @@ ADMIN_MENU_ROWS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos", "description": "Marcas pendientes por confirmar stand."},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados", "description": "Expositores con stand confirmado."},
     {"id": "ORI_ADM_PDF_EXCEL", "title": "PDF Excel", "description": "Descargar reporte de la hoja."},
-    {"id": "ORI_ADM_CONTACTS", "title": "Quiénes han escrito", "description": "Lista solo de números de WhatsApp."},
     {"id": "ORI_ADM_EXIT", "title": "Cerrar interno", "description": "Salir del acceso interno."},
 ]
 ADMIN_RECORD_PRE_BUTTONS = [
@@ -800,7 +798,6 @@ def button_reply_text(button_id, title):
         "ORI_ADM_MENU": "Menú interno",
         "ORI_ADM_PREINSCRITOS": "Preinscritos",
         "ORI_ADM_CONFIRMADOS": "Confirmados",
-        "ORI_ADM_CONTACTS": "Quiénes han escrito",
         "ORI_ADM_ASSIGN": "Asignar stand",
         "ORI_ADM_RELEASE": "Liberar stand",
         "ORI_ADM_EXIT": "Cerrar interno",
@@ -1168,19 +1165,22 @@ def handle_admin_guided_button_message(user_id, button_id):
     if button_id == "ORI_ADM_CONFIRMADOS":
         body, rows = admin_guided_confirmed_rows(user_id)
         if rows:
-            send_whatsapp_text(user_id, admin_confirmed_records_text())
-            send_whatsapp_list(user_id, body, "Confirmados", "Ver lista", rows)
+            send_whatsapp_list(user_id, body, "Confirmados", "Ver grupos", rows)
         else:
             send_whatsapp_text(user_id, body)
             send_admin_menu(user_id, "Puedes elegir otra opcion:")
         remember_menu_turn(user_id, "Confirmados", body)
         return True
 
-    if button_id == "ORI_ADM_CONTACTS":
-        reply = admin_chat_phone_list_reply("all", admin_key=user_id)
-        send_whatsapp_text(user_id, reply)
-        send_admin_menu(user_id, "Puedes elegir otra opcion:")
-        remember_menu_turn(user_id, "Quienes han escrito", reply)
+    if button_id.startswith("ORI_ADM_CON_GROUP_"):
+        group_index = button_id.rsplit("_", 1)[-1]
+        body, rows = admin_guided_confirmed_group_rows(user_id, group_index)
+        if rows:
+            send_whatsapp_list(user_id, body, "Confirmados", "Ver lista", rows)
+        else:
+            send_whatsapp_text(user_id, body)
+            send_admin_menu(user_id, "Puedes elegir otra opcion:")
+        remember_menu_turn(user_id, f"Confirmados grupo {group_index}", body)
         return True
 
     if button_id == "ORI_ADM_PDF_EXCEL":

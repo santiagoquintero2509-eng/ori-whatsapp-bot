@@ -1520,6 +1520,93 @@ def admin_guided_confirmed_rows(admin_key):
     return body, rows
 
 
+ADMIN_CONFIRMED_GROUP_SIZE = 8
+
+
+def confirmed_form_records():
+    records = filter_form_records(force=True)
+    if not records:
+        return []
+
+    confirmed = [record for record in records if str(record.get("confirmed_stand") or "").strip()]
+    return sorted(
+        confirmed,
+        key=lambda record: (
+            int(re.findall(r"\d{1,3}", str(record.get("confirmed_stand") or "999"))[0])
+            if re.findall(r"\d{1,3}", str(record.get("confirmed_stand") or ""))
+            else 999
+        ),
+    )
+
+
+def admin_guided_confirmed_rows(admin_key):
+    records = filter_form_records(force=True)
+    if not records:
+        return admin_no_form_records_reply(), []
+
+    confirmed = confirmed_form_records()
+    if not confirmed:
+        return "Por ahora no hay expositores confirmados en la hoja.", []
+
+    rows = []
+    group_count = (len(confirmed) + ADMIN_CONFIRMED_GROUP_SIZE - 1) // ADMIN_CONFIRMED_GROUP_SIZE
+    for group_index in range(group_count):
+        start = group_index * ADMIN_CONFIRMED_GROUP_SIZE
+        end = min(start + ADMIN_CONFIRMED_GROUP_SIZE, len(confirmed))
+        letter = chr(ord("A") + group_index)
+        rows.append(
+            {
+                "id": f"ORI_ADM_CON_GROUP_{group_index}",
+                "title": f"Grupo {letter}",
+                "description": f"Confirmados {start + 1} al {end}",
+            }
+        )
+
+    rows.append({"id": "ORI_ADM_MENU", "title": "Volver al inicio", "description": "Regresar al menu interno."})
+    body = f"Expositores confirmados: {len(confirmed)}\n\nElige un grupo para ver la lista."
+    return body, rows
+
+
+def admin_guided_confirmed_group_rows(admin_key, group_index):
+    confirmed = confirmed_form_records()
+    if not confirmed:
+        return "Por ahora no hay expositores confirmados en la hoja.", []
+
+    try:
+        group_index = max(int(group_index), 0)
+    except (TypeError, ValueError):
+        group_index = 0
+
+    start = group_index * ADMIN_CONFIRMED_GROUP_SIZE
+    end = min(start + ADMIN_CONFIRMED_GROUP_SIZE, len(confirmed))
+    group_records = confirmed[start:end]
+    if not group_records:
+        return "No encuentro ese grupo de confirmados. Vuelve a abrir Confirmados.", []
+
+    rows = []
+    lookup = {}
+    for offset, record in enumerate(group_records):
+        row_id = f"ORI_ADM_CON_{start + offset}"
+        title = admin_record_title(record)
+        stand = str(record.get("confirmed_stand") or "").strip()
+        category = record.get("category") or "sin categoria"
+        rows.append(
+            {
+                "id": row_id,
+                "title": title,
+                "description": f"Stand {stand} - {category}",
+            }
+        )
+        lookup[row_id] = {"kind": "confirmado", "query": title, "record": record}
+
+    rows.append({"id": "ORI_ADM_CONFIRMADOS", "title": "Volver atras", "description": "Regresar a grupos."})
+    rows.append({"id": "ORI_ADM_MENU", "title": "Volver al inicio", "description": "Regresar al menu interno."})
+    save_admin_guided_lookup(admin_key, lookup)
+    letter = chr(ord("A") + group_index)
+    body = f"Confirmados - Grupo {letter}\n\nElige un expositor para ver el detalle."
+    return body, rows
+
+
 def admin_confirmed_records_text():
     records = filter_form_records(force=True)
     if not records:
