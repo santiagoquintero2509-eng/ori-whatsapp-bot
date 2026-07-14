@@ -70,7 +70,7 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "")
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrender.com").rstrip("/")
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg?v=20260703")
-CODE_VERSION = "exhibitor-available-stands-menu-20260707"
+CODE_VERSION = "exhibitor-consistent-menu-20260714"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -151,9 +151,9 @@ EXHIBITOR_MENU_BUTTONS = [
 ]
 EXHIBITOR_MENU_ROWS = [
     {"id": "ORI_EXP_TRAYECTORIA", "title": "Trayectoria", "description": "Historia y recorrido de la feria."},
-    {"id": "ORI_EXP_STANDS_DISPONIBLES", "title": "Stands disponibles", "description": "Ver stands libres por zona."},
     {"id": "ORI_EXP_IMAGENES", "title": "Imágenes", "description": "Ver fotos de los espacios."},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta", "description": "Ver ubicaciones y valores."},
+    {"id": "ORI_EXP_STANDS_DISPONIBLES", "title": "Stands disponibles", "description": "Ver stands libres por zona."},
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción", "description": "Iniciar el formulario por WhatsApp."},
     {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
 ]
@@ -179,12 +179,7 @@ EXHIBITOR_TRAJECTORY_TEXT = (
     "y comercialización para el talento creativo colombiano, con entrada libre para el público visitante.\n\n"
     "Te comparto algunas imágenes de las primeras ferias."
 )
-EXHIBITOR_AFTER_TRAJECTORY_ROWS = [
-    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes", "description": "Ver fotos de los espacios."},
-    {"id": "ORI_EXP_PLANO", "title": "Plano de venta", "description": "Ver ubicaciones y valores."},
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción", "description": "Iniciar el formulario por WhatsApp."},
-    {"id": "ORI_MENU", "title": "Menú principal", "description": "Regresar al inicio."},
-]
+EXHIBITOR_AFTER_TRAJECTORY_ROWS = EXHIBITOR_MENU_ROWS
 VISITOR_MENU_TEXT = (
     "¡Qué alegría que quieras visitar la feria!\n\n"
     "La entrada para visitantes es 100% gratuita. Puedo ayudarte con información del evento, "
@@ -251,18 +246,8 @@ VISITOR_CATEGORY_DESCRIPTIONS = {
     "Gastronomía": "Gastronomía reúne sabores, productos locales, alimentos especiales y experiencias para probar en la feria.",
     "": "Aquí reunimos otras propuestas especiales que también hacen parte de la feria.",
 }
-EXHIBITOR_AFTER_REPLY_BUTTONS = [
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción"},
-    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
-    {"id": "ORI_MENU", "title": "Volver al menú"},
-]
-EXHIBITOR_AFTER_PLAN_ROWS = [
-    {"id": "ORI_EXP_STANDS_DISPONIBLES", "title": "Stands disponibles", "description": "Ver stands libres por zona."},
-    {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción", "description": "Iniciar el formulario por WhatsApp."},
-    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes", "description": "Ver fotos de los espacios."},
-    {"id": "ORI_EXP_TRAYECTORIA", "title": "Trayectoria", "description": "Historia y recorrido de la feria."},
-    {"id": "ORI_MENU", "title": "Menú principal", "description": "Regresar al inicio."},
-]
+EXHIBITOR_AFTER_REPLY_BUTTONS = EXHIBITOR_MENU_ROWS
+EXHIBITOR_AFTER_PLAN_ROWS = EXHIBITOR_MENU_ROWS
 EXHIBITOR_CATEGORY_ROWS = [
     {"id": "ORI_PRE_CAT_ARTE", "title": "Arte", "description": "Obras, piezas y propuestas creativas."},
     {"id": "ORI_PRE_CAT_ARTESANIA", "title": "Artesanía típica", "description": "Técnicas tradicionales y hechas a mano."},
@@ -283,16 +268,8 @@ EXHIBITOR_CATEGORY_BY_BUTTON = {
     "ORI_PRE_CAT_SALUD": "Salud y belleza",
     "ORI_PRE_CAT_GASTRONOMIA": "Gastronomía",
 }
-EXHIBITOR_AFTER_IMAGES_BUTTONS = [
-    {"id": "ORI_EXP_TRAYECTORIA", "title": "Trayectoria"},
-    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
-    {"id": "ORI_MENU", "title": "Inicio"},
-]
-EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS = [
-    {"id": "ORI_EXP_PLANO", "title": "Plano de venta"},
-    {"id": "ORI_EXP_IMAGENES", "title": "Imágenes"},
-    {"id": "ORI_MENU", "title": "Volver al menú"},
-]
+EXHIBITOR_AFTER_IMAGES_BUTTONS = EXHIBITOR_MENU_ROWS
+EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS = EXHIBITOR_MENU_ROWS
 PREINSCRIPTION_CONFIRM_BUTTONS = [
     {"id": "ORI_PRE_CONFIRM", "title": "Sí, confirmar"},
     {"id": "ORI_PRE_EDIT", "title": "Cambiar un dato"},
@@ -1002,7 +979,13 @@ def handle_guided_button_message(message):
         send_whatsapp_text(user_id, reply)
         send_preinscription_category_list_if_needed(user_id)
         if not is_questionnaire_active(user_id):
-            send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS)
+            send_whatsapp_list(
+                user_id,
+                "Puedes elegir otra opción:",
+                "Opciones expositor",
+                "Elegir opción",
+                EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS,
+            )
         return True
 
     if button_id == "ORI_EXP_TRAYECTORIA":
@@ -1070,7 +1053,13 @@ def handle_guided_button_message(message):
             "que se vive en Feria Origen Colombia.\n\n"
             "¿Qué te gustaría hacer ahora?"
         )
-        send_whatsapp_buttons(user_id, second_reply, EXHIBITOR_AFTER_IMAGES_BUTTONS)
+        send_whatsapp_list(
+            user_id,
+            second_reply,
+            "Opciones expositor",
+            "Elegir opción",
+            EXHIBITOR_AFTER_IMAGES_BUTTONS,
+        )
         remember_menu_turn(user_id, "Imágenes", first_reply + "\n\n" + second_reply)
         return True
 
@@ -1103,7 +1092,16 @@ def handle_guided_button_message(message):
     if media_sent:
         time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
     if not is_questionnaire_active(user_id):
-        send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", next_buttons)
+        if next_buttons is EXHIBITOR_AFTER_REPLY_BUTTONS:
+            send_whatsapp_list(
+                user_id,
+                "Puedes elegir otra opción:",
+                "Opciones expositor",
+                "Elegir opción",
+                next_buttons,
+            )
+        else:
+            send_whatsapp_buttons(user_id, "Puedes elegir otra opción:", next_buttons)
     return True
 
 
