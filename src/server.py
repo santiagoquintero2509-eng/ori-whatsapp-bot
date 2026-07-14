@@ -72,7 +72,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrende
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1LKrhVDmvgZHqkHjE5BPAv0cTrMU4lYvZ").strip()
 PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
-CODE_VERSION = "welcome-dedupe-20260714"
+CODE_VERSION = "repeated-hello-menu-20260714"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -1302,6 +1302,8 @@ def send_guided_menu_for_free_text(message):
         "Si quieres participar como expositor, toca Expositor. Si vienes a visitar la feria, toca Visitante.\n\n"
         "Cuando iniciemos la preinscripción, podrás escribirme tus datos tranquilamente."
     )
+    if is_repeated_hello_message(memory, message.get("text", "")):
+        text = returning_hello_text()
     if mode == "expositor":
         send_exhibitor_menu(user_id, text)
     elif mode == "visitante":
@@ -1309,6 +1311,37 @@ def send_guided_menu_for_free_text(message):
     else:
         send_whatsapp_buttons(user_id, text, MAIN_MENU_BUTTONS)
     remember_menu_turn(user_id, message.get("text") or "[mensaje libre]", text)
+
+
+def returning_hello_text():
+    return (
+        "\u00a1Hola de nuevo! Me alegra tenerte de vuelta.\n\n"
+        "Puedo seguir ayud\u00e1ndote con informaci\u00f3n de Feria Origen Colombia, "
+        "ya sea como expositor o visitante.\n\n"
+        "\u00bfQu\u00e9 te gustar\u00eda revisar ahora?"
+    )
+
+
+def is_repeated_hello_message(memory, text):
+    if not is_welcome_greeting_message(text):
+        return False
+
+    count = int(memory.get("hello_message_count") or 0)
+    if count <= 0:
+        count = count_hello_messages_in_history(memory)
+
+    count += 1
+    memory["hello_message_count"] = count
+    save_persistent_state()
+    return count > 2
+
+
+def count_hello_messages_in_history(memory):
+    count = 0
+    for item in memory.get("history") or []:
+        if is_welcome_greeting_message((item or {}).get("user", "")):
+            count += 1
+    return count
 
 
 def send_exhibitor_menu(user_id, body):
