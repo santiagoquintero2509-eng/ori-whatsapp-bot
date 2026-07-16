@@ -40,7 +40,7 @@ ZONE_LABELS = {
     "salon": "Salon Pierre Daguet",
 }
 
-ADMIN_PHONE_DEFAULT = "573004851602"
+ADMIN_PHONE_DEFAULT = "573004851602,573160282537,573152216174"
 ADMIN_ENTRY_CODE_DEFAULT = "In_adm1n"
 ADMIN_EXIT_CODE_DEFAULT = "Out_adm1n"
 ADVISOR_WHATSAPP_LINK = "https://wa.me/573160282537"
@@ -2865,8 +2865,16 @@ def is_permanent_admin_user(user_id):
     key = normalize_phone(user_id)
     if not key:
         return False
-    configured = os.getenv("ORI_ADMIN_PHONE", ADMIN_PHONE_DEFAULT)
-    admin_numbers = [normalize_phone(item) for item in re.split(r"[,;\s]+", configured or "") if item.strip()]
+    configured = ",".join(
+        value
+        for value in [
+            ADMIN_PHONE_DEFAULT,
+            os.getenv("ORI_ADMIN_PHONE", ""),
+            os.getenv("ADMIN_PHONES", ""),
+        ]
+        if value
+    )
+    admin_numbers = [normalize_phone(item) for item in re.split(r"[,;\s]+", configured) if item.strip()]
     return any(phones_are_equivalent(key, admin_phone) for admin_phone in admin_numbers)
 
 
