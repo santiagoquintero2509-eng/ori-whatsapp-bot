@@ -100,7 +100,7 @@ WELCOME_BUTTON_TEXT = (
 WELCOME_BUTTONS = [
     {"id": "ORI_EXPOSITOR", "title": "Quiero exponer"},
     {"id": "ORI_VISITANTE", "title": "Quiero visitar"},
-    {"id": "ORI_ADVISOR", "title": "Hablar con un asesor"},
+    {"id": "ORI_ADVISOR", "title": "Asesor"},
 ]
 MAIN_MENU_TEXT = "Elige una opción para que pueda ayudarte mejor:"
 MAIN_MENU_BUTTONS = WELCOME_BUTTONS
@@ -115,7 +115,7 @@ WELCOME_BUTTON_TEXT = (
 WELCOME_BUTTONS = [
     {"id": "ORI_EXPOSITOR", "title": "Expositor"},
     {"id": "ORI_VISITANTE", "title": "Visitante"},
-    {"id": "ORI_ADVISOR", "title": "Hablar con un asesor"},
+    {"id": "ORI_ADVISOR", "title": "Asesor"},
 ]
 MAIN_MENU_BUTTONS = WELCOME_BUTTONS
 EXHIBITOR_MENU_TEXT = (
@@ -284,7 +284,7 @@ VISITOR_AFTER_ARRIVAL_BUTTONS = [
 ]
 VISITOR_AFTER_NEARBY_BUTTONS = VISITOR_MENU_ROWS
 VISITOR_AFTER_IMAGES_BUTTONS = VISITOR_MENU_ROWS
-ADVISOR_MENU_ROW = {"id": "ORI_ADVISOR", "title": "Hablar con un asesor", "description": "Contacto directo por WhatsApp."}
+ADVISOR_MENU_ROW = {"id": "ORI_ADVISOR", "title": "Asesor", "description": "Hablar con un asesor de venta."}
 
 
 def ensure_advisor_menu_row(rows):
@@ -795,7 +795,7 @@ def button_reply_text(button_id, title):
         "ORI_EXP_PLANO": "Plano de venta",
         "ORI_EXP_PREINSCRIPCION": "Preinscripción",
         "ORI_EXP_IMAGENES": "Imágenes",
-        "ORI_ADVISOR": "Hablar con un asesor",
+        "ORI_ADVISOR": "Asesor",
         "ORI_PRE_CAT_ARTE": "Arte",
         "ORI_PRE_CAT_ARTESANIA": "Artesanía típica",
         "ORI_PRE_CAT_JOYERIA": "Joyería",
