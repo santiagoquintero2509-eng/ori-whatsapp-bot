@@ -1523,6 +1523,17 @@ def admin_guided_confirmed_rows(admin_key):
 ADMIN_CONFIRMED_GROUP_SIZE = 8
 
 
+def booth_stand_numbers():
+    return sorted({int(booth["number"]) for booth in BOOTHS})
+
+
+def admin_confirmed_group_count():
+    numbers = booth_stand_numbers()
+    if not numbers:
+        return 0
+    return (max(numbers) + ADMIN_CONFIRMED_GROUP_SIZE - 1) // ADMIN_CONFIRMED_GROUP_SIZE
+
+
 def confirmed_form_records():
     records = filter_form_records(force=True)
     if not records:
@@ -1545,65 +1556,71 @@ def admin_guided_confirmed_rows(admin_key):
         return admin_no_form_records_reply(), []
 
     confirmed = confirmed_form_records()
-    if not confirmed:
-        return "Por ahora no hay expositores confirmados en la hoja.", []
 
     rows = []
-    group_count = (len(confirmed) + ADMIN_CONFIRMED_GROUP_SIZE - 1) // ADMIN_CONFIRMED_GROUP_SIZE
+    numbers = booth_stand_numbers()
+    group_count = admin_confirmed_group_count()
     for group_index in range(group_count):
-        start = group_index * ADMIN_CONFIRMED_GROUP_SIZE
-        end = min(start + ADMIN_CONFIRMED_GROUP_SIZE, len(confirmed))
+        start = group_index * ADMIN_CONFIRMED_GROUP_SIZE + 1
+        end = min(start + ADMIN_CONFIRMED_GROUP_SIZE - 1, max(numbers))
         letter = chr(ord("A") + group_index)
         rows.append(
             {
                 "id": f"ORI_ADM_CON_GROUP_{group_index}",
                 "title": f"Grupo {letter}",
-                "description": f"Confirmados {start + 1} al {end}",
+                "description": f"Stands {start} al {end}",
             }
         )
 
     rows.append({"id": "ORI_ADM_MENU", "title": "Volver al inicio", "description": "Regresar al menu interno."})
-    body = f"Expositores confirmados: {len(confirmed)}\n\nElige un grupo para ver la lista."
+    body = f"Stands confirmados: {len(confirmed)}\n\nElige un grupo para ver los stands en orden."
     return body, rows
 
 
 def admin_guided_confirmed_group_rows(admin_key, group_index):
-    confirmed = confirmed_form_records()
-    if not confirmed:
-        return "Por ahora no hay expositores confirmados en la hoja.", []
+    confirmed_map = sheet_confirmed_stand_map()
+    booth_numbers = set(booth_stand_numbers())
+    if not booth_numbers:
+        return "No encuentro stands cargados en el plano.", []
 
     try:
         group_index = max(int(group_index), 0)
     except (TypeError, ValueError):
         group_index = 0
 
-    start = group_index * ADMIN_CONFIRMED_GROUP_SIZE
-    end = min(start + ADMIN_CONFIRMED_GROUP_SIZE, len(confirmed))
-    group_records = confirmed[start:end]
-    if not group_records:
+    start = group_index * ADMIN_CONFIRMED_GROUP_SIZE + 1
+    end = min(start + ADMIN_CONFIRMED_GROUP_SIZE - 1, max(booth_numbers))
+    group_numbers = [number for number in range(start, end + 1) if number in booth_numbers]
+    if not group_numbers:
         return "No encuentro ese grupo de confirmados. Vuelve a abrir Confirmados.", []
 
     rows = []
     lookup = {}
-    for offset, record in enumerate(group_records):
-        row_id = f"ORI_ADM_CON_{start + offset}"
-        title = admin_record_title(record)
-        stand = str(record.get("confirmed_stand") or "").strip()
-        category = record.get("category") or "sin categoria"
+    for number in group_numbers:
+        row_id = f"ORI_ADM_CON_STAND_{number}"
+        record = confirmed_map.get(number)
+        if record:
+            title = shorten_text(f"Stand {number}: {admin_record_title(record)}", 24)
+            category = record.get("category") or "sin categoria"
+            description = f"Asignado - {category}"
+            lookup[row_id] = {"kind": "confirmado", "query": admin_record_title(record), "record": record}
+        else:
+            title = f"Stand {number}: No asignado"
+            description = "Disponible para asignar."
+            lookup[row_id] = {"kind": "stand_no_asignado", "stand": number}
         rows.append(
             {
                 "id": row_id,
                 "title": title,
-                "description": f"Stand {stand} - {category}",
+                "description": description,
             }
         )
-        lookup[row_id] = {"kind": "confirmado", "query": title, "record": record}
 
     rows.append({"id": "ORI_ADM_CONFIRMADOS", "title": "Volver atras", "description": "Regresar a grupos."})
     rows.append({"id": "ORI_ADM_MENU", "title": "Volver al inicio", "description": "Regresar al menu interno."})
     save_admin_guided_lookup(admin_key, lookup)
     letter = chr(ord("A") + group_index)
-    body = f"Confirmados - Grupo {letter}\n\nElige un expositor para ver el detalle."
+    body = f"Confirmados - Grupo {letter}\nStands {start} al {end}\n\nElige un stand para ver el detalle."
     return body, rows
 
 
@@ -1638,8 +1655,12 @@ def admin_guided_record_detail(admin_key, button_id):
     if not selected:
         return "No pude encontrar esa selección. Vuelve a abrir la lista y elige la razón social nuevamente.", None
 
-    record = selected["record"]
     kind = selected["kind"]
+    if kind == "stand_no_asignado":
+        stand = selected.get("stand")
+        return f"Stand {stand}: No asignado.\n\nAun no hay expositor confirmado para este stand.", kind
+
+    record = selected["record"]
     save_admin_selected_record(admin_key, record, kind)
     lines = [admin_record_title(record), ""]
 
@@ -1729,6 +1750,8 @@ def admin_guided_selected_record(admin_key, button_id):
     item = lookup.get(button_id)
     if not item:
         return None
+    if item.get("kind") == "stand_no_asignado":
+        return {"kind": "stand_no_asignado", "stand": item.get("stand"), "record": {}}
     record = item.get("record") if isinstance(item.get("record"), dict) else None
     if not record:
         record = find_form_record(item.get("query"), force=True)

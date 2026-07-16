@@ -1,6 +1,8 @@
 const SHEET_NAME = 'Respuestas Ori';
 const CONVERSATION_LOG_SHEET_NAME = 'Historial Ori';
+const STAND_MAP_SHEET_NAME = 'Mapa Stands';
 const SPREADSHEET_ID = '1zfw1C4a0PxP1zZFJY4fD4C8x-5_ONDq1CPuwszVDXDo';
+const MAX_STAND_NUMBER = 64;
 
 function doPost(e) {
   try {
@@ -85,10 +87,21 @@ function updateConfirmedStand(body) {
   }
 
   const headers = headerIndexMap(sheet);
+  const previousStand = String(sheet.getRange(row, headers['Stand confirmado']).getValue() || '').trim();
+  const nextStand = String(body.stand || '').trim();
   sheet.getRange(row, headers['Stand confirmado']).setValue(String(body.stand || '').trim());
   sheet.getRange(row, headers['Estado administrativo']).setValue(body.status || 'stand confirmado');
   sheet.getRange(row, headers['Fecha confirmacion']).setValue(body.updated_at || new Date().toISOString());
   sheet.getRange(row, headers['Confirmado por']).setValue(body.confirmed_by || 'Ori admin');
+
+  if (previousStand && previousStand !== nextStand) {
+    clearStandMapAssignment(previousStand);
+  }
+  if (nextStand) {
+    updateStandMapAssignment(sheet, row, body);
+  } else if (previousStand) {
+    clearStandMapAssignment(previousStand);
+  }
 
   return { ok: true, row: row };
 }
@@ -224,6 +237,115 @@ function getConversationLogSheet() {
     sheet = spreadsheet.insertSheet(CONVERSATION_LOG_SHEET_NAME);
   }
   return sheet;
+}
+
+function getStandMapSheet() {
+  const configuredId = PropertiesService.getScriptProperties().getProperty('FORM_RESPONSES_SHEET_ID') || SPREADSHEET_ID;
+  const spreadsheet = configuredId
+    ? SpreadsheetApp.openById(configuredId)
+    : SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = spreadsheet.getSheetByName(STAND_MAP_SHEET_NAME);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(STAND_MAP_SHEET_NAME);
+  }
+  ensureStandMapHeadersAndRows(sheet);
+  return sheet;
+}
+
+function standMapHeaders() {
+  return [
+    'Stand',
+    'Razon social',
+    'Nombre representante',
+    'Nombre para el stand',
+    'Categoria',
+    'Whatsapp',
+    'Productos',
+    'Estado',
+    'Fecha confirmacion',
+    'Confirmado por'
+  ];
+}
+
+function ensureStandMapHeadersAndRows(sheet) {
+  const headers = standMapHeaders();
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  } else {
+    const current = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0];
+    const existing = current.map(value => String(value || '').trim());
+    headers.forEach(header => {
+      if (existing.indexOf(header) === -1) {
+        sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
+        existing.push(header);
+      }
+    });
+  }
+
+  const currentLastRow = sheet.getLastRow();
+  if (currentLastRow < MAX_STAND_NUMBER + 1) {
+    const rows = [];
+    for (let stand = Math.max(currentLastRow, 1); stand <= MAX_STAND_NUMBER; stand++) {
+      rows.push([stand, '', '', '', '', '', '', 'No asignado', '', '']);
+    }
+    if (rows.length) {
+      sheet.getRange(currentLastRow + 1, 1, rows.length, headers.length).setValues(rows);
+    }
+  }
+
+  for (let stand = 1; stand <= MAX_STAND_NUMBER; stand++) {
+    const rowNumber = stand + 1;
+    const currentStand = String(sheet.getRange(rowNumber, 1).getValue() || '').trim();
+    if (currentStand !== String(stand)) {
+      sheet.getRange(rowNumber, 1).setValue(stand);
+    }
+    const stateCell = sheet.getRange(rowNumber, 8);
+    if (!String(stateCell.getValue() || '').trim()) {
+      stateCell.setValue('No asignado');
+    }
+  }
+}
+
+function updateStandMapAssignment(sourceSheet, sourceRow, body) {
+  const stand = parseInt(String(body.stand || '').replace(/\D+/g, ''), 10);
+  if (!stand || stand < 1 || stand > MAX_STAND_NUMBER) {
+    return;
+  }
+
+  const sourceHeaders = headerIndexMap(sourceSheet);
+  const rowValues = sourceSheet.getRange(sourceRow, 1, 1, sourceSheet.getLastColumn()).getValues()[0];
+  const standSheet = getStandMapSheet();
+  const targetRow = stand + 1;
+  standSheet.getRange(targetRow, 1, 1, standMapHeaders().length).setValues([[
+    stand,
+    rowValues[(sourceHeaders['Razon social'] || 1) - 1] || '',
+    rowValues[(sourceHeaders['Nombre representante'] || 1) - 1] || '',
+    rowValues[(sourceHeaders['Nombre para el stand'] || 1) - 1] || '',
+    rowValues[(sourceHeaders['Categoria'] || 1) - 1] || '',
+    rowValues[(sourceHeaders['Whatsapp'] || 1) - 1] || '',
+    rowValues[(sourceHeaders['Productos a participar'] || 1) - 1] || '',
+    body.status || 'stand confirmado',
+    body.updated_at || new Date().toISOString(),
+    body.confirmed_by || 'Ori admin'
+  ]]);
+}
+
+function clearStandMapAssignment(standValue) {
+  const matches = String(standValue || '').match(/\d{1,3}/g) || [];
+  if (!matches.length) {
+    return;
+  }
+
+  const sheet = getStandMapSheet();
+  matches.forEach(value => {
+    const stand = parseInt(value, 10);
+    if (!stand || stand < 1 || stand > MAX_STAND_NUMBER) {
+      return;
+    }
+    sheet.getRange(stand + 1, 1, 1, standMapHeaders().length).setValues([[
+      stand, '', '', '', '', '', '', 'No asignado', '', ''
+    ]]);
+  });
 }
 
 function ensureHeaders(sheet) {
