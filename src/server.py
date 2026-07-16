@@ -72,7 +72,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrende
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1LKrhVDmvgZHqkHjE5BPAv0cTrMU4lYvZ").strip()
 PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
-CODE_VERSION = "repeated-hello-menu-20260714"
+CODE_VERSION = "advisor-all-menus-20260716"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -100,6 +100,7 @@ WELCOME_BUTTON_TEXT = (
 WELCOME_BUTTONS = [
     {"id": "ORI_EXPOSITOR", "title": "Quiero exponer"},
     {"id": "ORI_VISITANTE", "title": "Quiero visitar"},
+    {"id": "ORI_ADVISOR", "title": "Hablar con un asesor"},
 ]
 MAIN_MENU_TEXT = "Elige una opción para que pueda ayudarte mejor:"
 MAIN_MENU_BUTTONS = WELCOME_BUTTONS
@@ -114,6 +115,7 @@ WELCOME_BUTTON_TEXT = (
 WELCOME_BUTTONS = [
     {"id": "ORI_EXPOSITOR", "title": "Expositor"},
     {"id": "ORI_VISITANTE", "title": "Visitante"},
+    {"id": "ORI_ADVISOR", "title": "Hablar con un asesor"},
 ]
 MAIN_MENU_BUTTONS = WELCOME_BUTTONS
 EXHIBITOR_MENU_TEXT = (
@@ -282,6 +284,28 @@ VISITOR_AFTER_ARRIVAL_BUTTONS = [
 ]
 VISITOR_AFTER_NEARBY_BUTTONS = VISITOR_MENU_ROWS
 VISITOR_AFTER_IMAGES_BUTTONS = VISITOR_MENU_ROWS
+ADVISOR_MENU_ROW = {"id": "ORI_ADVISOR", "title": "Hablar con un asesor", "description": "Contacto directo por WhatsApp."}
+
+
+def ensure_advisor_menu_row(rows):
+    if any(row.get("id") == "ORI_ADVISOR" for row in rows):
+        return rows
+    if len(rows) >= 10:
+        rows[:] = [row for row in rows if row.get("id") != "ORI_VIS_CAT_OTRO"]
+    insert_at = next((index for index, row in enumerate(rows) if row.get("id") == "ORI_MENU"), len(rows))
+    rows.insert(insert_at, dict(ADVISOR_MENU_ROW))
+    return rows
+
+
+for _public_menu_rows in (
+    EXHIBITOR_MENU_ROWS,
+    VISITOR_MENU_ROWS,
+    VISITOR_INFO_LIST_ROWS,
+    VISITOR_PRODUCT_CATEGORY_ROWS,
+    VISITOR_AFTER_ARRIVAL_BUTTONS,
+):
+    ensure_advisor_menu_row(_public_menu_rows)
+
 ADMIN_MENU_BUTTONS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados"},
