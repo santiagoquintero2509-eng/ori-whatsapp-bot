@@ -347,6 +347,14 @@ def media_message_text(media):
     return "[archivo de producto]"
 
 
+def is_media_placeholder_text(text):
+    return normalize(text) in {
+        "imagen de producto",
+        "documento de producto",
+        "archivo de producto",
+    }
+
+
 def get_memory(user_id):
     key = str(user_id or "default")
     if key not in CONVERSATIONS:
@@ -3314,13 +3322,30 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
         ):
             return duplicate_preinscription_reply(memory)
 
-    if incoming_media:
+    if incoming_media and (not pre.get("active") or pre.get("step") in {"files", "correction_files"}):
         if pre.get("active") and pre.get("step") in {"files", "correction_files"}:
             return receive_preinscription_media(memory, incoming_media)
         return (
             "Recibí el archivo. Si quieres hacer una preinscripción, escríbeme que deseas participar "
             "y te guío paso a paso."
         )
+
+    if incoming_media and pre.get("active"):
+        active_step = pre.get("step") or next_preinscription_step(pre)
+        has_caption_or_answer = bool(str(message or "").strip()) and not is_media_placeholder_text(message)
+
+        if active_step not in {"files", "correction_files"} and has_caption_or_answer:
+            memory["role"] = "expositor"
+            memory["last_intent"] = "preinscription_flow"
+            incoming_media = None
+        elif active_step not in {"files", "correction_files"}:
+            memory["role"] = "expositor"
+            memory["last_intent"] = "preinscription_flow"
+            return (
+                "Recibi el archivo, pero para esta pregunta necesito que me escribas el dato.\n\n"
+                "Los archivos de productos los podras enviar mas adelante, cuando lleguemos a ese paso.\n\n"
+                f"{preinscription_prompt(active_step, memory)}"
+            )
 
     if not pre.get("active"):
         return None
