@@ -44,6 +44,7 @@ ADMIN_PHONE_DEFAULT = "573004851602,573160282537,573152216174"
 ADMIN_ENTRY_CODE_DEFAULT = "In_adm1n"
 ADMIN_EXIT_CODE_DEFAULT = "Out_adm1n"
 ADVISOR_WHATSAPP_LINK = "https://wa.me/573160282537"
+PREINSCRIPTION_NOTIFY_PHONES_DEFAULT = "573160282537"
 BOGOTA_TZ = timezone(timedelta(hours=-5))
 MEMORY_PATH = Path(os.getenv("ORI_USER_MEMORY_PATH", "memoria_revisable/usuarios.json"))
 PERSISTENT_STATE = {}
@@ -3668,6 +3669,7 @@ def finish_preinscription(memory):
         "error": result.get("error"),
     }
     save_persistent_state()
+    notify_preinscription_received(data, result)
 
     return (
         "¡Listo! Tu preinscripción fue recibida correctamente.\n\n"
@@ -3676,6 +3678,43 @@ def finish_preinscription(memory):
         "Si necesitas apoyo adicional, puedes hablar con un asesor aquí:\n"
         f"{ADVISOR_WHATSAPP_LINK}"
     )
+
+
+def notify_preinscription_received(data, result=None):
+    result = result or {}
+    notify_phones = parse_phone_list(
+        os.getenv("PREINSCRIPTION_NOTIFY_PHONES", PREINSCRIPTION_NOTIFY_PHONES_DEFAULT)
+    )
+    if not notify_phones:
+        return
+
+    status = "Guardada en Google Sheet/Drive."
+    if result.get("queued"):
+        status = "Quedo en cola para reenviar a Google Sheet/Drive."
+    if result.get("error"):
+        status = f"Con alerta: {result.get('error')}"
+
+    body = (
+        "Nueva preinscripcion recibida en Ori Colombia.\n\n"
+        f"Razon social: {data.get('razon_social') or 'No registra'}\n"
+        f"Representante: {data.get('nombre_representante') or 'No registra'}\n"
+        f"Nombre para el stand: {data.get('nombre_para_stand') or 'No registra'}\n"
+        f"Ciudad: {data.get('ciudad_origen') or 'No registra'}\n"
+        f"WhatsApp: {data.get('whatsapp') or data.get('telefono_chat') or 'No registra'}\n"
+        f"Correo: {data.get('correo') or 'No registra'}\n"
+        f"Categoria: {data.get('categoria') or 'No registra'}\n"
+        f"Productos: {data.get('productos') or 'No registra'}\n"
+        f"Stands de interes: {data.get('stands_interes') or 'No registra'}\n"
+        f"Archivos: {data.get('archivos_productos') or 'No enviados'}\n"
+        f"Carpeta Drive: {data.get('carpeta_drive') or 'No registra'}\n\n"
+        f"Estado: {status}"
+    )
+
+    for phone in notify_phones:
+        try:
+            send_whatsapp_text_from_ori(phone, body)
+        except Exception as error:
+            print(f"No se pudo notificar preinscripcion a {phone}: {error}", flush=True)
 
 
 def submitted_preinscription_exists(memory):
