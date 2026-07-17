@@ -72,7 +72,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrende
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1LKrhVDmvgZHqkHjE5BPAv0cTrMU4lYvZ").strip()
 PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
-CODE_VERSION = "preinscription-notify-20260717"
+CODE_VERSION = "admin-menu-no-exit-button-20260717"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -309,13 +309,11 @@ for _public_menu_rows in (
 ADMIN_MENU_BUTTONS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados"},
-    {"id": "ORI_ADM_EXIT", "title": "Cerrar interno"},
 ]
 ADMIN_MENU_ROWS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos", "description": "Marcas pendientes por confirmar stand."},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados", "description": "Expositores con stand confirmado."},
     {"id": "ORI_ADM_PDF_EXCEL", "title": "PDF Excel", "description": "Descargar reporte de la hoja."},
-    {"id": "ORI_ADM_EXIT", "title": "Cerrar interno", "description": "Salir del acceso interno."},
 ]
 ADMIN_RECORD_PRE_BUTTONS = [
     {"id": "ORI_ADM_ASSIGN", "title": "Asignar stand"},
