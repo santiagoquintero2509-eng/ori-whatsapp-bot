@@ -307,45 +307,58 @@ function ensureStandMapHeadersAndRows(sheet) {
 }
 
 function updateStandMapAssignment(sourceSheet, sourceRow, body) {
-  const stand = parseInt(String(body.stand || '').replace(/\D+/g, ''), 10);
-  if (!stand || stand < 1 || stand > MAX_STAND_NUMBER) {
+  const stands = standNumbersFromValue(body.stand);
+  if (!stands.length) {
     return;
   }
 
   const sourceHeaders = headerIndexMap(sourceSheet);
   const rowValues = sourceSheet.getRange(sourceRow, 1, 1, sourceSheet.getLastColumn()).getValues()[0];
   const standSheet = getStandMapSheet();
-  const targetRow = stand + 1;
-  standSheet.getRange(targetRow, 1, 1, standMapHeaders().length).setValues([[
-    stand,
-    rowValues[(sourceHeaders['Razon social'] || 1) - 1] || '',
-    rowValues[(sourceHeaders['Nombre representante'] || 1) - 1] || '',
-    rowValues[(sourceHeaders['Nombre para el stand'] || 1) - 1] || '',
-    rowValues[(sourceHeaders['Categoria'] || 1) - 1] || '',
-    rowValues[(sourceHeaders['Whatsapp'] || 1) - 1] || '',
-    rowValues[(sourceHeaders['Productos a participar'] || 1) - 1] || '',
-    body.status || 'stand confirmado',
-    body.updated_at || new Date().toISOString(),
-    body.confirmed_by || 'Ori admin'
-  ]]);
+  stands.forEach(stand => {
+    const targetRow = stand + 1;
+    standSheet.getRange(targetRow, 1, 1, standMapHeaders().length).setValues([[
+      stand,
+      rowValues[(sourceHeaders['Razon social'] || 1) - 1] || '',
+      rowValues[(sourceHeaders['Nombre representante'] || 1) - 1] || '',
+      rowValues[(sourceHeaders['Nombre para el stand'] || 1) - 1] || '',
+      rowValues[(sourceHeaders['Categoria'] || 1) - 1] || '',
+      rowValues[(sourceHeaders['Whatsapp'] || 1) - 1] || '',
+      rowValues[(sourceHeaders['Productos a participar'] || 1) - 1] || '',
+      body.status || 'stand confirmado',
+      body.updated_at || new Date().toISOString(),
+      body.confirmed_by || 'Ori admin'
+    ]]);
+  });
 }
 
 function clearStandMapAssignment(standValue) {
-  const matches = String(standValue || '').match(/\d{1,3}/g) || [];
-  if (!matches.length) {
+  const stands = standNumbersFromValue(standValue);
+  if (!stands.length) {
     return;
   }
 
   const sheet = getStandMapSheet();
-  matches.forEach(value => {
-    const stand = parseInt(value, 10);
-    if (!stand || stand < 1 || stand > MAX_STAND_NUMBER) {
-      return;
-    }
+  stands.forEach(stand => {
     sheet.getRange(stand + 1, 1, 1, standMapHeaders().length).setValues([[
       stand, '', '', '', '', '', '', 'No asignado', '', ''
     ]]);
   });
+}
+
+function standNumbersFromValue(value) {
+  const seen = {};
+  const numbers = [];
+  const matches = String(value || '').match(/\d{1,3}/g) || [];
+  matches.forEach(match => {
+    const stand = parseInt(match, 10);
+    if (!stand || stand < 1 || stand > MAX_STAND_NUMBER || seen[stand]) {
+      return;
+    }
+    seen[stand] = true;
+    numbers.push(stand);
+  });
+  return numbers;
 }
 
 function ensureHeaders(sheet) {
