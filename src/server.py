@@ -70,9 +70,9 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "")
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrender.com").rstrip("/")
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
-PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1LKrhVDmvgZHqkHjE5BPAv0cTrMU4lYvZ").strip()
+PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1HaHl41tD4k-PUj7X2FOaFNsKq7dfJ63N").strip()
 PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
-CODE_VERSION = "preinscription-media-caption-20260717"
+CODE_VERSION = "admin-back-button-20260717"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -314,26 +314,27 @@ ADMIN_MENU_ROWS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos", "description": "Marcas pendientes por confirmar stand."},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados", "description": "Expositores con stand confirmado."},
     {"id": "ORI_ADM_PDF_EXCEL", "title": "PDF Excel", "description": "Descargar reporte de la hoja."},
+    {"id": "ORI_ADM_BACK", "title": "Volver atras", "description": "Regresar a la vista anterior."},
 ]
 ADMIN_RECORD_PRE_BUTTONS = [
     {"id": "ORI_ADM_ASSIGN", "title": "Asignar stand"},
-    {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
-    {"id": "ORI_ADM_MENU", "title": "Menú principal"},
+    {"id": "ORI_ADM_BACK", "title": "Volver atras"},
+    {"id": "ORI_ADM_MENU", "title": "Menu interno"},
 ]
 ADMIN_RECORD_CONF_BUTTONS = [
     {"id": "ORI_ADM_ASSIGN", "title": "Cambiar stand"},
     {"id": "ORI_ADM_RELEASE", "title": "Liberar stand"},
-    {"id": "ORI_ADM_MENU", "title": "Menú principal"},
+    {"id": "ORI_ADM_BACK", "title": "Volver atras"},
 ]
 ADMIN_AFTER_ACTION_BUTTONS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos"},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados"},
-    {"id": "ORI_ADM_MENU", "title": "Menú principal"},
+    {"id": "ORI_ADM_BACK", "title": "Volver atras"},
 ]
 ADMIN_CONFIRM_ACTION_BUTTONS = [
-    {"id": "ORI_ADM_APPLY", "title": "Sí, confirmar"},
+    {"id": "ORI_ADM_APPLY", "title": "Si, confirmar"},
     {"id": "ORI_ADM_CANCEL", "title": "Cancelar"},
-    {"id": "ORI_ADM_MENU", "title": "Menú principal"},
+    {"id": "ORI_ADM_BACK", "title": "Volver atras"},
 ]
 
 
@@ -825,6 +826,7 @@ def button_reply_text(button_id, title):
         "ORI_ADM_MENU": "Menú interno",
         "ORI_ADM_PREINSCRITOS": "Preinscritos",
         "ORI_ADM_CONFIRMADOS": "Confirmados",
+        "ORI_ADM_BACK": "Volver atras",
         "ORI_ADM_ASSIGN": "Asignar stand",
         "ORI_ADM_RELEASE": "Liberar stand",
         "ORI_ADM_EXIT": "Cerrar interno",
@@ -1158,6 +1160,11 @@ def handle_admin_guided_button_message(user_id, button_id):
     if button_id == "ORI_ADM_MENU":
         send_admin_menu(user_id)
         remember_menu_turn(user_id, "Menú interno", admin_guided_menu_text())
+        return True
+
+    if button_id == "ORI_ADM_BACK":
+        send_admin_menu(user_id, "Volvemos al menu interno.")
+        remember_menu_turn(user_id, "Volver atras", "Volvemos al menu interno.")
         return True
 
     if button_id == "ORI_ADM_EXIT":

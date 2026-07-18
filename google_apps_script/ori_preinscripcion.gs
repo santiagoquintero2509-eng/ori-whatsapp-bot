@@ -1,7 +1,7 @@
 const SHEET_NAME = 'Respuestas Ori';
 const CONVERSATION_LOG_SHEET_NAME = 'Historial Ori';
 const STAND_MAP_SHEET_NAME = 'Mapa Stands';
-const SPREADSHEET_ID = '1zfw1C4a0PxP1zZFJY4fD4C8x-5_ONDq1CPuwszVDXDo';
+const SPREADSHEET_ID = '1d0yyLWiE_MED21WrlEWeMW_48I-VN2fUAfxpnGX-ycU';
 const MAX_STAND_NUMBER = 64;
 
 function doPost(e) {

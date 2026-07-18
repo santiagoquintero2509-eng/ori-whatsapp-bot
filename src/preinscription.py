@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-DEFAULT_DRIVE_FOLDER_ID = "1-R2LEdh_m8bregAIy-uTOXRJRNlNyVEm"
+DEFAULT_DRIVE_FOLDER_ID = "1x2UGpLd3nkneI9ClXdFe2PMOnhdjkJED"
 QUEUE_PATH = Path(os.getenv("ORI_PREINSCRIPTION_QUEUE_PATH", "memoria_revisable/preinscripciones_pendientes.jsonl"))
 CONVERSATION_EVENT_QUEUE_PATH = Path(os.getenv("ORI_CONVERSATION_EVENT_QUEUE_PATH", "memoria_revisable/conversaciones_sheet_pendientes.jsonl"))
 
