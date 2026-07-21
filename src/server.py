@@ -30,6 +30,7 @@ from ori import (
     is_admin_session_active,
     remember_turn,
     save_persistent_state,
+    go_back_preinscription_step,
     select_preinscription_category,
     start_preinscription_flow,
 )
@@ -73,7 +74,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrende
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1HaHl41tD4k-PUj7X2FOaFNsKq7dfJ63N").strip()
 PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
-CODE_VERSION = "admin-back-button-20260717"
+CODE_VERSION = "preinscription-back-admin-plan-20260721"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -256,6 +257,7 @@ EXHIBITOR_CATEGORY_ROWS = [
     {"id": "ORI_PRE_CAT_ANTICUARIOS", "title": "Anticuarios", "description": "Piezas con historia y colección."},
     {"id": "ORI_PRE_CAT_SALUD", "title": "Salud y belleza", "description": "Bienestar, cuidado personal y belleza."},
     {"id": "ORI_PRE_CAT_GASTRONOMIA", "title": "Gastronomía", "description": "Sabores, productos y experiencias."},
+    {"id": "ORI_PRE_BACK", "title": "Volver atras", "description": "Regresar a la pregunta anterior."},
 ]
 EXHIBITOR_CATEGORY_BY_BUTTON = {
     "ORI_PRE_CAT_ARTE": "Arte",
@@ -272,7 +274,7 @@ EXHIBITOR_AFTER_PREINSCRIPTION_BUTTONS = EXHIBITOR_MENU_ROWS
 PREINSCRIPTION_CONFIRM_BUTTONS = [
     {"id": "ORI_PRE_CONFIRM", "title": "Sí, confirmar"},
     {"id": "ORI_PRE_EDIT", "title": "Cambiar un dato"},
-    {"id": "ORI_PRE_CANCEL", "title": "Cancelar"},
+    {"id": "ORI_PRE_BACK", "title": "Volver atras"},
 ]
 VISITOR_AFTER_REPLY_BUTTONS = VISITOR_MENU_ROWS
 VISITOR_AFTER_ARRIVAL_BUTTONS = [
@@ -314,6 +316,7 @@ ADMIN_MENU_BUTTONS = [
 ADMIN_MENU_ROWS = [
     {"id": "ORI_ADM_PREINSCRITOS", "title": "Preinscritos", "description": "Marcas pendientes por confirmar stand."},
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados", "description": "Expositores con stand confirmado."},
+    {"id": "ORI_ADM_PLANO", "title": "Ver plano", "description": "Enviar plano de venta actualizado."},
     {"id": "ORI_ADM_PDF_EXCEL", "title": "PDF Excel", "description": "Descargar reporte de la hoja."},
     {"id": "ORI_ADM_BACK", "title": "Volver atras", "description": "Regresar a la vista anterior."},
 ]
@@ -816,6 +819,7 @@ def button_reply_text(button_id, title):
         "ORI_PRE_CONFIRM": "Sí, confirmar",
         "ORI_PRE_EDIT": "Cambiar un dato",
         "ORI_PRE_CANCEL": "Cancelar",
+        "ORI_PRE_BACK": "Volver atras",
         "ORI_VIS_INFO": "Información de la feria",
         "ORI_VIS_LLEGAR": "Cómo llegar",
         "ORI_VIS_PRODUCTOS": "Productos",
@@ -836,6 +840,7 @@ def button_reply_text(button_id, title):
         "ORI_ADM_MENU": "Menú interno",
         "ORI_ADM_PREINSCRITOS": "Preinscritos",
         "ORI_ADM_CONFIRMADOS": "Confirmados",
+        "ORI_ADM_PLANO": "Ver plano",
         "ORI_ADM_BACK": "Volver atras",
         "ORI_ADM_ASSIGN": "Asignar stand",
         "ORI_ADM_RELEASE": "Liberar stand",
@@ -904,6 +909,17 @@ def handle_guided_button_message(message):
         save_persistent_state()
         send_whatsapp_text(user_id, reply)
         send_preinscription_confirmation_buttons_if_needed(user_id)
+        return True
+
+    if button_id == "ORI_PRE_BACK":
+        memory = get_memory(user_id)
+        reply = go_back_preinscription_step(memory)
+        save_persistent_state()
+        send_whatsapp_text(user_id, reply)
+        send_preinscription_category_list_if_needed(user_id)
+        send_preinscription_confirmation_buttons_if_needed(user_id)
+        if not is_questionnaire_active(user_id):
+            send_exhibitor_menu(user_id, "Volvemos al menu de expositor.")
         return True
 
     if button_id in {"ORI_PRE_CONFIRM", "ORI_PRE_EDIT", "ORI_PRE_CANCEL"}:
@@ -1225,6 +1241,19 @@ def handle_admin_guided_button_message(user_id, button_id):
             send_whatsapp_text(user_id, body)
             send_admin_menu(user_id, "Puedes elegir otra opcion:")
         remember_menu_turn(user_id, f"Confirmados grupo {group_index}", body)
+        return True
+
+    if button_id == "ORI_ADM_PLANO":
+        reply = "Claro, te comparto el plano de venta actualizado."
+        send_whatsapp_text(user_id, reply)
+        send_whatsapp_image(
+            user_id,
+            PLANO_STANDS_URL,
+            "Plano de venta Feria Origen Colombia.",
+        )
+        time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
+        send_admin_menu(user_id, "Puedes elegir otra opcion:")
+        remember_menu_turn(user_id, "Ver plano", reply)
         return True
 
     if button_id == "ORI_ADM_PDF_EXCEL":

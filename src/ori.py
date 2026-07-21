@@ -3353,6 +3353,9 @@ def handle_preinscription_flow(message, text, memory, incoming_media=None):
     memory["role"] = "expositor"
     memory["last_intent"] = "preinscription_flow"
 
+    if wants_to_go_back_preinscription(text):
+        return go_back_preinscription_step(memory)
+
     if wants_to_cancel_preinscription(text):
         memory["preinscription"] = {}
         memory["pending_field"] = None
@@ -3645,6 +3648,40 @@ def next_preinscription_step(pre):
     return "confirmation"
 
 
+def go_back_preinscription_step(memory):
+    pre = memory.setdefault("preinscription", {})
+    if not pre.get("active"):
+        memory["pending_field"] = None
+        save_persistent_state()
+        return "No tienes una preinscripcion activa en este momento."
+
+    step = pre.get("step") or next_preinscription_step(pre)
+
+    if step in {"correction_select", "correction_value", "correction_files"}:
+        pre.pop("editing_field", None)
+        pre["step"] = "confirmation"
+        save_persistent_state()
+        return "Volvemos al resumen de tu preinscripcion.\n\n" + preinscription_summary_reply(memory)
+
+    if step not in PREINSCRIPTION_FIELD_ORDER:
+        pre["step"] = next_preinscription_step(pre)
+        save_persistent_state()
+        return preinscription_prompt(pre["step"], memory)
+
+    index = PREINSCRIPTION_FIELD_ORDER.index(step)
+    if index <= 0:
+        pre["active"] = False
+        memory["pending_field"] = None
+        memory["last_intent"] = "exhibitor_menu"
+        save_persistent_state()
+        return "Listo, volvemos al menu de expositor."
+
+    previous_step = PREINSCRIPTION_FIELD_ORDER[index - 1]
+    pre["step"] = previous_step
+    save_persistent_state()
+    return "Claro, volvemos un paso atras.\n\n" + preinscription_prompt(previous_step, memory)
+
+
 def receive_preinscription_media(memory, media):
     pre = memory.setdefault("preinscription", {})
     legal_name = pre.get("fields", {}).get("legal_name") or memory.get("brand") or memory.get("phone") or "Sin razón social"
@@ -3912,6 +3949,10 @@ def wants_to_correct_preinscription(text):
 
 def wants_to_cancel_preinscription(text):
     return has_any(text, ["cancelar preinscripcion", "detener preinscripcion", "salir preinscripcion", "no quiero seguir"])
+
+
+def wants_to_go_back_preinscription(text):
+    return has_any(text, ["volver atras", "volver atrÃ¡s", "atras", "atrÃ¡s", "regresar", "paso anterior"])
 
 
 def update_lead_memory_from_text(memory, raw_message, text, category=None):
