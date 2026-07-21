@@ -35,6 +35,7 @@ from ori import (
 )
 from preinscription import download_whatsapp_media, log_conversation_event
 from form_responses import filter_form_records, last_form_error
+from dynamic_plan import dynamic_plan_media
 
 try:
     from plano_image import PLANO_STANDS_JPG_BASE64
@@ -357,6 +358,15 @@ class OriHandler(BaseHTTPRequestHandler):
             return
 
         if parsed_url.path == "/plano_stands.jpg":
+            plan_media = dynamic_plan_media()
+            if plan_media:
+                self.send_binary(
+                    plan_media["content"],
+                    plan_media["mime_type"],
+                    plan_media["filename"],
+                    cache_control="no-store, max-age=0",
+                )
+                return
             drive_media = fetch_drive_plan_image_media()
             if drive_media:
                 self.send_binary(
@@ -1965,6 +1975,9 @@ def local_image_media_for_url(image_url):
     path = urllib.parse.unquote(parsed.path or "")
     filename = Path(path).name
     if path == "/plano_stands.jpg":
+        plan_media = dynamic_plan_media()
+        if plan_media:
+            return plan_media
         drive_media = fetch_drive_plan_image_media()
         if drive_media:
             return drive_media

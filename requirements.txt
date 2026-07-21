@@ -1,1 +1,1 @@
-# Ori currently uses only Python standard library modules.
+Pillow==10.4.0
