@@ -1473,7 +1473,8 @@ def admin_guided_preinscribed_rows(admin_key):
 
     rows = []
     lookup = {}
-    for index, record in enumerate(preinscribed[:10]):
+    max_records = 9
+    for index, record in enumerate(preinscribed[:max_records]):
         row_id = f"ORI_ADM_PRE_{index}"
         title = admin_record_title(record)
         category = record.get("category") or "sin categoría"
@@ -1490,10 +1491,12 @@ def admin_guided_preinscribed_rows(admin_key):
         )
         lookup[row_id] = {"kind": "preinscrito", "query": title, "record": record}
 
+    rows.append({"id": "ORI_ADM_BACK", "title": "Volver atras", "description": "Regresar al menu interno."})
+
     save_admin_guided_lookup(admin_key, lookup)
     body = f"Preinscritos pendientes: {len(preinscribed)}\n\nElige una razón social para revisar sus datos."
-    if len(preinscribed) > 10:
-        body += f"\n\nMostrando los primeros 10 de {len(preinscribed)}."
+    if len(preinscribed) > max_records:
+        body += f"\n\nMostrando los primeros {max_records} de {len(preinscribed)}."
     return body, rows
 
 
@@ -1627,6 +1630,7 @@ def admin_guided_confirmed_group_rows(admin_key, group_index):
 
     rows.append({"id": "ORI_ADM_CONFIRMADOS", "title": "Volver atras", "description": "Regresar a grupos."})
     rows.append({"id": "ORI_ADM_MENU", "title": "Volver al inicio", "description": "Regresar al menu interno."})
+
     save_admin_guided_lookup(admin_key, lookup)
     letter = chr(ord("A") + group_index)
     body = f"Confirmados - Grupo {letter}\nStands {start} al {end}\n\nElige un stand para ver el detalle."

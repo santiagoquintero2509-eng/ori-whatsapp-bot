@@ -318,7 +318,6 @@ ADMIN_MENU_ROWS = [
     {"id": "ORI_ADM_CONFIRMADOS", "title": "Confirmados", "description": "Expositores con stand confirmado."},
     {"id": "ORI_ADM_PLANO", "title": "Ver plano", "description": "Enviar plano de venta actualizado."},
     {"id": "ORI_ADM_PDF_EXCEL", "title": "PDF Excel", "description": "Descargar reporte de la hoja."},
-    {"id": "ORI_ADM_BACK", "title": "Volver atras", "description": "Regresar a la vista anterior."},
 ]
 ADMIN_RECORD_PRE_BUTTONS = [
     {"id": "ORI_ADM_ASSIGN", "title": "Asignar stand"},
