@@ -459,7 +459,7 @@ def handle_admin_command(raw_message, user_id=None):
         return "Listo, no hice ningún cambio."
 
     if is_admin_courtesy_message(text):
-        return "Con gusto. Sigo en acceso interno por si necesitas revisar formularios, stands o clientes."
+        return admin_courtesy_reply(message, admin_key)
 
     action = parse_admin_action(message, text)
     if not action:
@@ -715,6 +715,50 @@ def is_admin_courtesy_message(text):
         "perfecto",
         "vale",
     }
+
+
+def admin_courtesy_reply(message, admin_key=None):
+    memory = get_memory(admin_key) if admin_key else {}
+    base_reply = "Claro, con gusto. Quedo atenta por si necesitas revisar algo mas."
+    if is_groq_enabled():
+        try:
+            reply = polish_with_groq(
+                message,
+                base_reply,
+                build_feria_context(),
+                {
+                    **(memory or {}),
+                    "role": "administrador",
+                    "style_instruction": (
+                        "Respuesta administrativa breve, calida y natural. "
+                        "No menciones acceso interno, modo administrador, sistema, base de datos ni flujo de cliente. "
+                        "No des ejemplos ni lista de comandos. Maximo una frase."
+                    ),
+                },
+            )
+            reply = clean_admin_courtesy_reply(reply)
+            if reply:
+                return reply
+        except GroqClientError as error:
+            print(f"No se pudo usar Groq para cortesia administrativa: {error}", flush=True)
+    return base_reply
+
+
+def clean_admin_courtesy_reply(reply):
+    text = str(reply or "").strip()
+    if not text:
+        return ""
+    banned = [
+        "acceso interno",
+        "modo administrador",
+        "flujo de cliente",
+        "base de datos",
+        "sistema",
+        "comandos",
+    ]
+    if any(term in normalize(text) for term in banned):
+        return ""
+    return text.splitlines()[0].strip()[:220]
 
 
 def parse_admin_action_with_groq(message, admin_key):
