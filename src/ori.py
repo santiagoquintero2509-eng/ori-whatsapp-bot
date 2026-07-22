@@ -458,6 +458,9 @@ def handle_admin_command(raw_message, user_id=None):
         save_persistent_state()
         return "Listo, no hice ningún cambio."
 
+    if is_admin_courtesy_message(text):
+        return "Con gusto. Sigo en acceso interno por si necesitas revisar formularios, stands o clientes."
+
     action = parse_admin_action(message, text)
     if not action:
         action = parse_admin_followup_action(message, text, admin_key)
@@ -696,6 +699,22 @@ def parse_admin_action(message, text):
         return {"type": "interested_summary", "category": category}
 
     return None
+
+
+def is_admin_courtesy_message(text):
+    cleaned = normalize(text).strip()
+    return cleaned in {
+        "gracias",
+        "muchas gracias",
+        "listo gracias",
+        "ok gracias",
+        "perfecto gracias",
+        "listo",
+        "ok",
+        "okay",
+        "perfecto",
+        "vale",
+    }
 
 
 def parse_admin_action_with_groq(message, admin_key):
