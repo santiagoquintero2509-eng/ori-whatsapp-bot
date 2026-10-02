@@ -22,7 +22,6 @@ from ori import (
     admin_guided_record_detail,
     admin_prepare_guided_assignment,
     admin_prepare_guided_release,
-    available_stands_text,
     get_memory,
     get_ori_reply,
     is_admin_entry_message,
@@ -74,7 +73,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrende
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1HaHl41tD4k-PUj7X2FOaFNsKq7dfJ63N").strip()
 PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
-CODE_VERSION = "admin-manual-access-20261002"
+CODE_VERSION = "remove-available-stands-menu-20261002"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -159,7 +158,6 @@ EXHIBITOR_MENU_ROWS = [
     {"id": "ORI_EXP_TRAYECTORIA", "title": "Trayectoria", "description": "Historia y recorrido de la feria."},
     {"id": "ORI_EXP_IMAGENES", "title": "Imágenes", "description": "Ver fotos de los espacios."},
     {"id": "ORI_EXP_PLANO", "title": "Plano de venta", "description": "Ver ubicaciones y valores."},
-    {"id": "ORI_EXP_STANDS_DISPONIBLES", "title": "Stands disponibles", "description": "Ver stands libres por zona."},
     {"id": "ORI_EXP_PREINSCRIPCION", "title": "Preinscripción", "description": "Iniciar el formulario por WhatsApp."},
     {"id": "ORI_MENU", "title": "Volver al menú", "description": "Regresar al inicio."},
 ]
@@ -979,29 +977,9 @@ def handle_guided_button_message(message):
         return True
 
     if button_id == "ORI_EXP_STANDS_DISPONIBLES":
-        reply = available_stands_text()
-        send_whatsapp_text(user_id, reply)
-        send_whatsapp_image(
-            user_id,
-            PLANO_STANDS_URL,
-            "Plano de venta Feria Origen Colombia.",
-        )
-        time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
-        second_reply = (
-            "Los valores de participación van desde $3.300.000 COP hasta $6.000.000 COP, "
-            "según la zona, ubicación y tipo de stand.\n\n"
-            "Cuando tengas una opción en mente, puedes iniciar la preinscripción e indicar 1 o 2 stands de interés. "
-            "La disponibilidad queda sujeta a confirmación del equipo organizador.\n\n"
-            "¿Qué quieres hacer ahora?"
-        )
-        send_whatsapp_list(
-            user_id,
-            second_reply,
-            "Opciones expositor",
-            "Elegir opción",
-            EXHIBITOR_AFTER_PLAN_ROWS,
-        )
-        remember_menu_turn(user_id, "Stands disponibles", reply + "\n\n" + second_reply)
+        reply = "¿Qué te gustaría revisar ahora?"
+        send_exhibitor_menu(user_id, reply)
+        remember_menu_turn(user_id, "Menú expositor", reply)
         return True
 
     if button_id == "ORI_VIS_PROMOCIONES":
