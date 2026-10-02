@@ -40,7 +40,8 @@ ZONE_LABELS = {
     "salon": "Salon Pierre Daguet",
 }
 
-ADMIN_PHONE_DEFAULT = "573004851602,573160282537,573152216174"
+ADMIN_PHONE_DEFAULT = "573160282537,573152216174"
+ADMIN_SESSION_ONLY_PHONES = ("573004851602",)
 ADMIN_ENTRY_CODE_DEFAULT = "In_adm1n"
 ADMIN_EXIT_CODE_DEFAULT = "Out_adm1n"
 ADVISOR_WHATSAPP_LINK = "https://wa.me/573160282537"
@@ -2963,6 +2964,9 @@ def is_admin_session_active(user_id):
 def is_permanent_admin_user(user_id):
     key = normalize_phone(user_id)
     if not key:
+        return False
+    # These numbers require explicit login even if an old deployment lists them.
+    if any(phones_are_equivalent(key, phone) for phone in ADMIN_SESSION_ONLY_PHONES):
         return False
     configured = ",".join(
         value
