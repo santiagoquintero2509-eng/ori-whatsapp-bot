@@ -13,6 +13,17 @@ from PIL import Image, ImageDraw
 
 
 class PlanRenderingTests(unittest.TestCase):
+    def test_admin_uses_its_own_design_and_public_keeps_original(self):
+        with patch.object(dynamic_plan, "filter_form_records", return_value=[]):
+            admin_media = dynamic_plan.dynamic_plan_media()
+        public_media = dynamic_plan.numbered_plan_media()
+        with Image.open(dynamic_plan.ADMIN_PLAN_BASE_PATH) as admin_base:
+            self.assertEqual(Image.open(io.BytesIO(admin_media["content"])).size, admin_base.size)
+        with Image.open(dynamic_plan.PLAN_BASE_PATH) as public_base:
+            self.assertEqual(Image.open(io.BytesIO(public_media["content"])).size, public_base.size)
+        self.assertNotEqual(dynamic_plan.ADMIN_PLAN_BASE_PATH, dynamic_plan.PLAN_BASE_PATH)
+        self.assertNotEqual(admin_media["content"], public_media["content"])
+
     def test_public_plan_draws_all_64_numbers_without_reading_sheet(self):
         with patch.object(dynamic_plan, "filter_form_records") as sheet:
             with patch.object(ImageDraw.ImageDraw, "text", autospec=True) as draw_text:

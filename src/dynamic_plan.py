@@ -10,7 +10,7 @@ from form_responses import filter_form_records
 
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PLAN_BASE_PATH = PUBLIC_DIR / "plano_stands.png"
-FALLBACK_PLAN_PATH = PUBLIC_DIR / "plano_stands.jpg"
+ADMIN_PLAN_BASE_PATH = PUBLIC_DIR.parent / "assets" / "plano_admin.png"
 MAX_STAND_NUMBER = 64
 
 PLAN_COORDINATES = {
@@ -82,10 +82,9 @@ PLAN_COORDINATES = {
 
 
 def dynamic_plan_media():
-    base_path = PLAN_BASE_PATH if PLAN_BASE_PATH.exists() else FALLBACK_PLAN_PATH
-    if not base_path.exists():
+    if not ADMIN_PLAN_BASE_PATH.exists():
         return None
-    return render_plan_media(base_path, occupied_stands_from_sheet(), "plano_stands_disponibles.jpg")
+    return render_plan_media(ADMIN_PLAN_BASE_PATH, occupied_stands_from_sheet(), "plano_stands_disponibles.jpg")
 
 
 def numbered_plan_media():
