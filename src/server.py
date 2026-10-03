@@ -73,7 +73,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrende
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1HaHl41tD4k-PUj7X2FOaFNsKq7dfJ63N").strip()
 PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
-CODE_VERSION = "remove-available-stands-menu-20261002"
+CODE_VERSION = "button-only-navigation-20261003"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -1280,7 +1280,7 @@ def remember_menu_turn(user_id, user_message, reply):
 def should_send_initial_welcome_buttons(message):
     if message.get("type") != "text":
         return False
-    if is_admin_entry_message(message.get("text", "")):
+    if is_admin_entry_message(message.get("text", "")) or is_admin_exit_message(message.get("text", "")):
         return False
     if is_admin_session_active(message.get("from")):
         return False
@@ -1329,10 +1329,12 @@ def is_duplicate_incoming_message(message):
 
 
 def should_block_free_text(message):
-    if message.get("type") not in {"text", "audio"}:
-        return False
     user_id = message.get("from")
-    if is_admin_entry_message(message.get("text", "")) or is_admin_session_active(user_id):
+    if (
+        is_admin_entry_message(message.get("text", ""))
+        or is_admin_exit_message(message.get("text", ""))
+        or is_admin_session_active(user_id)
+    ):
         return False
     return not is_questionnaire_active(user_id)
 
@@ -1341,14 +1343,9 @@ def send_guided_menu_for_free_text(message):
     user_id = message["from"]
     memory = get_memory(user_id)
     mode = memory.get("guided_mode") or memory.get("role") or "main"
-    text = (
-        "¡Hola de nuevo! Me alegra leerte.\n\n"
-        "Para ayudarte mejor, elige por dónde quieres seguir y continuamos desde ahí.\n\n"
-        "Si quieres participar como expositor, toca Expositor. Si vienes a visitar la feria, toca Visitante.\n\n"
-        "Cuando iniciemos la preinscripción, podrás escribirme tus datos tranquilamente."
-    )
-    if is_repeated_hello_message(memory, message.get("text", "")):
-        text = returning_hello_text()
+    text = "Para continuar, selecciona una de las opciones que aparecen abajo."
+    if is_welcome_greeting_message(message.get("text", "")):
+        text = "¡Hola de nuevo! Me alegra leerte.\n\n" + text
     if mode == "expositor":
         send_exhibitor_menu(user_id, text)
     elif mode == "visitante":
