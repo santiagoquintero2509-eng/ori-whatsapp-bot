@@ -64,10 +64,10 @@ PLAN_COORDINATES = {
     14: (752, 486),
     20: (722, 548),
     15: (752, 548),
-    19: (722, 665),
-    16: (752, 665),
-    18: (722, 718),
-    17: (752, 718),
+    19: (722, 614),
+    16: (752, 614),
+    18: (722, 665),
+    17: (752, 665),
     9: (812, 429),
     8: (812, 483),
     7: (812, 527),
@@ -85,13 +85,22 @@ def dynamic_plan_media():
     base_path = PLAN_BASE_PATH if PLAN_BASE_PATH.exists() else FALLBACK_PLAN_PATH
     if not base_path.exists():
         return None
+    return render_plan_media(base_path, occupied_stands_from_sheet(), "plano_stands_disponibles.jpg")
 
+
+def numbered_plan_media():
+    if not PLAN_BASE_PATH.exists():
+        return None
+    return render_plan_media(PLAN_BASE_PATH, set(), "plano_stands_numerado.jpg")
+
+
+def render_plan_media(base_path, occupied, filename):
     image = Image.open(base_path).convert("RGBA")
-    draw_available_stand_numbers(image, occupied_stands_from_sheet())
+    draw_available_stand_numbers(image, occupied)
     output = io.BytesIO()
     image.convert("RGB").save(output, format="JPEG", quality=95)
     return {
-        "filename": "plano_stands_disponibles.jpg",
+        "filename": filename,
         "mime_type": "image/jpeg",
         "content": output.getvalue(),
     }
@@ -144,4 +153,4 @@ def load_font(size):
     for candidate in candidates:
         if candidate.exists():
             return ImageFont.truetype(str(candidate), size)
-    return ImageFont.load_default()
+    return ImageFont.load_default(size=size)

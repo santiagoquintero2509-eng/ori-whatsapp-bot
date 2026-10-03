@@ -35,7 +35,7 @@ from ori import (
 )
 from preinscription import download_whatsapp_media, log_conversation_event
 from form_responses import filter_form_records, last_form_error
-from dynamic_plan import dynamic_plan_media
+from dynamic_plan import dynamic_plan_media, numbered_plan_media
 
 try:
     from plano_image import PLANO_STANDS_JPG_BASE64
@@ -73,7 +73,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ori-whatsapp-bot.onrende
 PLANO_STANDS_URL = os.getenv("PLANO_STANDS_URL", f"{PUBLIC_BASE_URL}/plano_stands.jpg")
 PLANO_STANDS_DRIVE_FOLDER_ID = os.getenv("PLANO_STANDS_DRIVE_FOLDER_ID", "1HaHl41tD4k-PUj7X2FOaFNsKq7dfJ63N").strip()
 PLANO_STANDS_DRIVE_FILE_ID = os.getenv("PLANO_STANDS_DRIVE_FILE_ID", "").strip()
-CODE_VERSION = "primary-permanent-admin-restored-20261003"
+CODE_VERSION = "separate-admin-public-plans-20261003"
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
 PREVIOUS_FAIRS_DIR = PUBLIC_DIR / "ferias_anteriores"
 WELCOME_IMAGES_DIR = PUBLIC_DIR / "bienvenida"
@@ -358,7 +358,7 @@ class OriHandler(BaseHTTPRequestHandler):
             return
 
         if parsed_url.path == "/plano_stands.jpg":
-            plan_media = dynamic_plan_media()
+            plan_media = numbered_plan_media()
             if plan_media:
                 self.send_binary(
                     plan_media["content"],
@@ -367,16 +367,7 @@ class OriHandler(BaseHTTPRequestHandler):
                     cache_control="no-store, max-age=0",
                 )
                 return
-            drive_media = fetch_drive_plan_image_media()
-            if drive_media:
-                self.send_binary(
-                    drive_media["content"],
-                    drive_media["mime_type"],
-                    drive_media["filename"],
-                    cache_control="no-store, max-age=0",
-                )
-                return
-            self.send_static_file(PUBLIC_DIR / "plano_stands.jpg", "image/jpeg")
+            self.send_json({"error": "Plano no disponible"}, status=503)
             return
 
         if parsed_url.path.startswith("/ferias_anteriores/"):
@@ -1055,7 +1046,9 @@ def handle_guided_button_message(message):
         time.sleep(MEDIA_DELIVERY_DELAY_SECONDS)
         second_reply = (
             "Después de revisar el plano, elige 1 o 2 stands de interés y tenlos presentes "
-            "para indicarlos durante el proceso de preinscripción.\n\n"
+            "para indicarlos durante el proceso de preinscripción. "
+            "El plano muestra todos los números de los stands; la disponibilidad está sujeta "
+            "a confirmación del equipo organizador.\n\n"
             "¿Qué quieres hacer ahora?"
         )
         send_whatsapp_list(
@@ -1973,23 +1966,17 @@ def download_drive_image_file(file_id):
     }
 
 
+def is_plan_image_url(image_url):
+    path = urllib.parse.unquote(urllib.parse.urlparse(image_url or "").path)
+    return bool(image_url) and (image_url == PLANO_STANDS_URL or path == "/plano_stands.jpg")
+
+
 def local_image_media_for_url(image_url):
     parsed = urllib.parse.urlparse(image_url or "")
     path = urllib.parse.unquote(parsed.path or "")
     filename = Path(path).name
-    if path == "/plano_stands.jpg":
-        plan_media = dynamic_plan_media()
-        if plan_media:
-            return plan_media
-        drive_media = fetch_drive_plan_image_media()
-        if drive_media:
-            return drive_media
-    if path == "/plano_stands.jpg" and PLANO_STANDS_JPG_BASE64:
-        return {
-            "filename": "plano_stands.jpg",
-            "mime_type": "image/jpeg",
-            "content": base64.b64decode(PLANO_STANDS_JPG_BASE64),
-        }
+    if is_plan_image_url(image_url):
+        return numbered_plan_media()
     if path.startswith("/bienvenida/"):
         file_path = WELCOME_IMAGES_DIR / filename
         content_type = image_content_type(file_path) or image_content_type(Path(filename))
@@ -2057,12 +2044,24 @@ def send_whatsapp_image(to, image_url, caption=""):
         return
 
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
-    local_media = local_image_media_for_url(image_url)
+    is_plan = is_plan_image_url(image_url)
+    # Only a recipient with an active admin session may receive live availability.
+    if is_plan and is_admin_session_active(to):
+        local_media = dynamic_plan_media()
+    else:
+        local_media = local_image_media_for_url(image_url)
+    if is_plan and not local_media:
+        send_whatsapp_text(to, "No pude preparar el plano en este momento. Por favor, vuelve a intentarlo.")
+        return
     if local_media:
         try:
             media_id = upload_whatsapp_media(local_media)
             image_payload = {"id": media_id}
         except Exception as error:
+            if is_plan:
+                print(f"No se pudo subir el plano a Meta: {error}", flush=True)
+                send_whatsapp_text(to, "No pude enviar el plano en este momento. Por favor, vuelve a intentarlo.")
+                return
             print(f"No se pudo subir imagen a Meta, se intenta por enlace: {error}", flush=True)
             image_payload = {"link": image_url}
     else:
